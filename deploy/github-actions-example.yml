@@ -1,0 +1,54 @@
+# Copy into the Android SOURCE repository as .github/workflows/fuma-debug.yml.
+# Configure Fuma rule workflow_path to that exact path; this is not Fuma's own CI.
+name: Build Android Debug and notify Fuma
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+      - name: Publish Release attachment and enqueue Fuma notification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FUMA_CALLBACK_URL: ${{ vars.FUMA_CALLBACK_URL }}
+          FUMA_ACTIONS_TOKEN: ${{ secrets.FUMA_ACTIONS_TOKEN }}
+          APK_PATH: app/build/outputs/apk/debug/app-debug.apk
+        run: |
+          set -euo pipefail
+          test -f "$APK_PATH"
+          test -n "$FUMA_CALLBACK_URL"
+          test -n "$FUMA_ACTIONS_TOKEN"
+          tag="fuma-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" "$APK_PATH" --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --prerelease --title "Debug ${GITHUB_RUN_NUMBER}"
+          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}")"
+          repo_id="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.id | tostring')"
+          payload="$(jq -n \
+            --arg repository_id "$repo_id" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --argjson run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg head_sha "$GITHUB_SHA" \
+            --arg release_id "$(jq -r '.id | tostring' <<< "$release_json")" \
+            --argjson asset_ids "$(jq '[.assets[] | select(.name | endswith(".apk")) | (.id | tostring)]' <<< "$release_json")" \
+            '{repository_id:$repository_id,run_id:$run_id,run_attempt:$run_attempt,head_sha:$head_sha,release_id:$release_id,asset_ids:$asset_ids}')"
+          status="$(curl --silent --show-error --fail-with-body --retry 3 --retry-delay 2 \
+            --connect-timeout 10 --max-time 30 \
+            --header "Authorization: Bearer ${FUMA_ACTIONS_TOKEN}" \
+            --header 'Content-Type: application/json' \
+            --data "$payload" --output "${RUNNER_TEMP}/fuma-response.json" \
+            --write-out '%{http_code}' "$FUMA_CALLBACK_URL")"
+          test "$status" = 202
+          jq '{event_id,duplicate,state}' "${RUNNER_TEMP}/fuma-response.json"
+          # End this step now. Fuma waits for this run to finish, caches files, then sends the card.

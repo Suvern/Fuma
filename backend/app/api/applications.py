@@ -1,0 +1,203 @@
+import hashlib
+import json
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
+
+from app.api.contracts import App, AppCreate, AppPage, AppUpdate
+from app.api.dependencies import DB, require_admin, require_csrf, require_revision
+from app.core.errors import AppError
+from app.domains.applications.models import AppCreation, AppRecord
+from app.domains.audit.service import record_audit
+from app.domains.auth.service import AuthContext, utcnow
+from app.infrastructure.database import Base
+
+router = APIRouter(prefix="/apps", tags=["apps"], dependencies=[Depends(require_admin)])
+Admin = Annotated[AuthContext, Depends(require_admin)]
+
+
+def app_dto(db, app: AppRecord) -> App:
+    count = 0
+    table = Base.metadata.tables.get("debug_entries")
+    if table is not None:
+        count = db.scalar(select(func.count()).select_from(table).where(table.c.app_id == app.id))
+    return App(
+        id=app.id,
+        created_at=app.created_at,
+        updated_at=app.updated_at,
+        revision=app.revision,
+        name=app.name,
+        public_slug=app.public_slug,
+        description=app.description,
+        platforms=app.platforms,
+        enabled=app.enabled,
+        repository=app.repository,
+        debug_entry_count=count,
+    )
+
+
+def get_app(db, id: UUID, *, lock=False) -> AppRecord:
+    stmt = select(AppRecord).where(AppRecord.id == id)
+    app = db.scalar(
+        stmt.with_for_update().execution_options(populate_existing=True) if lock else stmt
+    )
+    if app is None:
+        raise AppError(404, "RESOURCE_NOT_AVAILABLE", "App 不存在")
+    return app
+
+
+def audit(db, request, context, action, app):
+    record_audit(
+        db,
+        action=action,
+        resource_type="app",
+        resource_id=str(app.id),
+        actor_id=str(context.user.id),
+        request_id=request.state.request_id,
+    )
+
+
+def etag(response, app):
+    response.headers["ETag"] = f'"{app.revision}"'
+
+
+@router.get("", response_model=AppPage, operation_id="list_apps")
+def list_apps(
+    db: DB,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    q: str | None = Query(None, max_length=200),
+):
+    stmt = select(AppRecord)
+    if q:
+        stmt = stmt.where(AppRecord.name.icontains(q, autoescape=True))
+    total = db.scalar(select(func.count()).select_from(stmt.subquery()))
+    rows = db.scalars(
+        stmt.order_by(AppRecord.created_at.desc(), AppRecord.id)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    return AppPage(
+        items=[app_dto(db, app) for app in rows], page=page, page_size=page_size, total=total
+    )
+
+
+@router.post(
+    "",
+    response_model=App,
+    status_code=201,
+    operation_id="create_apps",
+    dependencies=[Depends(require_csrf)],
+)
+def create_app(
+    body: AppCreate,
+    request: Request,
+    response: Response,
+    db: DB,
+    context: Admin,
+    idempotency_key: Annotated[UUID, Header()],
+):
+    if not body.name.strip() or len(set(body.platforms)) != len(body.platforms):
+        raise AppError(422, "VALIDATION_ERROR", "App 名称和平台不合法")
+    key = str(context.user.id) + ":" + str(idempotency_key)
+    digest = hashlib.sha256(json.dumps(body.model_dump(), sort_keys=True).encode()).hexdigest()
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(:key)"),
+        {"key": int(hashlib.sha256(key.encode()).hexdigest()[:15], 16)},
+    )
+    previous = db.get(AppCreation, key)
+    if previous:
+        if previous.body_hash != digest:
+            raise AppError(409, "IDEMPOTENCY_CONFLICT", "同一请求标识不能提交不同内容")
+        app = get_app(db, previous.app_id)
+        etag(response, app)
+        return app_dto(db, app)
+    now = utcnow()
+    app = AppRecord(
+        name=body.name.strip(),
+        public_slug=body.public_slug,
+        description=body.description or "",
+        platforms=body.platforms,
+        created_at=now,
+        updated_at=now,
+        enabled=True,
+    )
+    db.add(app)
+    try:
+        db.flush()
+        db.add(AppCreation(key=key, body_hash=digest, app_id=app.id))
+        audit(db, request, context, "app.create", app)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise AppError(409, "APP_SLUG_EXISTS", "App 路径已被使用") from exc
+    etag(response, app)
+    return app_dto(db, app)
+
+
+@router.get("/{id}", response_model=App, operation_id="get_apps")
+def read_app(id: UUID, response: Response, db: DB):
+    app = get_app(db, id)
+    etag(response, app)
+    return app_dto(db, app)
+
+
+@router.patch(
+    "/{id}", response_model=App, operation_id="update_apps", dependencies=[Depends(require_csrf)]
+)
+def update_app(
+    id: UUID,
+    body: AppUpdate,
+    request: Request,
+    response: Response,
+    db: DB,
+    context: Admin,
+    if_match: Annotated[str | None, Header()] = None,
+):
+    fields = body.model_dump(exclude_unset=True)
+    if not fields or any(v is None and k != "description" for k, v in fields.items()):
+        raise AppError(422, "VALIDATION_ERROR", "更新字段不能为空")
+    if "name" in fields and not fields["name"].strip():
+        raise AppError(422, "VALIDATION_ERROR", "App 名称不能为空")
+    if "platforms" in fields and len(set(fields["platforms"])) != len(fields["platforms"]):
+        raise AppError(422, "VALIDATION_ERROR", "平台不可重复")
+    app = get_app(db, id, lock=True)
+    require_revision(if_match, app.revision)
+    for key, value in fields.items():
+        setattr(app, key, value if value is not None else "")
+    app.updated_at, app.revision = utcnow(), app.revision + 1
+    audit(db, request, context, "app.update", app)
+    db.commit()
+    etag(response, app)
+    return app_dto(db, app)
+
+
+@router.delete(
+    "/{id}", status_code=204, operation_id="delete_app", dependencies=[Depends(require_csrf)]
+)
+def delete_app(
+    id: UUID,
+    request: Request,
+    db: DB,
+    context: Admin,
+    if_match: Annotated[str | None, Header()] = None,
+):
+    app = get_app(db, id, lock=True)
+    require_revision(if_match, app.revision)
+    # Check registered children; database foreign keys remain the final deletion guard.
+    for table in Base.metadata.tables.values():
+        if "app_id" in table.c and any(
+            fk.target_fullname == "applications.id" for fk in table.c.app_id.foreign_keys
+        ):
+            if db.scalar(select(func.count()).select_from(table).where(table.c.app_id == id)):
+                raise AppError(409, "APP_IN_USE", "App 已有关联数据，请停用而非删除")
+    audit(db, request, context, "app.delete", app)
+    db.delete(app)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise AppError(409, "APP_IN_USE", "App 已有关联数据，请停用而非删除") from exc

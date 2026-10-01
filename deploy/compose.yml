@@ -1,0 +1,131 @@
+name: fuma
+
+x-backend: &backend
+  image: fuma-backend:${FUMA_IMAGE_TAG:-local}
+  build:
+    context: ..
+    dockerfile: backend/Dockerfile
+  environment: &environment
+    FUMA_DATABASE_HOST: postgres
+    FUMA_DATABASE_PORT: "5432"
+    FUMA_DATABASE_NAME: ${FUMA_DATABASE_NAME:-fuma}
+    FUMA_DATABASE_USER: ${FUMA_DATABASE_USER:-fuma}
+    FUMA_DATABASE_PASSWORD: ${FUMA_DATABASE_PASSWORD:?Set FUMA_DATABASE_PASSWORD}
+    FUMA_REDIS_HOST: redis
+    FUMA_REDIS_PORT: "6379"
+    FUMA_REDIS_DB: ${FUMA_REDIS_DB:-0}
+    FUMA_REDIS_USERNAME: default
+    FUMA_REDIS_PASSWORD: ${FUMA_REDIS_PASSWORD:?Set FUMA_REDIS_PASSWORD}
+    FUMA_SITE_URL: https://${FUMA_DOMAIN:?Set FUMA_DOMAIN}
+    FUMA_COOKIE_SECURE: "true"
+    FUMA_STATE_DIR: /data/state
+    # One-time legacy key import; new deployments leave this unset.
+    FUMA_ENCRYPTION_KEY: ${FUMA_ENCRYPTION_KEY:-}
+    FUMA_SESSION_TTL_SECONDS: ${FUMA_SESSION_TTL_SECONDS:-28800}
+    FUMA_CACHE_DIR: /data/cache
+  volumes:
+    - package_cache:/data/cache
+    - instance_state:/data/state
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${FUMA_DATABASE_USER:-fuma}
+      POSTGRES_DB: ${FUMA_DATABASE_NAME:-fuma}
+      POSTGRES_PASSWORD: ${FUMA_DATABASE_PASSWORD:?Set FUMA_DATABASE_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine
+    environment:
+      FUMA_REDIS_PASSWORD: ${FUMA_REDIS_PASSWORD:?Set FUMA_REDIS_PASSWORD}
+    command: [sh, -c, 'exec redis-server --appendonly yes --requirepass "$$FUMA_REDIS_PASSWORD"']
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$FUMA_REDIS_PASSWORD" redis-cli ping | grep -qx PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: [alembic, upgrade, head]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/ready', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    <<: *backend
+    command: [celery, -A, "app.workers.celery_app:celery_app", worker, -Q, "general,files", --concurrency=4, --loglevel=WARNING]
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    <<: *backend
+    command: [python, -m, app.workers.scheduler]
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    image: fuma-frontend:${FUMA_IMAGE_TAG:-local}
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    environment:
+      FUMA_DOMAIN: ${FUMA_DOMAIN:?Set FUMA_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  package_cache:
+  instance_state:
+  caddy_data:
+  caddy_config:
