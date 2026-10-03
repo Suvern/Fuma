@@ -111,9 +111,8 @@ services:
     environment:
       FUMA_DOMAIN: ${FUMA_DOMAIN:?Set FUMA_DOMAIN}
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      # HTTPS is terminated by the reverse proxy on the host.
+      - "127.0.0.1:5888:80"
     volumes:
       - caddy_data:/data
       - caddy_config:/config

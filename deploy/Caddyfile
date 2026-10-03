@@ -5,7 +5,8 @@
     }
 }
 
-{$FUMA_DOMAIN} {
+# The host reverse proxy terminates HTTPS and preserves the original Host header.
+http://{$FUMA_DOMAIN} {
     encode zstd gzip
     header {
         X-Content-Type-Options nosniff

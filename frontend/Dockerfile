@@ -9,4 +9,4 @@ RUN pnpm build
 FROM caddy:2-alpine
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/frontend/dist /srv/fuma
-EXPOSE 80 443
+EXPOSE 80
