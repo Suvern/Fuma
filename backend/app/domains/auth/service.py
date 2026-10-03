@@ -19,6 +19,7 @@ from app.domains.system.models import SystemState
 
 password_hasher = PasswordHasher()
 initial_password_logger = logging.getLogger("fuma.initial_admin")
+logger = logging.getLogger(__name__)
 
 
 def initialize_admin(engine: Engine) -> None:
@@ -31,6 +32,13 @@ def initialize_admin(engine: Engine) -> None:
         if state.initialized_at is not None:
             if user is None or user.kind != "local" or not user.password_hash:
                 raise AppError(503, "ADMIN_STATE_INVALID", "管理员状态异常，请由服务器操作员恢复")
+            if user.must_change_password:
+                logger.warning(
+                    "管理员 admin 已初始化，但尚未修改初始密码；临时密码仅在首次创建时输出，"
+                    "本次启动不会重复输出。若首次 API 日志已丢失，请在服务器交互终端执行："
+                    "docker compose --env-file .env -f deploy/compose.yml "
+                    "exec api python -m app.cli.reset_admin"
+                )
             return
         if user is not None:
             raise AppError(503, "ADMIN_STATE_INVALID", "管理员状态异常，请由服务器操作员恢复")

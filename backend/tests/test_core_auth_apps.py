@@ -1,6 +1,7 @@
 """Real PostgreSQL auth transaction coverage, without Docker or dotenv."""
 
 import base64
+import logging
 import secrets
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
@@ -188,6 +189,34 @@ def test_existing_admin_not_reset(core_app, initial_password_log):
         user = db.scalar(select(User))
         assert user.password_hash == stored
         assert user.must_change_password is False
+
+
+def test_initial_password_logged_once_and_restart_explains_recovery(core_app, monkeypatch, caplog):
+    from app.domains.auth import service
+
+    # Exercise the real logger with a synthetic credential, never a generated secret.
+    monkeypatch.setattr(service.secrets, "token_urlsafe", lambda _size: "synthetic-test-password")
+    monkeypatch.setattr(
+        service.initial_password_logger,
+        "warning",
+        logging.Logger.warning.__get__(service.initial_password_logger),
+    )
+    with caplog.at_level(logging.WARNING):
+        initialize_admin(core_app.state.test_engine)
+        assert "临时密码：synthetic-test-password" in caplog.text
+        caplog.clear()
+        initialize_admin(core_app.state.test_engine)
+        assert "已初始化，但尚未修改初始密码" in caplog.text
+        assert "exec api python -m app.cli.reset_admin" in caplog.text
+        assert "synthetic-test-password" not in caplog.text
+
+
+def test_changed_password_has_no_startup_recovery_warning(client, caplog):
+    complete_first_login(client)
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        initialize_admin(client.app.state.engine)
+    assert "app.cli.reset_admin" not in caplog.text
 
 
 def test_initialized_state_missing_admin_fails_closed(core_app, initial_password_log):
