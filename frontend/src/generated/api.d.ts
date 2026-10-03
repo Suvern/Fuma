@@ -1530,7 +1530,11 @@ export interface components {
         };
         Check: {
             code: string;
+            endpoint?: string | null;
+            error_code?: string | null;
             message: string;
+            remediation?: string | null;
+            required_permission?: string | null;
             /** @enum {string} */
             status: "pass" | "fail" | "unknown";
         };

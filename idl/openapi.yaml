@@ -5775,6 +5775,15 @@ components:
         message:
           type: string
           maxLength: 500
+        error_code:
+          type: [string, "null"]
+        required_permission:
+          type: [string, "null"]
+        remediation:
+          type: [string, "null"]
+          maxLength: 1000
+        endpoint:
+          type: [string, "null"]
       required:
       - code
       - status

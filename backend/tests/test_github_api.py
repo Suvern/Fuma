@@ -233,6 +233,7 @@ def test_binding_test_refresh_and_complete_snapshot_search(github_client):
     assert test.json()["status"] == "ok"
     assert {item["code"] for item in test.json()["checks"]} == {
         "identity",
+        "repository",
         "contents",
         "assets",
         "actions",

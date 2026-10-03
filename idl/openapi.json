@@ -1734,9 +1734,34 @@
           "code": {
             "type": "string"
           },
+          "endpoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "message": {
             "maxLength": 500,
             "type": "string"
+          },
+          "remediation": {
+            "maxLength": 1000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "required_permission": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "enum": [

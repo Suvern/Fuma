@@ -206,6 +206,10 @@ class Check(BaseModel):
     code: str
     status: Literal["pass", "fail", "unknown"]
     message: str = Field(..., max_length=500)
+    error_code: str | None = None
+    required_permission: str | None = None
+    remediation: str | None = Field(None, max_length=1000)
+    endpoint: str | None = None
 
 
 class ConnectionTestRequest(BaseModel):

@@ -147,6 +147,10 @@ class GitHubClient:
             raise GitHubError(
                 "GITHUB_RATE_LIMITED", "GitHub 请求受到限流，请稍后重试", 429, True, retry
             )
+        if response.status_code == 403 and response.headers.get("x-github-sso", "").startswith(
+            "required"
+        ):
+            raise GitHubError("GITHUB_SSO_REQUIRED", "此令牌尚未获得组织 SSO 授权", 403)
         if response.status_code == 403:
             raise GitHubError("GITHUB_FORBIDDEN", "GitHub 授权不足，请检查仓库权限", 403)
         if response.status_code == 404:

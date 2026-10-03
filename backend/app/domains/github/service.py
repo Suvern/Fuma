@@ -46,6 +46,59 @@ def connector_dto(row: GithubConnector) -> Connector:
     )
 
 
+def connection_failure(code: str, exc: GitHubError, endpoint: str) -> Check:
+    permissions = {
+        "repository": "Metadata · Read-only",
+        "contents": "Contents · Read-only",
+        "assets": "Contents · Read-only",
+        "actions": "Actions · Read-only",
+    }
+    subjects = {
+        "identity": "GitHub 身份验证",
+        "repository": "仓库访问",
+        "contents": "Release 列表读取",
+        "assets": "Release 附件列表读取",
+        "actions": "Actions 构建记录读取",
+    }
+    permission = permissions.get(code)
+    remediation = "稍后重新检查；如果持续失败，请检查服务端到 GitHub 的网络连接。"
+    message = exc.message
+    if exc.code == "GITHUB_FORBIDDEN":
+        message = f"{subjects[code]}被 GitHub 拒绝（403）"
+        remediation = (
+            "在 GitHub 中编辑此令牌，确认 Repository access 包含目标仓库"
+            + (f"，并在 Repository permissions 中开启 {permission}" if permission else "")
+            + "。若配置已正确，请检查组织审批、SSO 授权或组织访问策略。GitHub 未返回唯一拒绝原因。"
+        )
+    elif exc.code == "GITHUB_SSO_REQUIRED":
+        remediation = "在 GitHub 的令牌设置中完成组织 SSO 授权，再重新检查。"
+    elif exc.code == "GITHUB_BAD_CREDENTIAL":
+        remediation = "检查令牌是否已过期或撤销；在「编辑连接」中替换令牌后重新检查。"
+    elif exc.code == "GITHUB_NOT_FOUND":
+        message = f"{subjects[code]}不可用（404）：资源不存在或此令牌不可见"
+        remediation = (
+            "核对仓库完整名称，并确认令牌的 Resource owner 与 Repository access 包含该仓库。"
+            "私有资源无权访问时也可能返回 404，无法仅凭此响应判断资源是否存在。"
+        )
+    elif exc.code == "GITHUB_RATE_LIMITED":
+        remediation = f"GitHub 请求已限流，请至少等待 {exc.retry_after or 60} 秒再重新检查。"
+    elif exc.code == "GITHUB_SOURCE_MOVED":
+        remediation = "仓库可能已改名或转移，请填写新的仓库完整名称后重新检查。"
+    elif exc.code == "GITHUB_INVALID_RESPONSE":
+        remediation = "GitHub 返回的数据不完整，请重新检查；持续失败时联系管理员。"
+    return Check(
+        code=code,
+        status="fail",
+        message=message,
+        error_code=exc.code,
+        required_permission=permission
+        if exc.code in {"GITHUB_FORBIDDEN", "GITHUB_NOT_FOUND"}
+        else None,
+        remediation=remediation,
+        endpoint=endpoint,
+    )
+
+
 def test_connection(
     client: GitHubClient, full_name: str | None, actions: bool
 ) -> tuple[list[Check], str | None]:
@@ -53,56 +106,77 @@ def test_connection(
     try:
         identity = client.get_identity()
         login = str(identity["login"])
-        checks.append(Check(code="identity", status="pass", message="GitHub 身份验证通过"))
+        checks.append(Check(code="identity", status="pass", message=f"已验证 GitHub 账号 {login}"))
     except (GitHubError, KeyError) as exc:
-        checks.append(
-            Check(
-                code="identity",
-                status="fail",
-                message=(exc.message if isinstance(exc, GitHubError) else "无法验证 GitHub 身份"),
-            )
+        error = (
+            exc
+            if isinstance(exc, GitHubError)
+            else GitHubError("GITHUB_INVALID_RESPONSE", "无法验证 GitHub 身份")
         )
+        checks.append(connection_failure("identity", error, "GET /user"))
+        for code in ["repository", "contents", "assets"] + (["actions"] if actions else []):
+            checks.append(Check(code=code, status="unknown", message="身份验证未通过，尚未检查"))
         return checks, login
-    if full_name:
+
+    if not full_name:
+        for code in ["repository", "contents", "assets"] + (["actions"] if actions else []):
+            checks.append(Check(code=code, status="unknown", message="填写目标仓库后可检查此项"))
+        return checks, login
+
+    base = "/repos/" + full_name
+    try:
+        client.get_repository(full_name)
+        checks.append(Check(code="repository", status="pass", message=f"可访问 {full_name}"))
+    except GitHubError as exc:
+        checks.append(connection_failure("repository", exc, "GET " + base))
+        for code in ["contents", "assets"] + (["actions"] if actions else []):
+            checks.append(Check(code=code, status="unknown", message="仓库不可访问，尚未检查"))
+        return checks, login
+
+    releases = None
+    try:
+        releases = client._json(base + "/releases", params={"per_page": 1})
+        if not isinstance(releases, list):
+            raise GitHubError("GITHUB_INVALID_RESPONSE", "Release 返回格式不合法")
+        checks.append(Check(code="contents", status="pass", message="可读取 Release 列表"))
+    except GitHubError as exc:
+        releases = None
+        checks.append(connection_failure("contents", exc, "GET " + base + "/releases"))
+
+    if releases:
+        endpoint = "GET " + base + "/releases/{release_id}/assets"
         try:
-            client.get_repository(full_name)
-            releases = client._json("/repos/" + full_name + "/releases", params={"per_page": 1})
-            if not isinstance(releases, list):
-                raise GitHubError("GITHUB_INVALID_RESPONSE", "Release 返回格式不合法")
-            checks.append(Check(code="contents", status="pass", message="仓库 Release 可读取"))
-            if releases:
-                client.list_assets(full_name, releases[0]["id"])
-                checks.append(Check(code="assets", status="pass", message="Release 附件列表可读取"))
-            else:
-                checks.append(
-                    Check(
-                        code="assets",
-                        status="unknown",
-                        message="仓库暂无 Release，需发布附件后验证",
-                    )
-                )
-        except (GitHubError, KeyError) as exc:
+            client.list_assets(full_name, releases[0]["id"])
             checks.append(
                 Check(
-                    code="contents",
-                    status="fail",
-                    message=(exc.message if isinstance(exc, GitHubError) else "附件返回格式不合法"),
+                    code="assets",
+                    status="pass",
+                    message="可读取附件列表；实际下载将在同步安装包时验证",
                 )
             )
-        if actions:
-            try:
-                client.check_actions(full_name)
-                checks.append(Check(code="actions", status="pass", message="构建记录可读取"))
-            except GitHubError as exc:
-                checks.append(Check(code="actions", status="fail", message=exc.message))
+        except (GitHubError, KeyError, TypeError) as exc:
+            error = (
+                exc
+                if isinstance(exc, GitHubError)
+                else GitHubError("GITHUB_INVALID_RESPONSE", "Release 附件数据不完整")
+            )
+            checks.append(connection_failure("assets", error, endpoint))
     else:
         checks.append(
-            Check(code="contents", status="unknown", message="请选择仓库以验证 Release 和附件权限")
-        )
-        if actions:
-            checks.append(
-                Check(code="actions", status="unknown", message="请选择仓库以验证 Actions 只读权限")
+            Check(
+                code="assets",
+                status="unknown",
+                message="仓库暂无 Release，发布后可验证附件列表"
+                if releases == []
+                else "Release 列表未读取，尚未检查附件",
             )
+        )
+    if actions:
+        try:
+            client.check_actions(full_name)
+            checks.append(Check(code="actions", status="pass", message="可读取 Actions 构建记录"))
+        except GitHubError as exc:
+            checks.append(connection_failure("actions", exc, "GET " + base + "/actions/runs"))
     return checks, login
 
 
