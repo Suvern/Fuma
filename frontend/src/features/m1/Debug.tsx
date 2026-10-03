@@ -1,3 +1,14 @@
+import Select from "@douyinfe/semi-ui-19/lib/es/select";
+import Progress from "@douyinfe/semi-ui-19/lib/es/progress";
+import {
+  PageTabs,
+  CardLink,
+  Badge,
+  Panel,
+  Notice,
+  Button,
+  Disclosure,
+} from "../../shared/ui/controls";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
@@ -32,16 +43,16 @@ export function DebugListPage() {
   return (
     <>
       <Title>Debug 包管理</Title>
-      <nav className="tabs">
+      <PageTabs className="tabs">
         <Link to={`/admin/apps/${id}`}>应用设置</Link>
         <Link to={`/admin/apps/${id}/releases`}>从 Release 导入</Link>
-      </nav>
+      </PageTabs>
       {filters.search}
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
       <div className="card-grid">
         {q.data?.items.map((entry) => (
-          <Link
+          <CardLink
             key={entry.id}
             className="panel app-card"
             to={`/admin/debug/${entry.id}`}
@@ -51,18 +62,22 @@ export function DebugListPage() {
             <div className="inline">
               <Status value={entry.platform} />
               <Status value={entry.cache.state} />
-              <span className="badge">
+              <Badge className="badge">
                 {entry.enabled ? "已启用" : "已停用"}
-              </span>
+              </Badge>
             </div>
             <p>
               {size(entry.size_bytes)} · {date(entry.created_at)}
             </p>
-          </Link>
+          </CardLink>
         ))}
       </div>
       {q.data && !q.data.items.length && (
-        <Empty>暂无 Debug 条目，请从 Release 选择安装包。</Empty>
+        <Empty title={filters.q ? "没有匹配的 Debug 包" : "暂无 Debug 条目"}>
+          {filters.q
+            ? "请修改或清空搜索条件后重试。"
+            : "请从 Release 选择安装包。"}
+        </Empty>
       )}
       <Pager data={q.data} {...filters} />
     </>
@@ -91,11 +106,11 @@ export function DebugAdminPage() {
       <Link to={`/admin/apps/${e.app_id}/debug`}>← Debug 列表</Link>
       {cmd.feedback}
       <TaskNotice task={task} />
-      <section className="panel">
+      <Panel className="panel">
         <div className="inline">
           <Status value={e.platform} />
           <Status value={e.cache.state} />
-          <span className="badge">Debug</span>
+          <Badge className="badge">Debug</Badge>
         </div>
         <dl>
           <dt>版本</dt>
@@ -116,12 +131,12 @@ export function DebugAdminPage() {
           <dd className="mono">{e.cache.sha256 ?? "缓存后生成"}</dd>
         </dl>
         {e.cache.error_message && (
-          <p className="notice error">
+          <Notice className="notice error">
             {e.cache.error_code}：{e.cache.error_message}
-          </p>
+          </Notice>
         )}
         <div className="toolbar">
-          <button
+          <Button
             disabled={cmd.pending}
             onClick={() =>
               void cmd.run(
@@ -138,8 +153,8 @@ export function DebugAdminPage() {
             }
           >
             预缓存 / 重试缓存
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={cmd.pending}
             onClick={() =>
               void cmd.run("entry-toggle", () =>
@@ -153,14 +168,14 @@ export function DebugAdminPage() {
             }
           >
             {e.enabled ? "停用分发" : "启用分发"}
-          </button>
+          </Button>
           <Link className="button" to={`/debug/${id}`}>
             查看分发页面
           </Link>
         </div>
         <p className="muted">分享固定分发页面；访问及下载仍需飞书身份验证。</p>
         <SharePage url={e.page_url} />
-      </section>
+      </Panel>
     </>
   );
 }
@@ -200,7 +215,7 @@ function CatalogContent() {
         <>
           <div className="card-grid">
             {q.data?.items.map((app) => (
-              <Link
+              <CardLink
                 to={`/apps/${app.id}`}
                 key={app.id}
                 className="panel app-card"
@@ -214,7 +229,7 @@ function CatalogContent() {
                   ))}
                   <span>{app.debug_entry_count} 个包</span>
                 </div>
-              </Link>
+              </CardLink>
             ))}
           </div>
           {!q.data?.items.length && <Empty>没有可访问的应用。</Empty>}
@@ -270,18 +285,20 @@ function CatalogAppContent() {
       <div className="toolbar">
         {filters.search}
         <label>
-          平台
-          <select
+          <span id="platform-filter-label">平台</span>
+          <Select
+            aria-labelledby="platform-filter-label"
+            style={{ minWidth: 160 }}
             value={platform}
-            onChange={(e) => {
-              setPlatform(e.target.value);
+            onChange={(value) => {
+              setPlatform(String(value ?? ""));
               filters.setPage(1);
             }}
           >
-            <option value="">全部</option>
-            <option value="android">Android</option>
-            <option value="ios">iOS</option>
-          </select>
+            <Select.Option value="">全部</Select.Option>
+            <Select.Option value="android">Android</Select.Option>
+            <Select.Option value="ios">iOS</Select.Option>
+          </Select>
         </label>
       </div>
       {entries.isPending ? (
@@ -290,10 +307,10 @@ function CatalogAppContent() {
         <>
           <div className="card-grid">
             {entries.data?.items.map((e) => (
-              <section className="panel" key={e.id}>
+              <Panel className="panel" key={e.id}>
                 <div className="inline">
                   <Status value={e.platform} />
-                  <span className="badge">Debug</span>
+                  <Badge className="badge">Debug</Badge>
                 </div>
                 <h2>
                   <Link to={`/debug/${e.id}`}>{e.file_name}</Link>
@@ -307,7 +324,7 @@ function CatalogAppContent() {
                   {size(e.size_bytes)} · {date(e.created_at)}
                 </p>
                 <DownloadControl entry={e} />
-              </section>
+              </Panel>
             ))}
           </div>
           {!entries.data?.items.length && (
@@ -340,10 +357,10 @@ function CatalogEntryContent() {
     <>
       <Title>{e.app.name}</Title>
       <Link to={`/apps/${e.app.id}`}>← 所有版本</Link>
-      <section className="panel download-detail">
+      <Panel className="panel download-detail">
         <div className="inline">
           <Status value={e.platform} />
-          <span className="badge">Debug</span>
+          <Badge className="badge">Debug</Badge>
         </div>
         <h2>{e.file_name}</h2>
         <dl>
@@ -361,11 +378,11 @@ function CatalogEntryContent() {
           </dd>
         </dl>
         {e.installation_notice && (
-          <p className="notice">{e.installation_notice}</p>
+          <Notice className="notice">{e.installation_notice}</Notice>
         )}
         <DownloadControl key={e.id} entry={e} />
         <SharePage url={e.page_url} />
-      </section>
+      </Panel>
     </>
   );
 }
@@ -427,24 +444,31 @@ function DownloadControl({ entry }: { entry: DTO<"CatalogEntry"> }) {
       <ErrorBox error={prep.error} />
       {preparing && prep.data && (
         <div role="status">
-          <p>
+          <div className="prose">
             缓存：
             <Status value={prep.data.state} />{" "}
             {size(prep.data.downloaded_bytes)} /{" "}
             {prep.data.total_bytes ? size(prep.data.total_bytes) : "大小待确认"}
-          </p>
+          </div>
           {prep.data.state === "ready" ? (
             <p>文件已准备好，请再次获取临时下载链接。</p>
           ) : prep.data.state === "failed" ? (
-            <p className="notice error">
+            <Notice className="notice error">
               {prep.data.error_code}：{prep.data.error_message}
-            </p>
+            </Notice>
           ) : (
-            <progress
-              max={prep.data.total_bytes ?? undefined}
-              value={
-                prep.data.total_bytes ? prep.data.downloaded_bytes : undefined
+            <Progress
+              aria-label="缓存准备进度"
+              percent={
+                prep.data.total_bytes
+                  ? Math.min(
+                      100,
+                      (prep.data.downloaded_bytes / prep.data.total_bytes) *
+                        100,
+                    )
+                  : 0
               }
+              showInfo={!!prep.data.total_bytes}
             />
           )}
         </div>
@@ -466,13 +490,12 @@ function DownloadControl({ entry }: { entry: DTO<"CatalogEntry"> }) {
           <p className="muted">
             链接截止 {date(grant.expires_at)}，有效期内持有链接即可使用。
           </p>
-          <details>
-            <summary>文件校验值</summary>
+          <Disclosure title={<>文件校验值</>}>
             <p className="mono">SHA256: {grant.sha256}</p>
-          </details>
+          </Disclosure>
         </>
       ) : (
-        <button
+        <Button
           className="primary"
           disabled={
             cmd.pending ||
@@ -489,7 +512,7 @@ function DownloadControl({ entry }: { entry: DTO<"CatalogEntry"> }) {
               : expired
                 ? "链接已过期，重新获取"
                 : "获取下载链接"}
-        </button>
+        </Button>
       )}
       <p className="muted">
         临时链接过期后需重新验证权限。首次访问可能需要等待缓存。

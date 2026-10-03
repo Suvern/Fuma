@@ -1,3 +1,4 @@
+import { Disclosure, Input, Button } from "./controls";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
@@ -26,14 +27,13 @@ export function SharePage({ url }: { url: string }) {
     };
   }, [url]);
   return (
-    <details className="share-page">
-      <summary>分享固定分发页面</summary>
+    <Disclosure title={<>分享固定分发页面</>} className="share-page">
       <p className="muted">
         访问此页面仍需飞书验证，二维码不包含临时下载凭据。
       </p>
       {qr && <img src={qr} width={180} height={180} alt="固定分发页面二维码" />}
-      <input aria-label="固定页面地址" readOnly value={url} />
-      <button
+      <Input aria-label="固定页面地址" readOnly value={url} />
+      <Button
         type="button"
         onClick={() => {
           void navigator.clipboard.writeText(url).then(
@@ -43,8 +43,8 @@ export function SharePage({ url }: { url: string }) {
         }}
       >
         复制页面链接
-      </button>
+      </Button>
       {message && <p role="status">{message}</p>}
-    </details>
+    </Disclosure>
   );
 }

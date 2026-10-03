@@ -1,3 +1,4 @@
+import { Panel, Notice, Button, Disclosure } from "../../shared/ui/controls";
 import {
   Link,
   Navigate,
@@ -6,6 +7,7 @@ import {
   useSearchParams,
 } from "react-router";
 import { Fragment } from "react";
+import { BrandMark, Icon } from "../../shared/ui/Icon";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
@@ -50,31 +52,26 @@ export function LoginPage() {
   if (status.isPending) return <Loading />;
   if (status.error) return <ErrorBox error={status.error} />;
   return (
-    <div className="auth-card panel">
+    <Panel className="auth-card panel login-card">
+      <div className="auth-symbol">
+        <BrandMark />
+      </div>
       <Title>管理员登录</Title>
-      <p className="muted">
-        管理员负责应用与分发配置。下载 Debug 包请使用飞书登录。
-      </p>
-      <p className="notice">
-        首次启动会自动创建 admin 账号，随机初始密码仅显示在 API
-        启动日志中。Docker Compose 部署可运行{" "}
-        <code>docker compose --env-file .env -f deploy/compose.yml logs api</code>
-        {" "}查看。首次登录后必须修改密码。
-      </p>
+      <p className="muted">欢迎回来，继续管理团队的应用与分发。</p>
       {!status.data?.initialized && (
-        <p role="status" className="notice">
+        <Notice role="status" className="notice">
           服务正在初始化管理员，请稍后刷新。
-          <button
+          <Button
             type="button"
             onClick={() => void status.refetch()}
             disabled={status.isFetching}
           >
             刷新状态
-          </button>
-        </p>
+          </Button>
+        </Notice>
       )}
       {params.has("error") && (
-        <p role="alert" className="notice error">
+        <Notice role="alert" className="notice error">
           飞书验证未完成。请确认账号属于当前部署租户，并重试飞书登录。
           {returnTo === "/admin/settings/feishu" ? (
             <Link to={returnTo}>返回接入设置</Link>
@@ -83,7 +80,7 @@ export function LoginPage() {
               <a href={ssoUrl(returnTo)}>重新验证飞书资格</a>
             )
           )}
-        </p>
+        </Notice>
       )}
       {cmd.feedback}
       <Form
@@ -127,13 +124,26 @@ export function LoginPage() {
           maxLength={128}
           autoComplete="current-password"
         />
-        <button
+        <Button
           className="primary"
           disabled={cmd.pending || !status.data?.initialized}
         >
           {cmd.pending ? "正在提交…" : "登录后台"}
-        </button>
+        </Button>
       </Form>
+      <Disclosure title={<>首次登录或忘记密码？</>} className="login-help">
+        <p>
+          首次启动会创建 admin 账号，初始密码仅显示在 API
+          启动日志中，首次登录后需修改密码。
+        </p>
+        <p>
+          Docker 部署可运行{" "}
+          <code>
+            docker compose --env-file .env -f deploy/compose.yml logs api
+          </code>{" "}
+          查看首次启动日志。忘记密码时请联系服务器管理员重置。
+        </p>
+      </Disclosure>
       {status.data?.sso_enabled && (
         <a className="button" href={ssoUrl(returnTo)}>
           使用飞书访问 Debug 下载
@@ -142,7 +152,7 @@ export function LoginPage() {
       <p>
         <Link to="/">返回下载首页</Link>
       </p>
-    </div>
+    </Panel>
   );
 }
 
@@ -180,7 +190,7 @@ export function DownloadGuard({ children }: { children: React.ReactNode }) {
   if (!status.data?.initialized) return <Navigate to="/login" replace />;
   if (session.data?.user?.kind !== "feishu")
     return (
-      <div className="panel auth-card">
+      <Panel className="panel auth-card">
         <Title description="仅部署绑定的飞书租户成员可查看和下载安装包。">
           Debug 下载
         </Title>
@@ -189,7 +199,9 @@ export function DownloadGuard({ children }: { children: React.ReactNode }) {
             使用飞书登录
           </a>
         ) : (
-          <p className="notice">飞书登录尚未启用，请联系管理员完成接入配置。</p>
+          <Notice className="notice">
+            飞书登录尚未启用，请联系管理员完成接入配置。
+          </Notice>
         )}
         {status.data.sso_enabled && session.data?.user?.role === "admin" && (
           <p className="muted">继续登录将切换当前浏览器的管理员会话。</p>
@@ -197,18 +209,21 @@ export function DownloadGuard({ children }: { children: React.ReactNode }) {
         <p>
           <Link to="/login">管理员入口</Link>
         </p>
-      </div>
+      </Panel>
     );
   return <Fragment key={session.data.viewer_key}>{children}</Fragment>;
 }
 
-export function LogoutButton() {
+export function LogoutButton({ compact = false }: { compact?: boolean }) {
   const cmd = useCommand();
   const client = useQueryClient();
   const navigate = useNavigate();
   return (
     <>
-      <button
+      <Button
+        className={compact ? "icon-button" : undefined}
+        aria-label={compact ? "退出登录" : undefined}
+        title={compact ? "退出登录" : undefined}
         disabled={cmd.pending}
         onClick={() =>
           void cmd.run(
@@ -221,8 +236,8 @@ export function LogoutButton() {
           )
         }
       >
-        退出登录
-      </button>
+        {compact ? <Icon name="logout" size={17} /> : "退出登录"}
+      </Button>
       {cmd.feedback}
     </>
   );
@@ -247,7 +262,7 @@ export function PasswordPage() {
       >
         {mandatory ? "首次登录：修改密码" : "账号安全"}
       </Title>
-      <section className="panel">
+      <Panel className="panel">
         {cmd.feedback}
         <Form
           submit={(f) =>
@@ -321,18 +336,18 @@ export function PasswordPage() {
             autoComplete="new-password"
             help="至少 12 位，且不能与当前密码相同。"
           />
-          <button className="primary" disabled={cmd.pending}>
+          <Button className="primary" disabled={cmd.pending}>
             {cmd.pending ? "正在修改…" : "修改密码"}
-          </button>
+          </Button>
         </Form>
-      </section>
+      </Panel>
     </>
   );
 }
 
 export function AuthErrorPage() {
   return (
-    <div className="panel">
+    <Panel className="panel">
       <Title>飞书登录未完成</Title>
       <p>
         登录已取消、授权已失效或账号不属于当前部署租户，请重试。管理员可检查飞书应用配置及可用范围。
@@ -341,6 +356,6 @@ export function AuthErrorPage() {
         重新登录飞书
       </a>
       <Link to="/admin/settings/feishu">检查配置</Link>
-    </div>
+    </Panel>
   );
 }

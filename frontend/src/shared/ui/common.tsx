@@ -1,3 +1,10 @@
+import type { CheckboxProps } from "@douyinfe/semi-ui-19/lib/es/checkbox";
+import Checkbox from "@douyinfe/semi-ui-19/lib/es/checkbox";
+import SemiEmpty from "@douyinfe/semi-ui-19/lib/es/empty";
+import Pagination from "@douyinfe/semi-ui-19/lib/es/pagination";
+import Spin from "@douyinfe/semi-ui-19/lib/es/spin";
+import Tag from "@douyinfe/semi-ui-19/lib/es/tag";
+import { Notice, Input, Button } from "./controls";
 /* eslint-disable react-refresh/only-export-components -- Shared page primitives and hooks intentionally form one module. */
 import {
   useId,
@@ -12,6 +19,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { ApiError, read, ssoUrl, type DTO } from "../api/http";
 import { PageTitle } from "../components/PageTitle";
+import { Icon, type IconName } from "./Icon";
 
 export const labels: Record<string, string> = {
   ready: "已就绪",
@@ -60,14 +68,49 @@ export const labels: Record<string, string> = {
   pending: "待处理",
 };
 export function Status({ value }: { value: string }) {
+  const color = [
+    "ready",
+    "succeeded",
+    "pass",
+    "ok",
+    "success",
+    "available",
+    "joined",
+    "done",
+  ].includes(value)
+    ? "green"
+    : ["failed", "fail", "failure", "unavailable", "removed"].includes(value)
+      ? "red"
+      : [
+            "unknown",
+            "partial_success",
+            "partial_failure",
+            "unverified",
+          ].includes(value)
+        ? "orange"
+        : [
+              "running",
+              "queued",
+              "downloading",
+              "verifying",
+              "syncing",
+              "caching",
+              "sending",
+              "notifying",
+            ].includes(value)
+          ? "blue"
+          : "grey";
   return (
-    <span className={`badge status-${value}`}>{labels[value] ?? value}</span>
+    <Tag color={color} shape="square">
+      {labels[value] ?? value}
+    </Tag>
   );
 }
 export function size(bytes: number) {
-  return bytes >= 1024 ** 3
-    ? `${(bytes / 1024 ** 3).toFixed(2)} GB`
-    : `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 export function date(value?: string | null) {
   return value ? new Date(value).toLocaleString("zh-CN") : "—";
@@ -75,26 +118,38 @@ export function date(value?: string | null) {
 export function Title({
   children,
   description,
+  actions,
 }: {
   children: string;
   description?: string;
+  actions?: ReactNode;
 }) {
   return (
     <>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">FUMA / 移动端分发</p>
           <PageTitle title={children}>{children}</PageTitle>
           {description && <p className="muted">{description}</p>}
         </div>
+        {actions && <div className="page-actions">{actions}</div>}
       </div>
     </>
   );
 }
+const fieldHints: Record<string, string> = {
+  name: "请填写名称，且不要超过 100 个字符。",
+  public_slug:
+    "分发标识须为 3–64 位小写字母、数字或连字符，首尾须为字母或数字。",
+  description: "描述不能超过 2000 个字符。",
+  platforms: "请至少选择一个支持平台。",
+  full_name: "请按 owner/repository 格式填写仓库完整名称。",
+  workflow_path:
+    "Workflow 路径须以 .github/workflows/ 开头，并以 .yml 或 .yaml 结尾。",
+};
 export function ErrorBox({ error }: { error: unknown }) {
   if (!error) return null;
   return (
-    <div role="alert" className="notice error">
+    <Notice role="alert" className="notice error">
       <strong>
         {error instanceof Error ? error.message : "请求失败，请稍后重试。"}
       </strong>
@@ -106,69 +161,110 @@ export function ErrorBox({ error }: { error: unknown }) {
           </p>
           {error.detail.field_errors?.map((x) => (
             <p key={x.field}>
-              {x.field}：{x.message}
+              {fieldHints[x.field.replace(/^body\./, "").split(".")[0] ?? ""] ??
+                `请检查输入内容：${x.message}`}
             </p>
           ))}
           {error.status === 412 && (
             <p>数据已被修改，请刷新页面，核对最新内容后再提交。</p>
           )}
-          {[401, 403].includes(error.status) && (
-            <p>
-              <Link to="/login">重新登录</Link>，或{" "}
-              <a href={ssoUrl()}>重新验证飞书资格</a>。
-            </p>
-          )}
+          {[401, 403].includes(error.status) &&
+            !error.detail.code.startsWith("GITHUB_") && (
+              <p>
+                <Link to="/login">重新登录</Link>，或{" "}
+                <a href={ssoUrl()}>重新验证飞书资格</a>。
+              </p>
+            )}
         </>
       )}
-    </div>
+    </Notice>
   );
 }
 export function Loading() {
   return (
-    <p role="status" className="notice">
-      正在加载…
-    </p>
+    <div role="status" className="loading-state">
+      <Spin />
+      <span>正在加载…</span>
+    </div>
   );
 }
-export function Empty({ children = "暂无数据" }: { children?: ReactNode }) {
-  return <div className="empty">{children}</div>;
+export function Empty({
+  children = "暂无数据",
+  title,
+  icon = "package",
+  action,
+}: {
+  children?: ReactNode;
+  title?: string;
+  icon?: IconName;
+  action?: ReactNode;
+}) {
+  return (
+    <SemiEmpty
+      className="empty-state"
+      image={<Icon name={icon} size={48} />}
+      title={title}
+      description={children}
+    >
+      {action}
+    </SemiEmpty>
+  );
 }
 export function Field({
   label,
   help,
+  validationMessage,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & { label: string; help?: string }) {
+}: InputHTMLAttributes<HTMLInputElement> & {
+  label: string;
+  help?: string;
+  validationMessage?: string;
+}) {
   const uniqueId = useId();
   const id = props.id ?? uniqueId;
-  const [invalid, setInvalid] = useState(false);
+  const [error, setError] = useState("");
   return (
-    <label className="field" htmlFor={id}>
-      <span>
+    <div className="field">
+      <label htmlFor={id}>
         {label}
         {props.required && " *"}
-      </span>
-      <input
+      </label>
+      <Input
         {...props}
         id={id}
-        aria-invalid={invalid || undefined}
-        aria-describedby={help ? `${id}-help` : undefined}
-        onInvalid={() => setInvalid(true)}
-        onInput={() => setInvalid(false)}
+        aria-invalid={!!error || undefined}
+        aria-describedby={
+          [help && `${id}-help`, error && `${id}-error`]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
+        onInvalid={(event) => {
+          setError(
+            event.currentTarget.validity.patternMismatch && validationMessage
+              ? validationMessage
+              : event.currentTarget.validationMessage,
+          );
+          props.onInvalid?.(event);
+        }}
+        onInput={(event) => {
+          if (event.currentTarget.validity.valid) setError("");
+          props.onInput?.(event);
+        }}
       />
       {help && <small id={`${id}-help`}>{help}</small>}
-    </label>
+      {error && (
+        <small id={`${id}-error`} role="alert" className="field-error">
+          {error}
+        </small>
+      )}
+    </div>
   );
 }
 export function Check({
   label,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
-  return (
-    <label className="check">
-      <input {...props} type="checkbox" />
-      {label}
-    </label>
-  );
+}: CheckboxProps & { label: string; name?: string }) {
+  return <Checkbox {...props}>{label}</Checkbox>;
 }
 export function Form({
   children,
@@ -213,6 +309,7 @@ export function useCommand() {
     intent: string,
     execute: (key: string) => Promise<T>,
     success?: (result: T) => void,
+    successMessage = "请求已提交。",
   ) {
     if (lock.current) return;
     lock.current = true;
@@ -225,7 +322,7 @@ export function useCommand() {
       const result = await execute(key);
       keys.current.delete(intent);
       success?.(result);
-      setMessage("请求已提交。");
+      setMessage(successMessage);
       await client.invalidateQueries();
     } catch (e) {
       setError(e);
@@ -241,9 +338,9 @@ export function useCommand() {
       <>
         <ErrorBox error={error} />
         {message && (
-          <p role="status" className="notice success">
+          <Notice role="status" className="notice success">
             {message}
-          </p>
+          </Notice>
         )}
       </>
     ),
@@ -258,21 +355,17 @@ export function Pager({
   page: number;
   setPage: (p: number) => void;
 }) {
-  if (!data) return null;
+  if (!data || data.total === 0) return null;
   return (
     <nav className="pager" aria-label="分页">
-      <span>
-        共 {data.total} 条 · 第 {page} 页
-      </span>
-      <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
-        上一页
-      </button>
-      <button
-        disabled={page * data.page_size >= data.total}
-        onClick={() => setPage(page + 1)}
-      >
-        下一页
-      </button>
+      <Pagination
+        total={data.total}
+        pageSize={data.page_size}
+        currentPage={page}
+        onPageChange={setPage}
+        showTotal
+        showSizeChanger={false}
+      />
     </nav>
   );
 }
@@ -297,8 +390,16 @@ export function useFilters() {
         <label className="sr-only" htmlFor={searchId}>
           关键词
         </label>
-        <input id={searchId} name="q" placeholder="搜索名称、版本或文件…" />
-        <button>搜索</button>
+        <div className="search-input">
+          <Icon name="search" size={17} />
+          <Input
+            type="search"
+            id={searchId}
+            name="q"
+            placeholder="搜索名称、版本或文件…"
+          />
+        </div>
+        <Button>搜索</Button>
       </form>
     ),
   };
@@ -356,7 +457,7 @@ export function TaskNotice({ task }: { task?: DTO<"TaskAccepted"> }) {
   if (!task) return null;
   return (
     <>
-      <p role="status" className="notice">
+      <Notice role="status" className="notice">
         {query.data ? (
           <>
             任务：
@@ -366,7 +467,7 @@ export function TaskNotice({ task }: { task?: DTO<"TaskAccepted"> }) {
           "任务已受理。"
         )}{" "}
         <Link to={`/admin/tasks/${task.task_id}`}>查看任务进度</Link>
-      </p>
+      </Notice>
       <ErrorBox error={query.error} />
     </>
   );

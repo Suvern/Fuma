@@ -1,3 +1,9 @@
+import { Metric } from "../../shared/ui/controls";
+import { confirmAction } from "../../shared/ui/confirm";
+import Select from "@douyinfe/semi-ui-19/lib/es/select";
+import Table from "@douyinfe/semi-ui-19/lib/es/table";
+import Progress from "@douyinfe/semi-ui-19/lib/es/progress";
+import { Panel, Notice, Button } from "../../shared/ui/controls";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
@@ -20,68 +26,7 @@ import {
   useFilters,
   labels,
 } from "../../shared/ui/common";
-export function SystemPage() {
-  const q = useQuery({
-    queryKey: ["system-health"],
-    queryFn: () => read("/api/v1/system/health"),
-    refetchInterval: 10000,
-  });
-  return (
-    <>
-      <Title description="从应用配置到 Debug 分发，查看本地服务与异步任务的运行状态。">
-        工作台
-      </Title>
-      <div className="card-grid">
-        <Link className="panel app-card" to="/admin/apps">
-          <h2>应用管理</h2>
-          <p>配置平台、仓库及安装包。</p>
-        </Link>
-        <Link className="panel app-card" to="/admin/connectors">
-          <h2>GitHub Connector</h2>
-          <p>配置凭据并验证仓库读取权限。</p>
-        </Link>
-        <Link className="panel app-card" to="/admin/settings/feishu">
-          <h2>飞书与机器人</h2>
-          <p>验证租户，选择通知群聊。</p>
-        </Link>
-      </div>
-      <section className="panel">
-        <div className="section-heading">
-          <h2>服务运行状态</h2>
-          <button onClick={() => void q.refetch()} disabled={q.isFetching}>
-            刷新
-          </button>
-        </div>
-        <ErrorBox error={q.error} />
-        {q.isPending && <Loading />}
-        {q.data && (
-          <>
-            <div className="health-grid">
-              {(
-                ["api", "database", "redis", "worker", "scheduler"] as const
-              ).map((k) => (
-                <div key={k}>
-                  <h3>{k}</h3>
-                  <Status value={q.data[k]} />
-                </div>
-              ))}
-            </div>
-            <dl>
-              <dt>外部访问地址</dt>
-              <dd>{q.data.public_origin}</dd>
-              <dt>Worker 最近心跳</dt>
-              <dd>{date(q.data.worker_last_seen_at)}</dd>
-              <dt>缓存可写</dt>
-              <dd>{q.data.cache_writable ? "是" : "否"}</dd>
-              <dt>磁盘可用空间</dt>
-              <dd>{size(q.data.cache_free_bytes)}</dd>
-            </dl>
-          </>
-        )}
-      </section>
-    </>
-  );
-}
+export { Component as SystemPage } from "../system/pages/AdminHomePage";
 export function TasksPage() {
   const filters = useFilters();
   const [state, setState] = useState("");
@@ -120,21 +65,43 @@ export function TasksPage() {
       </div>
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
-      {q.data?.items.map((t) => (
-        <Link
-          className="panel list-option"
-          key={t.id}
-          to={`/admin/tasks/${t.id}`}
-        >
-          <span>
-            {labels[t.kind] ?? t.kind} · {labels[t.phase] ?? t.phase}
-          </span>
-          <Status value={t.state} />
-          <span>{t.progress === null ? "—" : `${t.progress}%`}</span>
-          <span>{date(t.created_at)}</span>
-        </Link>
-      ))}
-      {q.data && !q.data.items.length && <Empty>暂无任务。</Empty>}
+      <Table
+        className="data-table"
+        rowKey="id"
+        pagination={false}
+        dataSource={q.data?.items ?? []}
+        loading={q.isPending}
+        empty={<Empty>暂无任务。</Empty>}
+        scroll={{ x: 720 }}
+        columns={[
+          {
+            title: "任务",
+            render: (_, task) => (
+              <Link to={`/admin/tasks/${task.id}`}>
+                {labels[task.kind] ?? task.kind}
+              </Link>
+            ),
+          },
+          {
+            title: "执行阶段",
+            dataIndex: "phase",
+            render: (value) => labels[value] ?? value,
+          },
+          {
+            title: "状态",
+            dataIndex: "state",
+            render: (value) => <Status value={value} />,
+          },
+          {
+            title: "进度",
+            dataIndex: "progress",
+            width: 160,
+            render: (value) =>
+              value === null ? "—" : <Progress percent={value} showInfo />,
+          },
+          { title: "创建时间", dataIndex: "created_at", render: date },
+        ]}
+      />
       <Pager data={q.data} {...filters} />
     </>
   );
@@ -158,10 +125,12 @@ export function TaskPage() {
       <Title>{`任务：${labels[t.kind] ?? t.kind}`}</Title>
       <Link to="/admin/tasks">← 所有任务</Link>
       {cmd.feedback}
-      <section className="panel">
+      <Panel className="panel">
         <Status value={t.state} />
         <h2>{labels[t.phase] ?? (t.phase || "等待执行")}</h2>
-        {t.progress !== null && <progress value={t.progress} max={100} />}
+        {t.progress !== null && (
+          <Progress aria-label="任务进度" percent={t.progress} showInfo />
+        )}
         <dl>
           <dt>任务 ID</dt>
           <dd className="mono">{t.id}</dd>
@@ -173,12 +142,12 @@ export function TaskPage() {
           <dd>{date(t.next_check_at)}</dd>
         </dl>
         {t.error_message && (
-          <p className="notice error">
+          <Notice className="notice error">
             {t.error_code}：{t.error_message}
-          </p>
+          </Notice>
         )}
         {t.can_retry && (
-          <button
+          <Button
             disabled={cmd.pending}
             onClick={() =>
               void cmd.run("task-retry", (key) =>
@@ -190,9 +159,9 @@ export function TaskPage() {
             }
           >
             重试任务
-          </button>
+          </Button>
         )}
-      </section>
+      </Panel>
     </>
   );
 }
@@ -207,15 +176,20 @@ function StateFilter({
 }) {
   return (
     <label>
-      状态
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">全部</option>
+      <span id="task-state-label">状态</span>
+      <Select
+        aria-labelledby="task-state-label"
+        style={{ minWidth: 160 }}
+        value={value}
+        onChange={(value) => onChange(String(value ?? ""))}
+      >
+        <Select.Option value="">全部</Select.Option>
         {values.map((s) => (
-          <option key={s} value={s}>
+          <Select.Option key={s} value={s}>
             {labels[s] ?? s}
-          </option>
+          </Select.Option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 }
@@ -252,20 +226,32 @@ export function NotificationsPage() {
       </div>
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
-      {q.data?.items.map((d) => (
-        <Link
-          key={d.id}
-          className="panel list-option"
-          to={`/admin/notifications/${d.id}`}
-        >
-          <span>
-            {d.card.title} · {d.chat_name}
-          </span>
-          <Status value={d.state} />
-          <span>{date(d.created_at)}</span>
-        </Link>
-      ))}
-      {q.data && !q.data.items.length && <Empty>暂无通知。</Empty>}
+      <Table
+        className="data-table"
+        rowKey="id"
+        pagination={false}
+        dataSource={q.data?.items ?? []}
+        loading={q.isPending}
+        empty={<Empty>暂无通知。</Empty>}
+        scroll={{ x: 640 }}
+        columns={[
+          {
+            title: "通知",
+            render: (_, delivery) => (
+              <Link to={`/admin/notifications/${delivery.id}`}>
+                {delivery.card.title}
+              </Link>
+            ),
+          },
+          { title: "接收群", dataIndex: "chat_name" },
+          {
+            title: "状态",
+            dataIndex: "state",
+            render: (value) => <Status value={value} />,
+          },
+          { title: "创建时间", dataIndex: "created_at", render: date },
+        ]}
+      />
       <Pager data={q.data} {...filters} />
     </>
   );
@@ -293,7 +279,7 @@ export function NotificationPage() {
       {cmd.feedback}
       <TaskNotice task={task} />
       <div className="two-columns">
-        <section className="panel">
+        <Panel className="panel">
           <h2>{d.chat_name}</h2>
           <Status value={d.state} />
           <dl>
@@ -305,18 +291,18 @@ export function NotificationPage() {
             <dd className="mono">{d.provider_message_id ?? "—"}</dd>
           </dl>
           {d.error_message && (
-            <p className="notice error">
+            <Notice className="notice error">
               {d.error_code}：{d.error_message}
-            </p>
+            </Notice>
           )}
           {d.state === "unknown" && (
             <Check
               label="我确认重试可能产生重复通知"
               checked={ack}
-              onChange={(e) => setAck(e.target.checked)}
+              onChange={(e) => setAck(!!e.target.checked)}
             />
           )}
-          <button
+          <Button
             disabled={
               cmd.pending || !d.can_retry || (d.state === "unknown" && !ack)
             }
@@ -335,14 +321,14 @@ export function NotificationPage() {
             }
           >
             重试发送
-          </button>
+          </Button>
           {d.event_id && (
             <p>
               <Link to={`/admin/events/${d.event_id}`}>查看构建事件</Link>
             </p>
           )}
-        </section>
-        <section className="panel notification-preview">
+        </Panel>
+        <Panel className="panel notification-preview">
           <p className="eyebrow">通知卡片内容</p>
           <h2>{d.card.title}</h2>
           <p>{d.card.summary}</p>
@@ -360,7 +346,7 @@ export function NotificationPage() {
               <a href={d.card.page_url}>查看分发页面</a>
             </p>
           )}
-        </section>
+        </Panel>
       </div>
     </>
   );
@@ -422,43 +408,46 @@ export function AuditPage() {
       </div>
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
-      <div className="table-wrap panel">
-        <table>
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>操作者</th>
-              <th>操作 / 对象</th>
-              <th>结果</th>
-              <th>摘要</th>
-            </tr>
-          </thead>
-          <tbody>
-            {q.data?.items.map((e) => (
-              <tr key={e.id}>
-                <td>{date(e.occurred_at)}</td>
-                <td>{e.actor_kind}</td>
-                <td>
-                  {e.action}
-                  <small>
-                    {e.resource_type} · {e.resource_id}
-                  </small>
-                </td>
-                <td>
-                  <Status value={e.outcome} />
-                </td>
-                <td>
-                  {e.summary}
-                  <small>请求 {e.request_id}</small>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {q.data && !q.data.items.length && (
-          <Empty>暂无符合条件的审计记录。</Empty>
-        )}
-      </div>
+      <Table
+        className="data-table"
+        rowKey="id"
+        pagination={false}
+        loading={q.isPending}
+        dataSource={q.data?.items ?? []}
+        empty={<Empty>暂无符合条件的审计记录。</Empty>}
+        scroll={{ x: 900 }}
+        columns={[
+          { title: "时间", dataIndex: "occurred_at", width: 190, render: date },
+          { title: "操作者", dataIndex: "actor_kind", width: 110 },
+          {
+            title: "操作 / 对象",
+            width: 250,
+            render: (_, event) => (
+              <>
+                {event.action}
+                <small>
+                  {event.resource_type} · {event.resource_id}
+                </small>
+              </>
+            ),
+          },
+          {
+            title: "结果",
+            dataIndex: "outcome",
+            width: 100,
+            render: (value) => <Status value={value} />,
+          },
+          {
+            title: "摘要",
+            render: (_, event) => (
+              <>
+                {event.summary}
+                <small>请求 {event.request_id}</small>
+              </>
+            ),
+          },
+        ]}
+      />
       <Pager data={q.data} {...filters} />
     </>
   );
@@ -482,24 +471,12 @@ function CacheEditor({ cache: c }: { cache: DTO<"CacheSettings"> }) {
       </Title>
       {cmd.feedback}
       <TaskNotice task={task} />
-      <section className="panel">
+      <Panel className="panel">
         <div className="health-grid">
-          <div>
-            <h3>已使用</h3>
-            {size(c.used_bytes)}
-          </div>
-          <div>
-            <h3>已预留</h3>
-            {size(c.reserved_bytes)}
-          </div>
-          <div>
-            <h3>磁盘可用</h3>
-            {size(c.free_disk_bytes)}
-          </div>
-          <div>
-            <h3>活动租约</h3>
-            {c.active_leases}
-          </div>
+          <Metric title="已使用" value={size(c.used_bytes)} />
+          <Metric title="已预留" value={size(c.reserved_bytes)} />
+          <Metric title="磁盘可用" value={size(c.free_disk_bytes)} />
+          <Metric title="活动租约" value={c.active_leases} />
         </div>
         <Form
           submit={(f) =>
@@ -562,12 +539,12 @@ function CacheEditor({ cache: c }: { cache: DTO<"CacheSettings"> }) {
             defaultValue={c.download_concurrency}
             required
           />
-          <button className="primary" disabled={cmd.pending}>
+          <Button className="primary" disabled={cmd.pending}>
             保存缓存策略
-          </button>
+          </Button>
         </Form>
         <div className="toolbar">
-          <button
+          <Button
             disabled={cmd.pending}
             onClick={() =>
               void cmd.run(
@@ -584,13 +561,13 @@ function CacheEditor({ cache: c }: { cache: DTO<"CacheSettings"> }) {
             }
           >
             清理过期缓存
-          </button>
-          <button
+          </Button>
+          <Button
             className="danger"
             disabled={cmd.pending}
-            onClick={() => {
+            onClick={async () => {
               if (
-                window.confirm(
+                await confirmAction(
                   "清理全部无活动租约的缓存？下一次下载需要重新缓存。",
                 )
               )
@@ -608,9 +585,9 @@ function CacheEditor({ cache: c }: { cache: DTO<"CacheSettings"> }) {
             }}
           >
             清理可释放缓存
-          </button>
+          </Button>
         </div>
-      </section>
+      </Panel>
     </>
   );
 }

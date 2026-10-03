@@ -1,3 +1,5 @@
+import { confirmAction } from "../../shared/ui/confirm";
+import { Button, Panel, Input, Notice } from "../../shared/ui/controls";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { read, write, type DTO } from "../../shared/api/http";
@@ -42,19 +44,19 @@ export function ChatPicker({
       <p className="muted">
         已选择 {selected.length} 个群；跨搜索与分页保留选择。
         {selected.length > 0 && (
-          <button type="button" onClick={() => onChange([])}>
+          <Button type="button" onClick={() => onChange([])}>
             清空选择
-          </button>
+          </Button>
         )}
       </p>
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
       {q.data && (
-        <p>
+        <div className="prose">
           同步：
           <Status value={q.data.sync_state} /> · {date(q.data.synced_at)}{" "}
           {q.data.sync_error_code}
-        </p>
+        </div>
       )}
       <div className="chat-list">
         {q.data?.items.map((chat) => (
@@ -101,14 +103,14 @@ function FeishuEditor({ config: c }: { config: DTO<"FeishuConfig"> }) {
       <Title description="每个部署绑定一个飞书租户；SSO 与通知机器人复用同一个企业自建应用。">
         飞书集成
       </Title>
-      <section className="panel">
+      <Panel className="panel">
         <h2>1. 企业自建应用</h2>
         <p>
           在飞书开放平台创建企业自建应用，配置网页登录回调、启用机器人，并将应用发布到需要的可用范围。
         </p>
         <label className="field">
           OAuth 回调地址
-          <input readOnly value={c.callback_url} />
+          <Input readOnly value={c.callback_url} />
         </label>
         <p>
           租户：{c.tenant_key ?? "尚未绑定"} ·{" "}
@@ -155,11 +157,11 @@ function FeishuEditor({ config: c }: { config: DTO<"FeishuConfig"> }) {
             label="启用飞书 SSO"
             defaultChecked={c.enabled}
           />
-          <button className="primary" disabled={cmd.pending}>
+          <Button className="primary" disabled={cmd.pending}>
             保存应用配置
-          </button>
+          </Button>
         </Form>
-        <button
+        <Button
           disabled={cmd.pending}
           onClick={() =>
             void cmd.run(
@@ -170,16 +172,16 @@ function FeishuEditor({ config: c }: { config: DTO<"FeishuConfig"> }) {
           }
         >
           测试应用凭据
-        </button>
+        </Button>
         <Checks checks={result?.checks ?? c.checks} />
-      </section>
-      <section className="panel">
+      </Panel>
+      <Panel className="panel">
         <h2>2. 管理员验证租户</h2>
         <p>
           使用候选应用进行飞书授权，返回此页面后读取验证结果并确认绑定。管理员会话将保留。
         </p>
         <div className="toolbar">
-          <button
+          <Button
             disabled={cmd.pending || !c.app_id || !c.has_secret}
             onClick={() =>
               void cmd.run(
@@ -193,8 +195,8 @@ function FeishuEditor({ config: c }: { config: DTO<"FeishuConfig"> }) {
             }
           >
             开始飞书验证
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={cmd.pending}
             onClick={() =>
               void cmd.run(
@@ -205,17 +207,17 @@ function FeishuEditor({ config: c }: { config: DTO<"FeishuConfig"> }) {
             }
           >
             读取返回的验证结果
-          </button>
+          </Button>
         </div>
         {proof && (
-          <div className="notice">
+          <Notice className="notice">
             <p>
               应用：{proof.app_id} · 租户：{proof.tenant_key}
             </p>
             <p>
               验证人：{proof.display_name} · 过期时间：{date(proof.expires_at)}
             </p>
-            <button
+            <Button
               className="primary"
               disabled={cmd.pending || proof.consumed}
               onClick={() =>
@@ -230,10 +232,10 @@ function FeishuEditor({ config: c }: { config: DTO<"FeishuConfig"> }) {
               }
             >
               确认绑定此租户
-            </button>
-          </div>
+            </Button>
+          </Notice>
         )}
-      </section>
+      </Panel>
       <BotSection />
     </>
   );
@@ -248,7 +250,7 @@ function BotSection() {
   const [task, setTask] = useState<DTO<"TaskAccepted">>();
   const [result, setResult] = useState<DTO<"ConnectionTestResult">>();
   return (
-    <section className="panel">
+    <Panel className="panel">
       <h2>3. 单机器人与通知群</h2>
       <ErrorBox error={q.error} />
       {cmd.feedback}
@@ -261,7 +263,7 @@ function BotSection() {
             {q.data.verified ? "已验证" : "待验证"}
           </p>
           <div className="toolbar">
-            <button
+            <Button
               disabled={cmd.pending}
               onClick={() =>
                 void cmd.run("bot-enabled", () =>
@@ -275,8 +277,8 @@ function BotSection() {
               }
             >
               {q.data.enabled ? "停用机器人" : "启用机器人"}
-            </button>
-            <button
+            </Button>
+            <Button
               disabled={cmd.pending}
               onClick={() =>
                 void cmd.run(
@@ -292,8 +294,8 @@ function BotSection() {
               }
             >
               检查机器人能力
-            </button>
-            <button
+            </Button>
+            <Button
               disabled={cmd.pending}
               onClick={() =>
                 void cmd.run(
@@ -310,17 +312,19 @@ function BotSection() {
               }
             >
               同步所在群聊
-            </button>
+            </Button>
           </div>
           <Checks checks={result?.checks ?? q.data.checks} />
         </>
       )}
       <ChatPicker selected={selected} onChange={setSelected} />
-      <button
+      <Button
         className="primary"
         disabled={cmd.pending || !selected.length}
-        onClick={() => {
-          if (window.confirm(`向所选 ${selected.length} 个群发送测试卡片？`))
+        onClick={async () => {
+          if (
+            await confirmAction(`向所选 ${selected.length} 个群发送测试卡片？`)
+          )
             void cmd.run(
               `bot-message-${selected.join(",")}`,
               (key) =>
@@ -335,10 +339,10 @@ function BotSection() {
         }}
       >
         发送测试卡片到所选群
-      </button>
+      </Button>
       <p className="muted">
         发送结果记录在通知中心。群名单仅包含机器人所在群。
       </p>
-    </section>
+    </Panel>
   );
 }

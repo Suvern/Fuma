@@ -235,12 +235,12 @@ describe("M1 页面关键流程", () => {
       await screen.findByRole("button", { name: "获取下载链接" }),
     );
     expect(
-      await screen.findByRole("link", { name: "下载 0.0 MB" }),
+      await screen.findByRole("link", { name: "下载 1.0 KB" }),
     ).toBeTruthy();
     expect(
       await screen.findByRole("button", { name: "链接已过期，重新获取" }),
     ).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "下载 0.0 MB" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "下载 1.0 KB" })).toBeNull();
   });
   it("冷缓存202就绪后重新授权才给出普通下载链接", async () => {
     downloadReads();
@@ -260,9 +260,9 @@ describe("M1 页面关键流程", () => {
     expect(
       await screen.findByText("文件已准备好，请再次获取临时下载链接。"),
     ).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /下载 0.0 MB/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /下载 1.0 KB/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "获取临时下载链接" }));
-    const link = await screen.findByRole("link", { name: "下载 0.0 MB" });
+    const link = await screen.findByRole("link", { name: "下载 1.0 KB" });
     expect(link.getAttribute("href")).toContain("/api/v1/downloads/test-grant");
     expect(link.getAttribute("download")).toBe("demo.apk");
     expect(vi.mocked(write).mock.calls[0]?.[3]?.key).not.toEqual(

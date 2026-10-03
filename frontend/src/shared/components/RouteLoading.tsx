@@ -1,3 +1,9 @@
+import { Loading } from "../ui/common";
+
 export function RouteLoading() {
-  return <main><p>正在打开页面…</p></main>
+  return (
+    <main>
+      <Loading />
+    </main>
+  );
 }

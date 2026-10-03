@@ -17,26 +17,34 @@ pnpm check:api
 
 生产 [Dockerfile](Dockerfile) 将 `pnpm build` 结果交给 Caddy，使用同一域名提供 SPA 与 `/api` 反向代理；缓存文件不复制到静态目录。镜像构建及部署尚未验证，步骤见[部署文档](../docs/deployment.md)。
 
+## 界面规范
+
+前后台统一使用 Semi Design 默认主题，React 19 对应 `@douyinfe/semi-ui-19`，图标来自 `@douyinfe/semi-icons`。颜色、圆角与字体使用 Semi tokens；`src/app/styles.css` 仅维护布局、响应式和业务内容排列，不覆盖组件的设计语言。
+
+组件按路径导入，入口加载 Semi 基础主题；业务路由按需加载。共用控件位于 `src/shared/ui/`：保留原生 FormData、约束校验、只读和提交语义，渲染 Semi Input / Checkbox / Button；弹窗、确认、导航、筛选、分页及数据表使用 Semi 组件。移动端使用 SideSheet 导航与可滚动表格。
+
+仓库绑定使用远程搜索 Select，300ms 防抖，支持分页追加、空结果、错误重试、键盘选择及手动填写。连接 ID 和搜索条件隔离查询缓存，切换连接清空仓库选择，并将 AbortSignal 传给请求；只有点击「验证并绑定」才保存。测试覆盖迟到响应、分页选择、失败重试和旧选择不遮挡空结果。
+
 ## 页面
 
-| 路由 | 功能 |
-| --- | --- |
-| `/login` | 使用启动日志中的随机初始密码登录 admin、飞书错误返回 |
-| `/`、`/apps/:id` | 飞书身份守卫、App 目录、搜索和平台过滤、Debug 列表 |
-| `/debug/:id` | 文件与版本详情、缓存准备、临时下载、有效期、固定页面分享和二维码 |
-| `/admin` | 服务健康、Worker / Scheduler 心跳、模块入口 |
-| `/admin/apps`、`/admin/apps/:id` | App 创建、编辑、启停、删除、平台与仓库绑定 |
-| `/admin/connectors` | GitHub PAT 创建与替换、测试 Contents / Actions 权限、启停和删除 |
-| `/admin/apps/:id/releases` | 完整同步快照检索、Tag / 预发布 / 文件筛选、批量选择安装包 |
-| `/admin/apps/:id/debug`、`/admin/debug/:id` | Debug 条目与来源快照、启停、缓存与重试 |
-| `/admin/settings/feishu` | 自建应用配置、管理员 OAuth 绑定证明、单机器人、所在群分页搜索、测试卡片 |
-| `/admin/apps/:id/actions` | workflow / ref / 文件规则、选择群、CI token 签发 / 轮换 / 撤销 |
-| `/admin/apps/:id/events`、`/admin/events/:id` | 构建状态、逐阶段和逐文件结果、失败阶段重试 |
-| `/admin/notifications`、`/admin/notifications/:id` | 群通知、卡片内容、投递结果与明确确认后的未知结果重试 |
-| `/admin/tasks`、`/admin/tasks/:id` | 任务查询、轮询、错误与重试 |
-| `/admin/audit` | 按关键词、操作和时间范围查询审计摘要 |
-| `/admin/settings/cache` | 缓存预算、临时链接 TTL、并发与安全清理 |
-| `/admin/settings/account` | 首次登录强制改密、密码修改、撤销旧会话并轮换当前会话 |
+| 路由                                               | 功能                                                                    |
+| -------------------------------------------------- | ----------------------------------------------------------------------- |
+| `/login`                                           | 使用启动日志中的随机初始密码登录 admin、飞书错误返回                    |
+| `/`、`/apps/:id`                                   | 飞书身份守卫、App 目录、搜索和平台过滤、Debug 列表                      |
+| `/debug/:id`                                       | 文件与版本详情、缓存准备、临时下载、有效期、固定页面分享和二维码        |
+| `/admin`                                           | 服务健康、Worker / Scheduler 心跳、模块入口                             |
+| `/admin/apps`、`/admin/apps/:id`                   | App 创建、编辑、启停、删除、平台与仓库绑定                              |
+| `/admin/connectors`                                | GitHub PAT 创建与替换、测试 Contents / Actions 权限、启停和删除         |
+| `/admin/apps/:id/releases`                         | 完整同步快照检索、Tag / 预发布 / 文件筛选、批量选择安装包               |
+| `/admin/apps/:id/debug`、`/admin/debug/:id`        | Debug 条目与来源快照、启停、缓存与重试                                  |
+| `/admin/settings/feishu`                           | 自建应用配置、管理员 OAuth 绑定证明、单机器人、所在群分页搜索、测试卡片 |
+| `/admin/apps/:id/actions`                          | workflow / ref / 文件规则、选择群、CI token 签发 / 轮换 / 撤销          |
+| `/admin/apps/:id/events`、`/admin/events/:id`      | 构建状态、逐阶段和逐文件结果、失败阶段重试                              |
+| `/admin/notifications`、`/admin/notifications/:id` | 群通知、卡片内容、投递结果与明确确认后的未知结果重试                    |
+| `/admin/tasks`、`/admin/tasks/:id`                 | 任务查询、轮询、错误与重试                                              |
+| `/admin/audit`                                     | 按关键词、操作和时间范围查询审计摘要                                    |
+| `/admin/settings/cache`                            | 缓存预算、临时链接 TTL、并发与安全清理                                  |
+| `/admin/settings/account`                          | 首次登录强制改密、密码修改、撤销旧会话并轮换当前会话                    |
 
 ## 代码组织
 

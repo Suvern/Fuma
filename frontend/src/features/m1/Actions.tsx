@@ -1,3 +1,15 @@
+import { confirmAction } from "../../shared/ui/confirm";
+import Select from "@douyinfe/semi-ui-19/lib/es/select";
+import Table from "@douyinfe/semi-ui-19/lib/es/table";
+import {
+  PageTabs,
+  Disclosure,
+  Notice,
+  Input,
+  Button,
+  Panel,
+  Badge,
+} from "../../shared/ui/controls";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
@@ -37,14 +49,13 @@ export function ActionsPage() {
       <Title description="只接受可信仓库、workflow 和 ref 的回调；构建结束且文件就绪后通知所选群。">
         GitHub Actions
       </Title>
-      <nav className="tabs">
+      <PageTabs className="tabs">
         <Link to={`/admin/apps/${id}`}>应用设置</Link>
         <Link to={`/admin/apps/${id}/events`}>查看构建事件</Link>
-      </nav>
-      <details className="panel">
-        <summary>＋ 新建分发规则</summary>
+      </PageTabs>
+      <Disclosure title={<>＋ 新建分发规则</>} className="panel">
         <RuleForm appId={id} />
-      </details>
+      </Disclosure>
       {filters.search}
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
@@ -59,20 +70,20 @@ export function ActionsPage() {
 function OneTimeToken({ token, close }: { token: string; close: () => void }) {
   const [copyStatus, setCopyStatus] = useState("");
   return (
-    <div role="status" className="notice">
+    <Notice role="status" className="notice">
       <strong>令牌仅显示一次</strong>
       <p>
         复制到 GitHub Actions Secret
         FUMA_CI_TOKEN。页面关闭后无法再次查看；不要写入仓库或日志。
       </p>
-      <input
+      <Input
         aria-label="一次性 CI 令牌"
         type="password"
         readOnly
         value={token}
         onFocus={(e) => e.target.select()}
       />
-      <button
+      <Button
         type="button"
         onClick={() => {
           void navigator.clipboard.writeText(token).then(
@@ -83,12 +94,12 @@ function OneTimeToken({ token, close }: { token: string; close: () => void }) {
         }}
       >
         复制令牌
-      </button>
+      </Button>
       {copyStatus && <p role="status">{copyStatus}</p>}
-      <button type="button" onClick={close}>
+      <Button type="button" onClick={close}>
         已保存，隐藏令牌
-      </button>
-    </div>
+      </Button>
+    </Notice>
   );
 }
 function RuleForm({
@@ -149,7 +160,9 @@ function RuleForm({
           label="Workflow 路径"
           defaultValue={rule?.workflow_path ?? ".github/workflows/build.yml"}
           required
-          pattern="\.github/workflows/[^/]+\.ya?ml"
+          pattern={String.raw`\.github/workflows/[^\/]+\.ya?ml`}
+          validationMessage="请填写 .github/workflows/ 下的 .yml 或 .yaml 文件路径。"
+          help="例如 .github/workflows/build.yml。"
         />
         <Field
           name="allowed_branches"
@@ -173,9 +186,9 @@ function RuleForm({
           name="enabled"
           defaultChecked={rule?.enabled ?? true}
         />
-        <button className="primary" disabled={cmd.pending || !selected.length}>
+        <Button className="primary" disabled={cmd.pending || !selected.length}>
           {rule ? "保存规则" : "创建规则并签发令牌"}
-        </button>
+        </Button>
       </Form>
       <p className="muted">
         签发令牌需要近期管理员登录。若请求超时，请先刷新规则列表确认结果，再决定是否轮换，避免重复创建。
@@ -187,10 +200,10 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
   const cmd = useCommand();
   const [token, setToken] = useState("");
   return (
-    <section className="panel">
+    <Panel className="panel">
       <div className="section-heading">
         <h2>{r.name}</h2>
-        <span className="badge">{r.enabled ? "已启用" : "已停用"}</span>
+        <Badge className="badge">{r.enabled ? "已启用" : "已停用"}</Badge>
       </div>
       <p>
         {r.repository_full_name} · {r.workflow_path}
@@ -200,15 +213,13 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
       </p>
       {cmd.feedback}
       {token && <OneTimeToken token={token} close={() => setToken("")} />}
-      <details>
-        <summary>编辑规则与通知群</summary>
+      <Disclosure title={<>编辑规则与通知群</>}>
         <RuleForm key={r.revision} appId={r.app_id} rule={r} />
-      </details>
-      <details>
-        <summary>接入信息</summary>
+      </Disclosure>
+      <Disclosure title={<>接入信息</>}>
         <label className="field">
           回调 URL
-          <input value={r.callback_url} readOnly />
+          <Input value={r.callback_url} readOnly />
         </label>
         <p>
           在构建流程上传 Release 安装包后 POST 回调，Authorization 使用 Bearer
@@ -232,12 +243,12 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
           字段须来自 GitHub Actions 上下文和已上传 Release 的结果，回调不接收
           URL 或群参数。
         </p>
-      </details>
+      </Disclosure>
       <div className="toolbar">
-        <button
+        <Button
           disabled={cmd.pending}
-          onClick={() => {
-            if (window.confirm("轮换后旧令牌立即失效，继续？"))
+          onClick={async () => {
+            if (await confirmAction("轮换后旧令牌立即失效，继续？"))
               void cmd.run(
                 "token-rotate",
                 () =>
@@ -252,11 +263,11 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
           }}
         >
           轮换令牌
-        </button>
-        <button
+        </Button>
+        <Button
           disabled={cmd.pending || !r.has_token}
-          onClick={() => {
-            if (window.confirm("撤销此规则的 CI 令牌？"))
+          onClick={async () => {
+            if (await confirmAction("撤销此规则的 CI 令牌？"))
               void cmd.run("token-revoke", () =>
                 write(
                   "/api/v1/actions-rules/{id}/token/revoke",
@@ -268,12 +279,12 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
           }}
         >
           撤销令牌
-        </button>
-        <button
+        </Button>
+        <Button
           className="danger"
           disabled={cmd.pending}
-          onClick={() => {
-            if (window.confirm("删除此规则并撤销令牌？历史事件保留。"))
+          onClick={async () => {
+            if (await confirmAction("删除此规则并撤销令牌？历史事件保留。"))
               void cmd.run("rule-delete", () =>
                 write("/api/v1/actions-rules/{id}", "delete", undefined, {
                   id: r.id,
@@ -283,9 +294,9 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
           }}
         >
           删除规则
-        </button>
+        </Button>
       </div>
-    </section>
+    </Panel>
   );
 }
 export function BuildEventsPage() {
@@ -308,19 +319,21 @@ export function BuildEventsPage() {
   return (
     <>
       <Title>构建事件</Title>
-      <Link to={`/admin/apps/${id}/actions`}>← Actions 规则</Link>
+      <PageTabs />
       <div className="toolbar">
         {filters.search}
         <label>
-          状态
-          <select
+          <span id="build-state-label">状态</span>
+          <Select
+            aria-labelledby="build-state-label"
+            style={{ minWidth: 160 }}
             value={state}
-            onChange={(e) => {
-              setState(e.target.value);
+            onChange={(value) => {
+              setState(String(value ?? ""));
               filters.setPage(1);
             }}
           >
-            <option value="">全部</option>
+            <Select.Option value="">全部</Select.Option>
             {[
               "received",
               "verifying",
@@ -332,29 +345,39 @@ export function BuildEventsPage() {
               "failed",
               "unknown",
             ].map((s) => (
-              <option key={s} value={s}>
+              <Select.Option key={s} value={s}>
                 {labels[s] ?? s}
-              </option>
+              </Select.Option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
-      {q.data?.items.map((e) => (
-        <Link
-          className="panel list-option"
-          to={`/admin/events/${e.id}`}
-          key={e.id}
-        >
-          <span>
-            Run #{e.run_id} / Attempt {e.run_attempt}
-          </span>
-          <Status value={e.state} />
-          <span>{date(e.created_at)}</span>
-        </Link>
-      ))}
-      {q.data && !q.data.items.length && <Empty>尚未收到构建回调。</Empty>}
+      <Table
+        className="data-table"
+        rowKey="id"
+        pagination={false}
+        dataSource={q.data?.items ?? []}
+        loading={q.isPending}
+        empty={<Empty>尚未收到构建回调。</Empty>}
+        scroll={{ x: 640 }}
+        columns={[
+          {
+            title: "构建",
+            render: (_, event) => (
+              <Link to={`/admin/events/${event.id}`}>Run #{event.run_id}</Link>
+            ),
+          },
+          { title: "尝试次数", dataIndex: "run_attempt" },
+          {
+            title: "状态",
+            dataIndex: "state",
+            render: (value) => <Status value={value} />,
+          },
+          { title: "创建时间", dataIndex: "created_at", render: date },
+        ]}
+      />
       <Pager data={q.data} {...filters} />
     </>
   );
@@ -377,7 +400,7 @@ export function BuildEventPage() {
       <Link to={`/admin/apps/${e.app_id}/events`}>← 构建事件</Link>
       {cmd.feedback}
       <TaskNotice task={task} />
-      <section className="panel">
+      <Panel className="panel">
         <Status value={e.state} />
         <dl>
           <dt>Attempt</dt>
@@ -400,7 +423,7 @@ export function BuildEventPage() {
               </p>
             )}
             {e.retryable_stages.includes(s.name) && (
-              <button
+              <Button
                 disabled={cmd.pending}
                 onClick={() =>
                   void cmd.run(
@@ -417,28 +440,28 @@ export function BuildEventPage() {
                 }
               >
                 重试此阶段
-              </button>
+              </Button>
             )}
           </div>
         ))}
         <h2>安装包结果</h2>
         {e.assets.map((a) => (
-          <p key={a.asset_id}>
+          <div className="prose" key={a.asset_id}>
             {a.file_name ?? a.asset_id} <Status value={a.state} />{" "}
             {a.error_code}{" "}
             {a.entry_id && (
               <Link to={`/admin/debug/${a.entry_id}`}>查看条目</Link>
             )}
-          </p>
+          </div>
         ))}
         <h2>通知结果</h2>
         {e.deliveries.map((d) => (
-          <p key={d.id}>
+          <div className="prose" key={d.id}>
             <Link to={`/admin/notifications/${d.id}`}>{d.chat_name}</Link>{" "}
             <Status value={d.state} />
-          </p>
+          </div>
         ))}
-      </section>
+      </Panel>
     </>
   );
 }
