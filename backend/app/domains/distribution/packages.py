@@ -13,6 +13,7 @@ from sqlalchemy.orm import object_session
 
 from app.core.errors import AppError
 from app.domains.applications.models import AppRecord
+from app.domains.applications.service import platform_enabled, require_platform_enabled
 from app.domains.auth.service import utcnow
 from app.domains.distribution.models import CacheRecord, DebugRecord, GrantRecord, TransferLease
 from app.domains.distribution.service import RetryLater, digest, enqueue, lock, state
@@ -226,19 +227,25 @@ def entry_dto(row, settings):
         "mode": "debug",
         "cache": cache_status(row),
         "version_label_source": "manual" if row.version_name else "tag",
+        "persistent_package_id": row.persistent_package_id,
         "page_url": settings.site_url + f"/debug/{row.id}",
     }
 
 
 def catalog_app(db, app):
+    platforms = [p for p in app.platforms if platform_enabled(app, p)]
     count = db.scalar(
         select(func.count())
         .select_from(DebugRecord)
-        .where(DebugRecord.app_id == app.id, DebugRecord.enabled.is_(True))
+        .where(
+            DebugRecord.app_id == app.id,
+            DebugRecord.enabled.is_(True),
+            DebugRecord.platform.in_(platforms),
+        )
     )
     return {
         n: getattr(app, n) for n in ("id", "name", "public_slug", "description", "platforms")
-    } | {"debug_entry_count": count}
+    } | {"debug_entry_count": count, "platforms": platforms}
 
 
 def catalog_entry(db, row, settings):
@@ -329,6 +336,7 @@ def create_verified_entries(db, app, payload, settings, repo, release, assets):
         )
         if platform is None or choice["platform"] != platform or platform not in app.platforms:
             raise AppError(422, "UNSUPPORTED_PACKAGE", "附件类型与 App 平台不匹配")
+        require_platform_enabled(app, platform)
         if asset["size"] <= 0 or asset["size"] > limit:
             raise AppError(422, "FILE_SIZE_EXCEEDED", "文件大小超过当前缓存限制")
         snapshot = source_snapshot(repo, release, asset)
@@ -449,6 +457,8 @@ def _source_client(db, entry, settings):
     peers.sort(key=lambda peer: peer.id != entry.id)
     last_error = AppError(409, "SOURCE_NOT_AVAILABLE", "没有启用的安装包来源")
     for peer in peers:
+        if not platform_enabled(db.get(AppRecord, peer.app_id), peer.platform):
+            continue
         api = None
         try:
             api = get_github_client(db, peer.connector_id, settings)

@@ -171,6 +171,7 @@ export function ConnectorsPage() {
         <Pager data={q.data} page={page} setPage={setPage} />
       )}
       <PermissionGuide />
+      <GitHubAppSetup />
       <Dialog
         open={creating}
         busy={saving}
@@ -270,21 +271,23 @@ function ConnectorForm({
             placeholder="例如：团队发布仓库"
             autoFocus
           />
-          <Field
-            label={connector ? "替换令牌（可选）" : "GitHub 令牌（PAT）"}
-            name="token"
-            type="password"
-            required={!connector}
-            minLength={16}
-            maxLength={4096}
-            autoComplete="off"
-            spellCheck={false}
-            help={
-              connector
-                ? "留空保留现有令牌。新令牌通过身份验证后才会替换。"
-                : "至少 16 个字符。需要 Contents 读取权限。"
-            }
-          />
+          {connector?.auth_kind !== "github_app" && (
+            <Field
+              label={connector ? "替换令牌（可选）" : "GitHub 令牌（PAT）"}
+              name="token"
+              type="password"
+              required={!connector}
+              minLength={16}
+              maxLength={4096}
+              autoComplete="off"
+              spellCheck={false}
+              help={
+                connector
+                  ? "留空保留现有令牌。新令牌通过身份验证后才会替换。"
+                  : "至少 16 个字符。需要 Contents 读取权限。"
+              }
+            />
+          )}
           {connector && (
             <div>
               <Check
@@ -542,6 +545,7 @@ function ConnectorCard({
           </ul>
         </div>
       </div>
+      {c.auth_kind === "github_app" && <GitHubAppSetup connector={c} />}
       <Dialog
         open={editing}
         busy={saving}
@@ -677,5 +681,100 @@ function Diagnostic({
         )}
       </div>
     </li>
+  );
+}
+
+function GitHubAppSetup({ connector }: { connector?: DTO<"Connector"> }) {
+  const cmd = useCommand();
+  const [formKey, setFormKey] = useState(0);
+  return (
+    <Panel>
+      <details>
+        <summary>
+          {connector ? "轮换 GitHub App 私钥" : "通过 GitHub App 安装授权接入"}
+        </summary>
+        <p>
+          在 GitHub 创建自己的 App，为目标仓库授予 Contents · Read-only 和
+          Actions · Read-only，并完成安装。这里填入 App ID、安装 ID 与 RSA
+          私钥；后台按需签发短效安装令牌，不会向浏览器返回私钥或令牌。
+        </p>
+        <a
+          href="https://github.com/settings/apps"
+          target="_blank"
+          rel="noreferrer"
+        >
+          打开 GitHub App 设置
+        </a>
+        {cmd.feedback}
+        <Form
+          key={formKey}
+          submit={(form) =>
+            void cmd.run(
+              "github-app-save",
+              () => {
+                const values = {
+                  app_id: connector?.app_id || text(form, "app_id"),
+                  installation_id:
+                    connector?.installation_id || text(form, "installation_id"),
+                  private_key: text(form, "private_key"),
+                };
+                return connector
+                  ? write(
+                      "/api/v1/connectors/github/{id}/app-credentials",
+                      "put",
+                      values,
+                      { id: connector.id, revision: connector.revision },
+                    )
+                  : write("/api/v1/connectors/github-app", "post", {
+                      name: text(form, "name"),
+                      ...values,
+                    });
+              },
+              () => setFormKey((k) => k + 1),
+              "安装身份验证通过，配置已保存。请继续检查目标仓库权限。",
+            )
+          }
+        >
+          {!connector && (
+            <>
+              <Field name="name" label="连接名称" required maxLength={100} />
+              <Field
+                name="app_id"
+                label="GitHub App ID"
+                required
+                pattern="[0-9]+"
+              />
+              <Field
+                name="installation_id"
+                label="Installation ID（安装页面地址末尾的数字）"
+                required
+                pattern="[0-9]+"
+              />
+            </>
+          )}
+          {connector && (
+            <p>
+              App {connector.app_id} · 安装 {connector.installation_id}
+            </p>
+          )}
+          <label>
+            RSA 私钥 PEM
+            <textarea
+              name="private_key"
+              autoComplete="off"
+              spellCheck={false}
+              required
+              minLength={100}
+              maxLength={20000}
+              rows={4}
+            />
+          </label>
+          <p>仅在此处粘贴，保存后清空。新私钥验证失败时保留原配置。</p>
+          <Button className="primary" disabled={cmd.pending}>
+            验证并保存
+          </Button>
+        </Form>
+      </details>
+    </Panel>
   );
 }

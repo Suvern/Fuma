@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from app.core.errors import AppError
 from app.domains.applications.models import AppRecord
+from app.domains.applications.service import platform_enabled
 from app.domains.audit.service import record_audit
 from app.domains.auth.service import utcnow
 from app.domains.distribution.models import DebugRecord, TaskRecord
@@ -127,7 +128,7 @@ def match_snapshot(db, app, rules):
             if not (
                 release_matches
                 and asset["supported"]
-                and asset["platform"] in app.platforms
+                and platform_enabled(app, asset["platform"])
                 and 0 < asset["size_bytes"] <= max_size
                 and any(fnmatchcase(asset["name"], p) for p in rules["asset_patterns"])
                 and not any(fnmatchcase(asset["name"], p) for p in rules["exclude_patterns"])

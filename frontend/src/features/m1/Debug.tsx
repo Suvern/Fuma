@@ -1,3 +1,4 @@
+import { LegacyPersistence } from "../library/GitHubImport";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import Progress from "@douyinfe/semi-ui-19/lib/es/progress";
 import {
@@ -217,6 +218,7 @@ export function DebugAdminPage() {
         <p className="muted">分享固定分发页面；访问及下载仍需飞书身份验证。</p>
         <SharePage url={e.page_url} />
       </Panel>
+      <LegacyPersistence entry={e} />
     </>
   );
 }

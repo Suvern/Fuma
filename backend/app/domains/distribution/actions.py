@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.api.contracts import ActionsRule, BuildEvent
 from app.core.errors import AppError
 from app.domains.applications.models import AppRecord
+from app.domains.applications.service import platform_enabled
 from app.domains.auth.service import utcnow
 from app.domains.distribution.feishu import create_delivery, delivery_dto, validate_chats
 from app.domains.distribution.models import DebugRecord, DeliveryRecord, EventRecord, RuleRecord
@@ -261,7 +262,7 @@ def process_event(db, settings, event_id):
                 except AppError as exc:
                     result.update(state="failed", error_code=exc.code, file_name=asset["name"])
                     continue
-            if entry is None or not entry.enabled:
+            if entry is None or not entry.enabled or not platform_enabled(app, entry.platform):
                 result.update(state="failed", error_code="RESOURCE_NOT_AVAILABLE")
             elif entry.cache_state == "ready":
                 result.update(state="ready", error_code=None)

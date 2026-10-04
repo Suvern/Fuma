@@ -869,3 +869,64 @@ dd {
 @media (max-width: 640px) {
   .release-rule-grid { grid-template-columns: 1fr; }
 }
+
+/* Native file and form controls retain browser keyboard/validation behavior. */
+.panel label:has(> select, > textarea, > input[type="file"]),
+.form > label:has(> select, > textarea) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+  min-width: 0;
+}
+:is(.panel, .toolbar, .form) select,
+:is(.panel, .toolbar, .form) textarea,
+:is(.panel, .toolbar, .form) input[type="date"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: var(--semi-border-radius-small);
+  color: var(--semi-color-text-0);
+  background: var(--semi-color-fill-0);
+  font: inherit;
+}
+:is(.panel, .toolbar, .form) select {
+  max-width: 480px;
+}
+:is(.panel, .form) textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+.panel input[type="file"] {
+  display: block;
+  max-width: 100%;
+  min-height: 40px;
+  font: inherit;
+}
+.panel input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--semi-border-radius-small);
+  background: var(--semi-color-fill-1);
+  color: var(--semi-color-text-0);
+  font: inherit;
+  cursor: pointer;
+}
+.panel label:has(> input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+.panel details {
+  margin-top: 16px;
+}
+.panel summary {
+  padding: 8px 0;
+  cursor: pointer;
+  font-weight: 500;
+}

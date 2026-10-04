@@ -16,6 +16,8 @@ from app.api.contracts import (
     ConnectorCreate,
     ConnectorPage,
     ConnectorUpdate,
+    GitHubAppCreate,
+    GitHubAppCredentials,
     GitHubRelease,
     GitHubRepository,
     ReleaseImportPreview,
@@ -56,6 +58,7 @@ from app.domains.github.service import (
     test_connection,
 )
 from app.integrations.github import GitHubClient
+from app.integrations.github_app import GitHubAppClient
 
 router = APIRouter(tags=["github"], dependencies=[Depends(require_admin)])
 Admin = Annotated[AuthContext, Depends(require_admin)]
@@ -183,6 +186,8 @@ def update_connector(
     row = get_connector(db, id, lock=True)
     require_revision(if_match, row.revision)
     if "token" in fields:
+        if row.auth_kind != "pat":
+            raise AppError(422, "CREDENTIAL_TYPE_MISMATCH", "GitHub App 请使用 App 凭据轮换入口")
         # Verify the candidate before replacing the last usable credential.
         candidate = fields.pop("token")
         with GitHubClient(candidate) as client:
@@ -413,7 +418,7 @@ def list_releases(
 def refresh_releases(
     id: UUID, request: Request, db: DB, context: Admin, idempotency_key: Annotated[UUID, Header()]
 ):
-    app = get_app(db, id)
+    app = get_app(db, id, lock=True)
     if not app.repository or not app.enabled:
         raise AppError(409, "REPOSITORY_NOT_BOUND", "App 未启用或尚未关联仓库")
     get_github_client(db, app.repository["connector_id"], request.app.state.settings).close()
@@ -466,7 +471,7 @@ def update_release_policy(
     context: Admin,
     if_match: Annotated[str | None, Header()] = None,
 ):
-    app = get_app(db, id)
+    app = get_app(db, id, lock=True)
     if not app.repository:
         raise AppError(409, "REPOSITORY_NOT_BOUND", "请先关联 GitHub 仓库")
     rules = validate_rules(body.rules.model_dump(mode="json"))
@@ -541,3 +546,83 @@ def import_release_matches(
     audit(db, request, context, "github.releases.import.enqueue", id)
     db.commit()
     return result
+
+
+@router.post(
+    "/connectors/github-app",
+    response_model=Connector,
+    operation_id="create_github_app",
+    dependencies=[Depends(require_csrf)],
+)
+def create_github_app(body: GitHubAppCreate, request: Request, db: DB, context: Admin):
+    if not body.name.strip():
+        raise AppError(422, "VALIDATION_ERROR", "名称不能为空")
+    credentials = body.model_dump(exclude={"name"})
+    with GitHubAppClient(credentials) as client:
+        identity = client.get_identity()
+    now, id = utcnow(), uuid4()
+    row = GithubConnector(
+        id=id,
+        name=body.name.strip(),
+        auth_kind="github_app",
+        app_id=body.app_id,
+        installation_id=body.installation_id,
+        encrypted_token=SecretBox(request.app.state.settings).encrypt(
+            json.dumps(credentials), "github:" + str(id)
+        ),
+        enabled=True,
+        revision=1,
+        created_at=now,
+        updated_at=now,
+        github_login=identity["login"],
+        last_test_status="ok",
+        last_tested_at=now,
+    )
+    db.add(row)
+    audit(db, request, context, "github.app_create", id)
+    db.commit()
+    return connector_dto(row)
+
+
+@router.put(
+    "/connectors/github/{id}/app-credentials",
+    response_model=Connector,
+    operation_id="rotate_github_app",
+    dependencies=[Depends(require_csrf)],
+)
+def rotate_github_app(
+    id: UUID,
+    body: GitHubAppCredentials,
+    request: Request,
+    db: DB,
+    context: Admin,
+    if_match: Annotated[str | None, Header()] = None,
+):
+    row = get_connector(db, id, lock=True)
+    require_revision(if_match, row.revision)
+    if (
+        row.auth_kind != "github_app"
+        or body.app_id != row.app_id
+        or body.installation_id != row.installation_id
+    ):
+        raise AppError(
+            409,
+            "GITHUB_INSTALLATION_IMMUTABLE",
+            "App 与安装实例固定，变更请新建连接；此处只轮换同实例私钥",
+        )
+    credentials = body.model_dump()
+    with GitHubAppClient(credentials) as client:
+        identity = client.get_identity()
+    row.encrypted_token = SecretBox(request.app.state.settings).encrypt(
+        json.dumps(credentials), "github:" + str(id)
+    )
+    row.github_login, row.last_test_status, row.last_tested_at, row.last_error_code = (
+        identity["login"],
+        "ok",
+        utcnow(),
+        None,
+    )
+    row.revision, row.updated_at = row.revision + 1, utcnow()
+    audit(db, request, context, "github.app_rotate", id)
+    db.commit()
+    return connector_dto(row)

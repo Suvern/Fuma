@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
+import { GitHubPackageImport } from "../library/GitHubImport";
 import { ReleaseRules } from "./ReleaseRules";
 import {
   Empty,
@@ -190,8 +191,7 @@ function ReleaseCard({
               disabled:
                 r.draft ||
                 !asset.supported ||
-                !asset.platform ||
-                !!asset.debug_entry_id,
+                !asset.platform,
               "aria-label": `选择 ${asset.name}`,
             }),
           }}
@@ -230,6 +230,7 @@ function ReleaseCard({
           导入 {selected.length || ""} 个 Debug 包
         </Button>
       </Form>
+      <GitHubPackageImport appId={appId} release={r} selected={selected} />
     </Panel>
   );
 }

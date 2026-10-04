@@ -1,4 +1,7 @@
 import { RepositorySelect } from "../../shared/ui/RepositorySelect";
+import { AppLifecycle } from "./AppLifecycle";
+import { AppIcon, AppIconField } from "./AppIcon";
+import { Statistics } from "./Statistics";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import {
   Button,
@@ -213,7 +216,16 @@ export function AppsPage() {
       : enabledValue === "false"
         ? false
         : undefined;
-  const hasFilters = Boolean(q || platform || enabled !== undefined);
+  const archivedValue = params.get("archived");
+  const archived =
+    archivedValue === "true"
+      ? true
+      : archivedValue === "false"
+        ? false
+        : undefined;
+  const hasFilters = Boolean(
+    q || platform || enabled !== undefined || archived !== undefined,
+  );
   function filter(name: string, value: string) {
     setParams((current) => {
       const next = new URLSearchParams(current);
@@ -224,11 +236,11 @@ export function AppsPage() {
     });
   }
   const query = useQuery({
-    queryKey: ["apps", page, q, platform, enabled],
+    queryKey: ["apps", page, q, platform, enabled, archived],
     queryFn: ({ signal }) =>
       read("/api/v1/apps", {
         signal,
-        query: { page, q, platform, enabled },
+        query: { page, q, platform, enabled, archived },
       }),
   });
   return (
@@ -308,7 +320,13 @@ export function AppsPage() {
             onClick={() =>
               setParams((current) => {
                 const next = new URLSearchParams(current);
-                for (const key of ["q", "platform", "enabled", "page"])
+                for (const key of [
+                  "q",
+                  "platform",
+                  "enabled",
+                  "archived",
+                  "page",
+                ])
                   next.delete(key);
                 return next;
               })
@@ -317,6 +335,16 @@ export function AppsPage() {
             清空筛选
           </Button>
         )}
+        <Select
+          aria-label="归档筛选"
+          value={archived === undefined ? "" : String(archived)}
+          onChange={(value) => filter("archived", String(value ?? ""))}
+          optionList={[
+            { value: "", label: "全部归档状态" },
+            { value: "false", label: "未归档" },
+            { value: "true", label: "已归档" },
+          ]}
+        />
       </div>
       <ErrorBox error={query.error} />
       {query.isPending ? (
@@ -330,20 +358,28 @@ export function AppsPage() {
                 key={app.id}
                 to={`/admin/apps/${app.id}`}
               >
-                <div className="app-monogram">{app.name[0]}</div>
+                <AppIcon name={app.name} value={app.icon_data} />
                 <h2>{app.name}</h2>
                 <p>{app.description || "暂无描述"}</p>
                 <div className="inline">
                   {app.platforms.map((p) => (
-                    <Status key={p} value={p} />
+                    <span key={p}>
+                      <Status value={p} />
+                      {app.disabled_platforms?.includes(p) && "（已停用）"}
+                    </span>
                   ))}
                   <Badge className="badge">
-                    {app.enabled ? "已启用" : "已停用"}
+                    {app.archived_at
+                      ? "已归档"
+                      : app.enabled
+                        ? "已启用"
+                        : "已停用"}
                   </Badge>
                 </div>
                 <p className="muted">
-                  {app.debug_entry_count} 个 Debug 包 ·{" "}
-                  {app.repository?.full_name ?? "未绑定仓库"}
+                  {app.package_count ?? 0} 个正式包 ·{" "}
+                  {app.publication_count ?? 0} 个发布 · {app.debug_entry_count}{" "}
+                  个历史 Debug 包 · {app.repository?.full_name ?? "未绑定仓库"}
                 </p>
                 <p className="muted">更新于 {date(app.updated_at)}</p>
               </CardLink>
@@ -392,6 +428,7 @@ function CreateAppForm({
   const [platforms, setPlatforms] = useState<DTO<"App">["platforms"]>([
     "android",
   ]);
+  const [iconData, setIconData] = useState("");
   const [identifiers, setIdentifiers] = useState<IdentifierDraft>(() =>
     identifierDraft([]),
   );
@@ -402,7 +439,12 @@ function CreateAppForm({
       <Form
         submit={(f) =>
           void cmd.run(
-            JSON.stringify([...f]),
+            JSON.stringify({
+              fields: [...f],
+              platforms,
+              identifiers,
+              iconData,
+            }),
             (key) =>
               write(
                 "/api/v1/apps",
@@ -411,6 +453,7 @@ function CreateAppForm({
                   name: text(f, "name"),
                   public_slug: text(f, "public_slug"),
                   description: text(f, "description"),
+                  icon_data: iconData,
                   platforms,
                   allowed_package_ids: identifierPayload(
                     identifiers,
@@ -435,6 +478,11 @@ function CreateAppForm({
           help="小写字母、数字及连字符；创建后不可修改。"
         />
         <Field name="description" label="描述" maxLength={2000} />
+        <AppIconField
+          value={iconData}
+          onChange={setIconData}
+          disabled={cmd.pending}
+        />
         <Platforms selected={platforms} onChange={setPlatforms} />
         <PackageIdentifiers
           platforms={platforms}
@@ -460,6 +508,8 @@ function basicValues(app: DTO<"App">) {
     name: app.name,
     description: app.description ?? "",
     platforms: app.platforms,
+    disabled_platforms: app.disabled_platforms ?? [],
+    icon_data: app.icon_data ?? "",
     enabled: app.enabled,
     identifiers: identifierDraft(app.allowed_package_ids ?? []),
   };
@@ -502,109 +552,163 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
         {app.name}
       </Title>
       <PageTabs className="tabs">
+        <Link to={`/admin/apps/${app.id}/packages`}>安装包</Link>
+        <Link to={`/admin/apps/${app.id}/versions`}>版本发布</Link>
         <Link to={`/admin/apps/${app.id}/releases`}>GitHub Releases</Link>
         <Link to={`/admin/apps/${app.id}/debug`}>Debug 包</Link>
         <Link to={`/admin/apps/${app.id}/actions`}>Actions 规则</Link>
         <Link to={`/admin/apps/${app.id}/events`}>构建事件</Link>
       </PageTabs>
+      <div className="inline">
+        <AppIcon name={app.name} value={app.icon_data} />
+        <p>
+          {app.package_count ?? 0} 个正式包 · {app.publication_count ?? 0}{" "}
+          个发布 · {app.debug_entry_count} 个历史 Debug 包
+        </p>
+      </div>
       {cmd.feedback}
+      <AppLifecycle app={app} />
+      <Statistics appId={app.id} />
       <div className="two-columns">
         <Panel className="panel">
           <h2>基本信息</h2>
-          <Form
-            submit={(f) =>
-              void cmd.run(
-                "app-update",
-                () =>
-                  write(
-                    "/api/v1/apps/{id}",
-                    "patch",
-                    {
-                      name: text(f, "name"),
-                      description: text(f, "description"),
-                      platforms: values.platforms,
-                      enabled: values.enabled,
-                      allowed_package_ids: identifierPayload(
-                        values.identifiers,
-                        values.platforms,
-                      ),
-                    },
-                    { id: app.id, revision },
-                  ),
-                (saved) => {
-                  client.setQueryData(["app", app.id], saved);
-                  setDraft(null);
-                },
-                "基本信息已保存。",
-              )
-            }
+          <fieldset
+            disabled={!!app.archived_at}
+            style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
           >
-            <Field
-              name="name"
-              label="名称"
-              value={values.name}
-              onChange={(event) => change({ name: event.target.value })}
+            <Form
+              submit={(f) =>
+                void cmd.run(
+                  "app-update",
+                  () =>
+                    write(
+                      "/api/v1/apps/{id}",
+                      "patch",
+                      {
+                        name: text(f, "name"),
+                        description: text(f, "description"),
+                        icon_data: values.icon_data,
+                        disabled_platforms: values.disabled_platforms.filter(
+                          (p) => values.platforms.includes(p),
+                        ),
+                        platforms: values.platforms,
+                        enabled: values.enabled,
+                        allowed_package_ids: identifierPayload(
+                          values.identifiers,
+                          values.platforms,
+                        ),
+                      },
+                      { id: app.id, revision },
+                    ),
+                  (saved) => {
+                    client.setQueryData(["app", app.id], saved);
+                    setDraft(null);
+                  },
+                  "基本信息已保存。",
+                  JSON.stringify(values.disabled_platforms) !==
+                    JSON.stringify(app.disabled_platforms ?? [])
+                    ? "更改平台启停状态？停用将停止该平台的新上传、发布和下载授权，保留历史记录及已签发的短期链接；重新启用会恢复仍处于已发布状态的私有版本可见。公开发布需先下架并完成访问收回。"
+                    : undefined,
+                )
+              }
+            >
+              <Field
+                name="name"
+                label="名称"
+                value={values.name}
+                onChange={(event) => change({ name: event.target.value })}
+                disabled={cmd.pending}
+                required
+                maxLength={100}
+              />
+              <Field
+                name="public_slug"
+                label="分发标识"
+                value={app.public_slug}
+                readOnly
+              />
+              <Field
+                name="description"
+                label="描述"
+                value={values.description}
+                onChange={(event) =>
+                  change({ description: event.target.value })
+                }
+                disabled={cmd.pending}
+                maxLength={2000}
+              />
+              <Platforms
+                selected={values.platforms}
+                onChange={(platforms) => change({ platforms })}
+                disabled={cmd.pending}
+              />
+              <AppIconField
+                value={values.icon_data}
+                onChange={(icon_data) => change({ icon_data })}
+                disabled={cmd.pending}
+              />
+              <fieldset disabled={cmd.pending}>
+                <legend>平台运行状态</legend>
+                <p className="muted">
+                  停用保留平台配置及历史。再次启用会恢复已发布私有版本的可见性；公开发布须先下架并完成访问收回。
+                </p>
+                {values.platforms.map((p) => (
+                  <Check
+                    key={p}
+                    name={`platform-enabled-${p}`}
+                    label={`启用 ${platformNames[p]} 平台`}
+                    checked={!values.disabled_platforms.includes(p)}
+                    onChange={(event) =>
+                      change({
+                        disabled_platforms: event.target.checked
+                          ? values.disabled_platforms.filter(
+                              (item) => item !== p,
+                            )
+                          : [...values.disabled_platforms, p],
+                      })
+                    }
+                  />
+                ))}
+              </fieldset>
+              <Check
+                name="enabled"
+                label="启用 App"
+                checked={values.enabled}
+                onChange={(event) => change({ enabled: event.target.checked })}
+                disabled={cmd.pending}
+              />
+              <PackageIdentifiers
+                platforms={values.platforms}
+                values={values.identifiers}
+                onChange={(identifiers) => change({ identifiers })}
+                disabled={cmd.pending}
+              />
+              <Button disabled={cmd.pending} className="primary">
+                保存
+              </Button>
+            </Form>
+            <Button
+              className="danger"
               disabled={cmd.pending}
-              required
-              maxLength={100}
-            />
-            <Field
-              name="public_slug"
-              label="分发标识"
-              value={app.public_slug}
-              readOnly
-            />
-            <Field
-              name="description"
-              label="描述"
-              value={values.description}
-              onChange={(event) => change({ description: event.target.value })}
-              disabled={cmd.pending}
-              maxLength={2000}
-            />
-            <Platforms
-              selected={values.platforms}
-              onChange={(platforms) => change({ platforms })}
-              disabled={cmd.pending}
-            />
-            <Check
-              name="enabled"
-              label="启用 App"
-              checked={values.enabled}
-              onChange={(event) => change({ enabled: event.target.checked })}
-              disabled={cmd.pending}
-            />
-            <PackageIdentifiers
-              platforms={values.platforms}
-              values={values.identifiers}
-              onChange={(identifiers) => change({ identifiers })}
-              disabled={cmd.pending}
-            />
-            <Button disabled={cmd.pending} className="primary">
-              保存
+              onClick={() =>
+                void cmd.run(
+                  "app-delete",
+                  () =>
+                    write("/api/v1/apps/{id}", "delete", undefined, {
+                      id: app.id,
+                      revision: app.revision,
+                    }),
+                  () => navigate("/admin/apps"),
+                  undefined,
+                  `删除 App「${app.name}」？历史记录将保留，下载入口将不可用。`,
+                )
+              }
+            >
+              删除 App
             </Button>
-          </Form>
-          <Button
-            className="danger"
-            disabled={cmd.pending}
-            onClick={() =>
-              void cmd.run(
-                "app-delete",
-                () =>
-                  write("/api/v1/apps/{id}", "delete", undefined, {
-                    id: app.id,
-                    revision: app.revision,
-                  }),
-                () => navigate("/admin/apps"),
-                undefined,
-                `删除 App「${app.name}」？历史记录将保留，下载入口将不可用。`,
-              )
-            }
-          >
-            删除 App
-          </Button>
+          </fieldset>
         </Panel>
-        <RepositoryBinding app={app} />
+        {!app.archived_at && <RepositoryBinding app={app} />}
       </div>
     </>
   );

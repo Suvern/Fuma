@@ -91,6 +91,12 @@ def _validate_existing_credentials(db, key: bytes) -> None:
 
     for connector in db.scalars(select(GithubConnector).execution_options(yield_per=100)):
         verify(connector.encrypted_token, "github:" + str(connector.id))
+    from app.domains.storage.models import StorageLocation
+
+    for location in db.scalars(select(StorageLocation).execution_options(yield_per=100)):
+        verify(location.encrypted_credentials, "storage:" + str(location.id))
+        if location.candidate_credentials:
+            verify(location.candidate_credentials, "storage:" + str(location.id))
     feishu = db.get(IntegrationState, "feishu")
     if feishu and feishu.data.get("secret"):
         verify(feishu.data["secret"], "feishu")

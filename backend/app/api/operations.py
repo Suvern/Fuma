@@ -36,6 +36,10 @@ TaskKind = Literal[
     "build_event",
     "notification",
     "cache_cleanup",
+    "package_ingest",
+    "package_delete",
+    "storage_probe",
+    "publication_access",
 ]
 TASK_NAMES = {
     "release_sync": "Release 同步",
@@ -45,6 +49,10 @@ TASK_NAMES = {
     "build_event": "构建事件",
     "notification": "通知发送",
     "cache_cleanup": "缓存清理",
+    "package_ingest": "安装包解析入库",
+    "package_delete": "安装包文件清理",
+    "storage_probe": "云存储连接测试",
+    "publication_access": "公开副本与访问收回",
 }
 
 
@@ -110,6 +118,9 @@ def retry_task(
     if (row.state != "failed" and not partial_release) or row.kind in {
         "notification",
         "build_event",
+        "package_ingest",
+        "storage_probe",
+        "publication_access",
     }:
         raise AppError(409, "NOT_RETRYABLE", "请通过对应业务详情页重试，未知通知结果需单独确认")
     row.state, row.phase, row.error_code, row.error_message = "queued", "queued", None, None

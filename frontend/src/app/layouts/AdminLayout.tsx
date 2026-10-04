@@ -37,6 +37,7 @@ const groups: {
     title: "管理",
     items: [
       { to: "/admin/settings/cache", title: "本地缓存", icon: "disk" },
+      { to: "/admin/settings/storage", title: "对象存储", icon: "disk" },
       { to: "/admin/audit", title: "审计日志", icon: "history" },
       { to: "/admin/settings/account", title: "账号安全", icon: "shield" },
     ],
@@ -52,6 +53,8 @@ function AdminShell() {
     enabled: Boolean(appId),
   });
   const appSection = {
+    packages: "安装包",
+    versions: "版本发布",
     releases: "GitHub Releases",
     debug: "Debug 包",
     actions: "Actions 规则",

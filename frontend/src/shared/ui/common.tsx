@@ -23,6 +23,10 @@ import { Icon, type IconName } from "./Icon";
 import { confirmAction } from "./confirm";
 
 export const labels: Record<string, string> = {
+  package_ingest: "安装包解析入库",
+  package_delete: "安装包文件清理",
+  storage_probe: "云存储连接测试",
+  publication_access: "公开副本与访问收回",
   ready: "已就绪",
   missing: "未缓存",
   queued: "排队中",

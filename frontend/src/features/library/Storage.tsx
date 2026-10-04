@@ -1,0 +1,346 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
+import { read, write, type DTO } from "../../shared/api/http";
+import { Button, Notice, Panel } from "../../shared/ui/controls";
+import {
+  Empty,
+  ErrorBox,
+  Field,
+  Form,
+  Loading,
+  Pager,
+  Title,
+  date,
+  text,
+  useCommand,
+  useFilters,
+} from "../../shared/ui/common";
+
+const statuses: Record<string, string> = {
+  unverified: "待验证",
+  testing: "测试中",
+  ready: "可用",
+  failed: "测试失败",
+};
+
+export function StoragePage() {
+  const filters = useFilters("搜索存储名称或桶名…");
+  const cmd = useCommand();
+  const [provider, setProvider] = useState<"cos" | "oss">("cos");
+  const [formKey, setFormKey] = useState(0);
+  const query = useQuery({
+    queryKey: ["storage", filters.page, filters.q],
+    queryFn: () =>
+      read("/api/v1/settings/storage-locations", {
+        query: { page: filters.page, q: filters.q },
+      }),
+    refetchInterval: 5000,
+  });
+  return (
+    <>
+      <Title description="私有原件与公开副本分开保存。默认位置只影响新上传，历史文件继续使用原位置。">
+        对象存储
+      </Title>
+      <Notice>
+        连接测试会在专用前缀内写入、回读并删除小文件。需要对象读写、删除及桶版本配置读取权限；公开副本桶须从未启用版本控制。仅支持官方
+        HTTPS 源站。
+      </Notice>
+      {cmd.feedback}
+      <Panel>
+        <details>
+          <summary>新增 COS / OSS 存储</summary>
+          <Form
+            key={formKey}
+            submit={(form) =>
+              void cmd.run(
+                "storage-create",
+                () =>
+                  write("/api/v1/settings/storage-locations", "post", {
+                    name: text(form, "name"),
+                    provider,
+                    region: text(form, "region"),
+                    bucket: text(form, "bucket"),
+                    prefix: text(form, "prefix"),
+                    read_mode: text(form, "read_mode") as "private" | "public",
+                    access_key_id: text(form, "access_key_id"),
+                    access_key_secret: text(form, "access_key_secret"),
+                  }),
+                () => setFormKey((k) => k + 1),
+                "配置已保存，请运行连接测试。",
+              )
+            }
+          >
+            <Field name="name" label="配置名称" required maxLength={100} />
+            <label>
+              云厂商
+              <select
+                value={provider}
+                onChange={(e) => setProvider(e.target.value as "cos" | "oss")}
+              >
+                <option value="cos">腾讯云 COS</option>
+                <option value="oss">阿里云 OSS</option>
+              </select>
+            </label>
+            <Field
+              name="region"
+              label="地域标识"
+              placeholder={provider === "cos" ? "ap-guangzhou" : "cn-hangzhou"}
+              required
+            />
+            <Field
+              name="bucket"
+              label={provider === "cos" ? "桶名称（含 APPID 后缀）" : "桶名称"}
+              required
+            />
+            <Field
+              name="prefix"
+              label="Fuma 专用路径前缀"
+              defaultValue="fuma"
+              required
+            />
+            <label>
+              读取模式
+              <select name="read_mode">
+                <option value="private">私有原件（受限分发）</option>
+                <option value="public">公开副本（仅 Release）</option>
+              </select>
+            </label>
+            <Field
+              name="access_key_id"
+              label={provider === "cos" ? "SecretId" : "AccessKey ID"}
+              type="password"
+              autoComplete="new-password"
+              required
+            />
+            <Field
+              name="access_key_secret"
+              label={provider === "cos" ? "SecretKey" : "AccessKey Secret"}
+              type="password"
+              autoComplete="new-password"
+              required
+            />
+            <p>保存后不回显凭据。桶与路径身份固定；更换位置请新增配置。</p>
+            <Button disabled={cmd.pending} className="primary">
+              保存配置
+            </Button>
+          </Form>
+        </details>
+      </Panel>
+      {filters.search}
+      <ErrorBox error={query.error} />
+      {query.isPending && <Loading />}
+      {query.data?.items.length === 0 && (
+        <Empty>暂无存储配置。本机私有存储仍可使用。</Empty>
+      )}
+      {query.data?.items.map((row) => (
+        <StorageCard key={row.id} row={row} />
+      ))}
+      <Pager data={query.data} {...filters} />
+    </>
+  );
+}
+
+function StorageCard({ row }: { row: DTO<"StorageInfo"> }) {
+  const cmd = useCommand();
+  const [formKey, setFormKey] = useState(0);
+  const action = (
+    name: "test" | "make-default" | "enable" | "disable",
+    label: string,
+  ) =>
+    void cmd.run(
+      `storage-${name}`,
+      () =>
+        write(
+          `/api/v1/settings/storage-locations/{id}/${name}`,
+          "post",
+          undefined,
+          { id: row.id, revision: row.revision },
+        ),
+      undefined,
+      `${label}请求已完成。`,
+      name === "disable"
+        ? "停用后不再接收新文件，已有文件仍可读取。确认停用？"
+        : undefined,
+    );
+  return (
+    <Panel>
+      <h2>
+        {row.name}
+        {row.is_default ? " · 默认" : ""}
+      </h2>
+      <p>
+        {row.provider.toUpperCase()} · {row.region} · {row.bucket}/{row.prefix}
+      </p>
+      <p>
+        {row.read_mode === "private" ? "私有原件" : "公开副本"} ·{" "}
+        {row.enabled ? statuses[row.status] : "已停用"} · 最近检查{" "}
+        {date(row.checked_at)}
+      </p>
+      <p>
+        记录内对象 {row.object_count} 个，合计{" "}
+        {(row.managed_bytes / 1024 ** 2).toFixed(2)}{" "}
+        MiB（含待清理对象，并非云账单）。
+      </p>
+      {row.error_message && <p role="alert">{row.error_message}</p>}
+      {!!Object.keys(row.capabilities).length && (
+        <dl>
+          {Object.entries(row.capabilities).map(([key, value]) => (
+            <div key={key}>
+              <dt>
+                {{
+                  write: "写入",
+                  read: "签名回读",
+                  anonymous: "匿名读取",
+                  cleanup: "测试对象清理",
+                }[key] || key}
+              </dt>
+              <dd>
+                {value === "passed"
+                  ? "通过"
+                  : value === "denied"
+                    ? "已拒绝"
+                    : value === "readable"
+                      ? "可读取"
+                      : value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {row.task_id && (
+        <Link to={`/admin/tasks/${row.task_id}`}>查看连接测试任务</Link>
+      )}
+      {cmd.feedback}
+      <div className="toolbar">
+        <Button
+          disabled={cmd.pending || row.status === "testing"}
+          onClick={() => action("test", "连接测试")}
+        >
+          连接测试
+        </Button>
+        {row.enabled && row.read_mode === "private" && !row.is_default && (
+          <Button
+            disabled={cmd.pending || row.status !== "ready"}
+            onClick={() => action("make-default", "设置默认")}
+          >
+            设为默认
+          </Button>
+        )}
+        <Button
+          disabled={cmd.pending || row.status === "testing"}
+          onClick={() =>
+            action(
+              row.enabled ? "disable" : "enable",
+              row.enabled ? "停用" : "启用",
+            )
+          }
+        >
+          {row.enabled ? "停用" : "启用"}
+        </Button>
+      </div>
+      <details>
+        <summary>轮换凭据</summary>
+        <p>候选凭据通过完整连接测试后才替换；失败保留原凭据供历史文件读取。</p>
+        <Form
+          key={formKey}
+          submit={(form) =>
+            void cmd.run(
+              "rotate",
+              () =>
+                write(
+                  "/api/v1/settings/storage-locations/{id}/credentials",
+                  "put",
+                  {
+                    access_key_id: text(form, "access_key_id"),
+                    access_key_secret: text(form, "access_key_secret"),
+                  },
+                  { id: row.id, revision: row.revision },
+                ),
+              () => setFormKey((k) => k + 1),
+              "候选凭据已提交测试。",
+            )
+          }
+        >
+          <Field
+            name="access_key_id"
+            label="新访问标识"
+            type="password"
+            autoComplete="new-password"
+            required
+          />
+          <Field
+            name="access_key_secret"
+            label="新访问密钥"
+            type="password"
+            autoComplete="new-password"
+            required
+          />
+          <Button disabled={cmd.pending || row.status === "testing"}>
+            验证并轮换
+          </Button>
+        </Form>
+      </details>
+    </Panel>
+  );
+}
+
+export function StorageChoice({
+  mode,
+  value,
+  onChange,
+  disabled,
+}: {
+  mode: "private" | "public";
+  value: string;
+  onChange: (id: string) => void;
+  disabled?: boolean;
+}) {
+  const [page, setPage] = useState(1);
+  const query = useQuery({
+    queryKey: ["storage-choice", page],
+    queryFn: () =>
+      read("/api/v1/settings/storage-locations", {
+        query: { page, page_size: 100 },
+      }),
+  });
+  return (
+    <div>
+      <label>
+        {mode === "private" ? "原件存储位置" : "发布访问方式"}
+        <select
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {mode === "private" ? (
+            <>
+              <option value="default">使用系统默认（未设置时存入本机）</option>
+              <option value="">本机私有存储</option>
+            </>
+          ) : (
+            <option value="">仅已验证的飞书租户成员</option>
+          )}
+          {query.data?.items
+            .filter(
+              (row) =>
+                row.enabled && row.status === "ready" && row.read_mode === mode,
+            )
+            .map((row) => (
+              <option key={row.id} value={row.id}>
+                {row.name} ·{" "}
+                {mode === "public"
+                  ? "任何人可下载"
+                  : row.provider.toUpperCase()}
+              </option>
+            ))}
+        </select>
+      </label>
+      <ErrorBox error={query.error} />
+      {query.data && query.data.total > 100 && (
+        <Pager data={query.data} page={page} setPage={setPage} />
+      )}
+      <Link to="/admin/settings/storage">配置或测试云存储</Link>
+    </div>
+  );
+}

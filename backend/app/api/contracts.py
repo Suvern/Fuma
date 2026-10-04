@@ -3,10 +3,47 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from datetime import date as date_aliased
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, RootModel
+
+
+class DistributionCounters(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    grant_count: int = Field(..., ge=0)
+    local_get_requests: int = Field(..., ge=0)
+    local_head_requests: int = Field(..., ge=0)
+    partial_get_requests: int = Field(..., ge=0)
+    interrupted_get_requests: int = Field(..., ge=0)
+    observed_bytes: int = Field(..., ge=0)
+
+
+class DistributionDay(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    date: date_aliased
+    grant_count: int = Field(..., ge=0)
+    local_get_requests: int = Field(..., ge=0)
+    local_head_requests: int = Field(..., ge=0)
+    partial_get_requests: int = Field(..., ge=0)
+    interrupted_get_requests: int = Field(..., ge=0)
+    observed_bytes: int = Field(..., ge=0)
+
+
+class DistributionStatistics(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    app_id: UUID
+    start_date: date_aliased
+    end_date: date_aliased
+    totals: DistributionCounters
+    days: list[DistributionDay]
 
 
 class DependencyChecks(BaseModel):
@@ -100,6 +137,16 @@ class AppCreate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    icon_data: str | None = Field(
+        None,
+        description="Optional inline PNG, JPEG or WebP data URL, decoded maximum 64 KiB. Empty string clears the icon; omission preserves it on update.",
+        max_length=90000,
+    )
+    disabled_platforms: list[Literal["android", "ios"]] | None = Field(
+        None,
+        description="Selected platforms paused for new ingestion, publication and download grants. Existing history and short-lived grants remain unchanged. Defaults to empty.",
+        max_length=2,
+    )
     name: str = Field(..., max_length=100, min_length=1)
     public_slug: str = Field(
         ..., max_length=64, min_length=3, pattern="^[a-z0-9](?:[a-z0-9-]*[a-z0-9])$"
@@ -116,6 +163,16 @@ class AppCreate(BaseModel):
 class AppUpdate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
+    )
+    icon_data: str | None = Field(
+        None,
+        description="Optional inline PNG, JPEG or WebP data URL, decoded maximum 64 KiB. Empty string clears the icon; omission preserves it on update.",
+        max_length=90000,
+    )
+    disabled_platforms: list[Literal["android", "ios"]] | None = Field(
+        None,
+        description="Selected platforms paused for new ingestion, publication and download grants. Existing history and short-lived grants remain unchanged. Defaults to empty.",
+        max_length=2,
     )
     name: str | None = Field(None, max_length=100, min_length=1)
     description: str | None = Field(None, max_length=2000)
@@ -150,6 +207,24 @@ class App(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    icon_data: str | None = Field(
+        None,
+        description="Optional inline PNG, JPEG or WebP data URL, decoded maximum 64 KiB. Empty string clears the icon; omission preserves it on update.",
+        max_length=90000,
+    )
+    disabled_platforms: list[Literal["android", "ios"]] | None = Field(
+        None,
+        description="Selected platforms paused for new ingestion, publication and download grants. Existing history and short-lived grants remain unchanged. Defaults to empty.",
+        max_length=2,
+    )
+    package_count: int | None = Field(
+        None, description="Formal package records excluding physically deleted records.", ge=0
+    )
+    publication_count: int | None = Field(
+        None,
+        description="All formal publication records including draft and historical publications.",
+        ge=0,
+    )
     id: UUID
     created_at: AwareDatetime
     updated_at: AwareDatetime
@@ -162,6 +237,7 @@ class App(BaseModel):
     repository: RepositoryBinding | None
     debug_entry_count: int = Field(..., ge=0)
     allowed_package_ids: list[AllowedPackageId]
+    archived_at: AwareDatetime | None = None
 
 
 class AppPage(BaseModel):
@@ -207,6 +283,9 @@ class Connector(BaseModel):
     last_tested_at: AwareDatetime | None
     last_test_status: Literal["untested", "ok", "failed"]
     last_error_code: str | None
+    auth_kind: Literal["pat", "github_app"] | None = None
+    app_id: str | None = None
+    installation_id: str | None = None
 
 
 class ConnectorPage(BaseModel):
@@ -607,6 +686,7 @@ class DebugEntry(BaseModel):
     source: SourceSnapshot
     cache: CacheStatus
     page_url: AnyUrl
+    persistent_package_id: UUID | None = None
 
 
 class DebugEntryPage(BaseModel):
@@ -936,6 +1016,10 @@ class Task(BaseModel):
         "build_event",
         "notification",
         "cache_cleanup",
+        "package_ingest",
+        "storage_probe",
+        "publication_access",
+        "package_delete",
     ]
     state: Literal["queued", "running", "succeeded", "partial_success", "failed", "unknown"]
     phase: str
@@ -1070,6 +1154,347 @@ class FeishuBindingConfirm(BaseModel):
     binding_id: UUID
 
 
+class AppArchiveImpact(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    app_id: UUID
+    revision: int = Field(..., ge=1)
+    can_archive: bool
+    debug_entries: int = Field(..., ge=0)
+    active_debug_entries: int = Field(..., ge=0)
+    active_tasks: int = Field(..., ge=0)
+    active_actions_rules: int = Field(..., ge=0)
+    automatic_import_enabled: bool
+    blockers: list[str]
+
+
+class UploadCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    file_name: str = Field(..., max_length=255, min_length=1)
+    declared_size: int = Field(..., ge=1, le=4294967296)
+    platform: Literal["android", "ios"]
+    mode: Literal["debug", "release"]
+    storage_location_id: UUID | None = None
+
+
+class UploadPart(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    part_number: int = Field(..., ge=0)
+    size_bytes: int = Field(..., ge=0)
+    sha256: str = Field(..., max_length=64)
+
+
+class UploadSession(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    app_id: UUID
+    file_name: str = Field(..., max_length=255)
+    declared_size: int = Field(..., ge=0)
+    platform: Literal["android", "ios"]
+    mode: Literal["debug", "release"]
+    chunk_size: int = Field(..., ge=0)
+    expected_parts: int = Field(..., ge=0)
+    parts: list[UploadPart]
+    state: Literal["receiving", "processing", "ready", "failed", "cancelled", "expired"]
+    expires_at: AwareDatetime
+    created_at: AwareDatetime
+    task_id: UUID | None
+    package_id: UUID | None
+    error_message: str | None
+    storage_location_id: UUID | None = None
+    source_snapshot: dict[str, Any] | None = None
+
+
+class UploadPage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[UploadSession]
+    page: int = Field(..., ge=0)
+    page_size: int = Field(..., ge=0)
+    total: int = Field(..., ge=0)
+
+
+class Architecture(RootModel[str]):
+    root: str = Field(..., max_length=100)
+
+
+class SignerFingerprint(RootModel[str]):
+    root: str = Field(..., max_length=200)
+
+
+class PackageNotes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    internal_notes: str = Field(..., max_length=2000)
+
+
+class VersionCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    display_name: str = Field(..., max_length=100, min_length=1)
+    mode: Literal["debug", "release"]
+    release_notes: str = Field(..., max_length=10000)
+
+
+class VersionInfo(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    app_id: UUID
+    display_name: str = Field(..., max_length=100)
+    mode: Literal["debug", "release"]
+    release_notes: str = Field(..., max_length=10000)
+    revision: int = Field(..., ge=0)
+    created_at: AwareDatetime
+
+
+class VersionPage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[VersionInfo]
+    page: int = Field(..., ge=0)
+    page_size: int = Field(..., ge=0)
+    total: int = Field(..., ge=0)
+
+
+class PublicationCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    platform: Literal["android", "ios"]
+    package_ids: list[UUID] = Field(..., max_length=20, min_length=1)
+    public_storage_id: UUID | None = None
+
+
+class PublicationInfo(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    app_id: UUID
+    version_id: UUID
+    platform: Literal["android", "ios"]
+    mode: Literal["debug", "release"]
+    package_ids: list[UUID]
+    state: Literal["draft", "published", "unpublished", "archived"]
+    file_set_frozen: bool
+    revision: int = Field(..., ge=0)
+    created_at: AwareDatetime
+    published_at: AwareDatetime | None
+    public_storage_id: UUID | None = None
+    access_state: (
+        Literal[
+            "private",
+            "publishing",
+            "public",
+            "reclaiming",
+            "reclaim_failed",
+            "reclaimed",
+            "publish_failed",
+        ]
+        | None
+    ) = None
+    access_task_id: UUID | None = None
+    access_error: str | None = None
+
+
+class PublicationPage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[PublicationInfo]
+    page: int = Field(..., ge=0)
+    page_size: int = Field(..., ge=0)
+    total: int = Field(..., ge=0)
+
+
+class PublishedFile(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    file_name: str
+    size_bytes: int
+    sha256: str
+    version_name: str
+    build_number: str
+    package_identifier: str
+    signature_status: str
+
+
+class PublishedRelease(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    app_id: UUID
+    app_name: str
+    version_name: str
+    release_notes: str
+    platform: Literal["android", "ios"]
+    mode: Literal["debug", "release"]
+    published_at: AwareDatetime
+    files: list[PublishedFile]
+    is_default: bool | None = None
+
+
+class PublishedReleasePage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[PublishedRelease]
+    page: int
+    page_size: int
+    total: int
+
+
+class PublicationDownloadRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    package_id: UUID
+
+
+class PublicationDownloadGrant(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    url: str
+    expires_at: AwareDatetime | None
+
+
+class StorageCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: str = Field(..., max_length=100, min_length=1)
+    provider: Literal["cos", "oss"]
+    region: str = Field(..., max_length=40, min_length=1)
+    bucket: str = Field(..., max_length=100, min_length=1)
+    prefix: str = Field(..., max_length=100, min_length=1)
+    read_mode: Literal["private", "public"]
+    access_key_id: str = Field(..., max_length=200, min_length=1)
+    access_key_secret: str = Field(..., max_length=500, min_length=1)
+
+
+class StorageCredentials(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    access_key_id: str = Field(..., max_length=200, min_length=1)
+    access_key_secret: str = Field(..., max_length=500, min_length=1)
+
+
+class StorageInfo(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    name: str = Field(..., max_length=100, min_length=1)
+    provider: Literal["cos", "oss"]
+    region: str = Field(..., max_length=40, min_length=1)
+    bucket: str = Field(..., max_length=100, min_length=1)
+    prefix: str = Field(..., max_length=100, min_length=1)
+    read_mode: Literal["private", "public"]
+    enabled: bool
+    is_default: bool
+    status: Literal["unverified", "testing", "ready", "failed"]
+    revision: int
+    checked_at: AwareDatetime | None
+    capabilities: dict[str, str]
+    error_message: str | None
+    task_id: UUID | None
+    object_count: int
+    managed_bytes: int
+
+
+class StoragePage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[StorageInfo]
+    page: int
+    page_size: int
+    total: int
+
+
+class GitHubAppCredentials(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    app_id: str = Field(..., max_length=30, pattern="^[0-9]+$")
+    installation_id: str = Field(..., max_length=30, pattern="^[0-9]+$")
+    private_key: str = Field(..., max_length=20000, min_length=100)
+
+
+class GitHubAppCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: str = Field(..., max_length=100, min_length=1)
+    app_id: str = Field(..., max_length=30, pattern="^[0-9]+$")
+    installation_id: str = Field(..., max_length=30, pattern="^[0-9]+$")
+    private_key: str = Field(..., max_length=20000, min_length=100)
+
+
+class PackageImport(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    release_id: str = Field(..., pattern="^[0-9]+$")
+    asset_id: str = Field(..., pattern="^[0-9]+$")
+    mode: Literal["debug", "release"]
+    storage_location_id: UUID | None = None
+    version_id: UUID | None = None
+
+
+class LegacyPersistence(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    storage_location_id: UUID
+
+
+class ReleaseDefault(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    app_id: UUID
+    platform: Literal["android", "ios"]
+    publication_id: UUID | None
+    revision: int = Field(..., ge=0)
+
+
+class ReleaseDefaultUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    publication_id: UUID | None
+
+
+class PackageDeletionImpact(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    package_id: UUID
+    revision: int
+    can_delete: bool
+    retained_until: AwareDatetime
+    blockers: list[str]
+
+
 class ErrorDetail(BaseModel):
     code: str = Field(..., title="Code")
     field_errors: list[FieldError] | None = Field(None, title="Field Errors")
@@ -1151,4 +1576,48 @@ class BuildEventPage(BaseModel):
     items: list[BuildEvent]
     page: int = Field(..., ge=1)
     page_size: int = Field(..., ge=1, le=100)
+    total: int = Field(..., ge=0)
+
+
+class PackageInfo(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    related_uploads: list[UploadSession] | None = Field(
+        None, description="仅管理员包详情返回关联上传记录与任务。"
+    )
+    publication_refs: list[PublicationInfo] | None = Field(
+        None, description="仅管理员包详情返回全部发布引用，包括草稿与历史发布。"
+    )
+    id: UUID
+    app_id: UUID
+    platform: Literal["android", "ios"]
+    mode: Literal["debug", "release"]
+    file_name: str = Field(..., max_length=255)
+    size_bytes: int = Field(..., ge=0)
+    sha256: str = Field(..., max_length=64)
+    package_identifier: str = Field(..., max_length=255)
+    version_name: str = Field(..., max_length=100)
+    build_number: str = Field(..., max_length=100)
+    min_os: str | None
+    architectures: list[Architecture]
+    signer_fingerprints: list[SignerFingerprint]
+    signature_status: str = Field(..., max_length=100)
+    source_kind: Literal["upload", "github"]
+    state: Literal["ready", "deleting", "deleted", "processing"]
+    created_at: AwareDatetime
+    internal_notes: str = Field(..., max_length=2000)
+    revision: int = Field(..., ge=0)
+    parser_version: str = Field(..., max_length=100)
+    storage_location_id: UUID | None = None
+    source_snapshot: dict[str, Any] | None = None
+
+
+class PackagePage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[PackageInfo]
+    page: int = Field(..., ge=0)
+    page_size: int = Field(..., ge=0)
     total: int = Field(..., ge=0)

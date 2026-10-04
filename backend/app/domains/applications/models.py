@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database import Base
@@ -15,7 +15,10 @@ class AppRecord(Base):
     public_slug: Mapped[str] = mapped_column(String(64), unique=True)
     description: Mapped[str] = mapped_column(String(2000), default="")
     platforms: Mapped[list[str]] = mapped_column(JSON)
+    disabled_platforms: Mapped[list[str]] = mapped_column(JSON, default=list)
+    icon_data: Mapped[str] = mapped_column(Text, default="")
     enabled: Mapped[bool] = mapped_column(default=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     repository: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     revision: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

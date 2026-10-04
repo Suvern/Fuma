@@ -1,4 +1,4 @@
-# Copy into the Android SOURCE repository as .github/workflows/fuma-debug.yml.
+# Copy into the Android SOURCE repository as .github/workflows/build.yml.
 # Configure Fuma rule workflow_path to that exact path; this is not Fuma's own CI.
 name: Build Android Debug and notify Fuma
 on:
@@ -23,13 +23,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FUMA_CALLBACK_URL: ${{ vars.FUMA_CALLBACK_URL }}
-          FUMA_ACTIONS_TOKEN: ${{ secrets.FUMA_ACTIONS_TOKEN }}
+          FUMA_CI_TOKEN: ${{ secrets.FUMA_CI_TOKEN }}
           APK_PATH: app/build/outputs/apk/debug/app-debug.apk
         run: |
           set -euo pipefail
           test -f "$APK_PATH"
           test -n "$FUMA_CALLBACK_URL"
-          test -n "$FUMA_ACTIONS_TOKEN"
+          test -n "$FUMA_CI_TOKEN"
           tag="fuma-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           gh release create "$tag" "$APK_PATH" --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" --prerelease --title "Debug ${GITHUB_RUN_NUMBER}"
@@ -45,7 +45,7 @@ jobs:
             '{repository_id:$repository_id,run_id:$run_id,run_attempt:$run_attempt,head_sha:$head_sha,release_id:$release_id,asset_ids:$asset_ids}')"
           status="$(curl --silent --show-error --fail-with-body --retry 3 --retry-delay 2 \
             --connect-timeout 10 --max-time 30 \
-            --header "Authorization: Bearer ${FUMA_ACTIONS_TOKEN}" \
+            --header "Authorization: Bearer ${FUMA_CI_TOKEN}" \
             --header 'Content-Type: application/json' \
             --data "$payload" --output "${RUNNER_TEMP}/fuma-response.json" \
             --write-out '%{http_code}' "$FUMA_CALLBACK_URL")"

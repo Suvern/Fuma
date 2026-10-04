@@ -17,7 +17,12 @@ type Body<T> = T extends {
 }
   ? V
   : undefined;
-export type WriteOptions = { id?: string; revision?: number; key?: string };
+export type WriteOptions = {
+  id?: string;
+  platform?: string;
+  revision?: number;
+  key?: string;
+};
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -31,6 +36,7 @@ export async function read<P extends keyof paths>(
   path: P,
   options: {
     id?: string;
+    platform?: string;
     query?: Record<string, unknown>;
     signal?: AbortSignal;
   } = {},
@@ -70,7 +76,10 @@ async function request<P extends keyof paths, M extends Method>(
     path as never,
     {
       params: {
-        path: options.id ? { id: options.id } : {},
+        path: {
+          ...(options.id ? { id: options.id } : {}),
+          ...(options.platform ? { platform: options.platform } : {}),
+        },
         query: options.query,
         header: headers,
       },

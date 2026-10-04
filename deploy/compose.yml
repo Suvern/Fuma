@@ -23,9 +23,12 @@ x-backend: &backend
     FUMA_ENCRYPTION_KEY: ${FUMA_ENCRYPTION_KEY:-}
     FUMA_SESSION_TTL_SECONDS: ${FUMA_SESSION_TTL_SECONDS:-28800}
     FUMA_CACHE_DIR: /data/cache
+    FUMA_PARSER_DIR: /data/parser
   volumes:
     - package_cache:/data/cache
     - instance_state:/data/state
+    - parser_inbox:/data/parser/inbox
+    - parser_outbox:/data/parser/outbox
   read_only: true
   tmpfs:
     - /tmp
@@ -34,6 +37,25 @@ x-backend: &backend
   restart: unless-stopped
 
 services:
+  parser:
+    image: fuma-parser:${FUMA_IMAGE_TAG:-local}
+    build:
+      context: ..
+      dockerfile: parser/Dockerfile
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    pids_limit: 64
+    cpus: 1
+    tmpfs:
+      - /tmp:size=128m
+    volumes:
+      - parser_inbox:/inbox:ro
+      - parser_outbox:/outbox
+    restart: unless-stopped
   postgres:
     image: postgres:17-alpine
     environment:
@@ -122,6 +144,8 @@ services:
     restart: unless-stopped
 
 volumes:
+  parser_inbox:
+  parser_outbox:
   postgres_data:
   redis_data:
   package_cache:

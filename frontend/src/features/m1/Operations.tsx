@@ -63,6 +63,10 @@ export function TasksPage() {
             "build_event",
             "notification",
             "cache_cleanup",
+            "package_ingest",
+            "package_delete",
+            "storage_probe",
+            "publication_access",
           ]}
         />
         {(filters.q || state || kind) && (
@@ -166,6 +170,25 @@ export function TaskPage() {
     <>
       <Title>{`任务：${labels[t.kind] ?? t.kind}`}</Title>
       <Link to="/admin/tasks">← 所有任务</Link>
+      {t.kind === "package_ingest" && t.app_id && (
+        <p>
+          <Link to={`/admin/apps/${t.app_id}/packages`}>
+            返回安装包页查看结果或重试入库
+          </Link>
+        </p>
+      )}
+      {t.kind === "storage_probe" && (
+        <p>
+          <Link to="/admin/settings/storage">返回对象存储页重试连接测试</Link>
+        </p>
+      )}
+      {t.kind === "publication_access" && t.app_id && (
+        <p>
+          <Link to={`/admin/apps/${t.app_id}/versions`}>
+            返回版本页处理发布或访问收回
+          </Link>
+        </p>
+      )}
       {cmd.feedback}
       <Panel className="panel">
         <Status value={t.state} />

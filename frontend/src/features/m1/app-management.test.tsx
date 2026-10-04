@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
+import Modal from "@douyinfe/semi-ui-19/lib/es/modal";
 import { ApiError, read, write, type DTO } from "../../shared/api/http";
 import { ErrorBox, size } from "../../shared/ui/common";
 import { AppPage, AppsPage } from "./Apps";
@@ -82,6 +83,21 @@ beforeEach(() => {
   });
   vi.mocked(read).mockImplementation(async (path) => {
     if (path === "/api/v1/apps/{id}") return server as never;
+    if (path === "/api/v1/apps/{id}/distribution-statistics")
+      return {
+        app_id: "app",
+        start_date: "2026-10-01",
+        end_date: "2026-10-01",
+        days: [],
+        totals: {
+          grant_count: 0,
+          local_get_requests: 0,
+          local_head_requests: 0,
+          partial_get_requests: 0,
+          interrupted_get_requests: 0,
+          observed_bytes: 0,
+        },
+      } as never;
     if (path === "/api/v1/connectors/github")
       return {
         ...page,
@@ -98,6 +114,68 @@ afterEach(() => {
 });
 
 describe("应用管理走查问题回归", () => {
+  it("平台停用明确确认并保留关联平台配置", async () => {
+    const confirm = Modal.confirm;
+    vi.spyOn(Modal, "confirm").mockImplementation((options) =>
+      confirm({ ...options, motion: false }),
+    );
+    vi.mocked(write).mockImplementation(async (_path, _method, body) => {
+      server = {
+        ...server,
+        ...(body as DTO<"AppUpdate">),
+        revision: 2,
+      } as DTO<"App">;
+      return server as never;
+    });
+    mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "启用 Android 平台" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await screen.findByText(/更改平台启停状态/);
+    expect(write).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "确认继续" }));
+    await screen.findByText("基本信息已保存。");
+    expect(server.platforms).toEqual(["android"]);
+    expect(server.disabled_platforms).toEqual(["android"]);
+  });
+
+  it("归档筛选从 URL 恢复并可单独清空", async () => {
+    mount(<AppsPage />, "/admin/apps", "/admin/apps?archived=true");
+    await screen.findByText("没有匹配的应用");
+    expect(read).toHaveBeenCalledWith(
+      "/api/v1/apps",
+      expect.objectContaining({
+        query: expect.objectContaining({ archived: true }),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "清空筛选" }));
+    await screen.findByText("添加你的第一个应用");
+    expect(read).toHaveBeenLastCalledWith(
+      "/api/v1/apps",
+      expect.objectContaining({
+        query: expect.objectContaining({ archived: undefined }),
+      }),
+    );
+  });
+
+  it("图标拒绝不支持格式并允许清除错误重新提交", async () => {
+    mount(<AppPage />);
+    const field = (await screen.findByLabelText(
+      "应用图标（选填）",
+    )) as HTMLInputElement;
+    fireEvent.change(field, {
+      target: {
+        files: [new File(["<svg/>"], "icon.svg", { type: "image/svg+xml" })],
+      },
+    });
+    await screen.findByRole("alert");
+    expect(field.validity.customError).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "移除图标" }));
+    expect(field.validity.valid).toBe(true);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("包标识按平台和模式提交，未配置模式可保存", async () => {
     vi.mocked(write).mockImplementation(async (_path, _method, body) => {
       server = {

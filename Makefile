@@ -37,7 +37,9 @@ idl-check:
 
 lint:
 	uv run --directory backend ruff check .
+	uv run --directory backend ruff check ../parser
 	uv run --directory backend ruff format --check .
+	uv run --directory backend ruff format --check ../parser
 	pnpm --dir frontend lint
 
 test:

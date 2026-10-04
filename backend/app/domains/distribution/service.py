@@ -49,6 +49,17 @@ def state(db, key: str, *, locked=False) -> IntegrationState:
 
 
 def enqueue(db, kind, resource_id=None, app_id=None, payload=None, dedupe_key=None):
+    if app_id:
+        from app.domains.applications.models import AppRecord
+
+        app = db.scalar(
+            select(AppRecord)
+            .where(AppRecord.id == app_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if app and app.archived_at:
+            raise AppError(409, "APP_ARCHIVED", "归档应用不能创建新任务")
     if dedupe_key:
         lock(db, dedupe_key)
         existing = db.scalar(select(TaskRecord).where(TaskRecord.dedupe_key == dedupe_key))
@@ -97,7 +108,17 @@ def task_dto(task):
     )
     return {
         **{n: getattr(task, n) for n in names},
-        "can_retry": (task.state == "failed" and task.kind not in {"notification", "build_event"})
+        "can_retry": (
+            task.state == "failed"
+            and task.kind
+            not in {
+                "notification",
+                "build_event",
+                "package_ingest",
+                "storage_probe",
+                "publication_access",
+            }
+        )
         or (task.state == "partial_success" and task.kind in {"release_sync", "release_import"}),
     }
 

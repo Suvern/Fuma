@@ -173,6 +173,10 @@ def update_rule(
     patch = body.model_dump(mode="json", exclude_unset=True)
     if not patch or any(value is None for value in patch.values()):
         raise AppError(422, "VALIDATION_ERROR", "更新字段不能为空")
+    candidate = must_get(db, RuleRecord, id)
+    app = get_app(db, candidate.app_id, lock=True)
+    if app.archived_at:
+        raise AppError(409, "APP_ARCHIVED", "归档应用不能修改分发规则")
     row = rule_locked(db, id, if_match)
     data = {**row.data, **patch}
     validate_rule(db, data)

@@ -171,6 +171,8 @@ export function PageTabs({
   const items = appPath
     ? [
         { to: appPath, label: "应用设置" },
+        { to: `${appPath}/packages`, label: "安装包" },
+        { to: `${appPath}/versions`, label: "版本发布" },
         { to: `${appPath}/releases`, label: "GitHub Releases" },
         { to: `${appPath}/debug`, label: "Debug 包" },
         { to: `${appPath}/actions`, label: "Actions 规则" },

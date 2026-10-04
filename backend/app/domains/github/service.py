@@ -1,3 +1,4 @@
+import json
 from uuid import UUID
 
 from sqlalchemy import select
@@ -27,6 +28,10 @@ def get_github_client(db: Session, connector_id: UUID | str, settings: Settings)
     if not row.enabled:
         raise AppError(409, "CONNECTOR_DISABLED", "GitHub Connector 已停用")
     token = SecretBox(settings).decrypt(row.encrypted_token, "github:" + str(row.id))
+    if row.auth_kind == "github_app":
+        from app.integrations.github_app import GitHubAppClient
+
+        return GitHubAppClient(json.loads(token), cache_key=(str(row.id), row.revision))
     return GitHubClient(token)
 
 
@@ -39,6 +44,9 @@ def connector_dto(row: GithubConnector) -> Connector:
         name=row.name,
         enabled=row.enabled,
         has_token=bool(row.encrypted_token),
+        auth_kind=row.auth_kind,
+        app_id=row.app_id,
+        installation_id=row.installation_id,
         github_login=row.github_login,
         last_tested_at=row.last_tested_at,
         last_test_status=row.last_test_status,

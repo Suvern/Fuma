@@ -92,6 +92,7 @@ class DebugRecord(Timestamped, Base):
     __tablename__ = "debug_entries"
     __table_args__ = (UniqueConstraint("app_id", "source_identity"),)
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    persistent_package_id: Mapped[UUID | None] = mapped_column(ForeignKey("packages.id"))
     app_id: Mapped[UUID] = mapped_column(ForeignKey("applications.id"), index=True)
     source_identity: Mapped[str] = mapped_column(String(64))
     cache_identity: Mapped[str | None] = mapped_column(ForeignKey("source_caches.source_identity"))

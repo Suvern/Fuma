@@ -13,7 +13,8 @@ FROM python:3.13-slim AS runtime
 ENV PATH="/app/backend/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app/backend
 RUN groupadd --gid 10001 fuma && useradd --uid 10001 --gid fuma --no-create-home fuma \
-    && mkdir -p /data/cache /data/state && chown fuma:fuma /data/cache /data/state \
+    && mkdir -p /data/cache /data/state /data/parser/inbox /data/parser/outbox \
+    && chown fuma:fuma /data/cache /data/state /data/parser /data/parser/inbox /data/parser/outbox \
     && chmod 700 /data/state
 COPY --from=build /app/backend /app/backend
 USER 10001:10001

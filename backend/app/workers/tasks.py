@@ -59,6 +59,23 @@ def execute_task(engine, settings, task_id):
                         if isinstance(exc, AppError)
                         else "任务执行失败，请重试或检查配置"
                     )
+                    if task.kind == "package_ingest":
+                        from app.domains.library.models import UploadRecord
+
+                        upload = db.get(UploadRecord, UUID(task.resource_id))
+                        if upload and upload.task_id == task.id:
+                            upload.state, upload.error_message = "failed", task.error_message
+                    if task.kind == "storage_probe":
+                        from app.domains.storage.models import StorageLocation
+
+                        location = db.get(StorageLocation, UUID(task.resource_id))
+                        if (
+                            location
+                            and location.task_id == task.id
+                            and location.status == "testing"
+                        ):
+                            location.status, location.error_message = "failed", task.error_message
+                            location.revision += 1
                     if task.kind == "cache_download":
                         from app.domains.distribution.packages import mark_cache_failed
 
@@ -121,7 +138,23 @@ def execute_task(engine, settings, task_id):
 
 
 def dispatch(db, settings, task):
-    if task.kind in {"release_sync", "release_import"}:
+    if task.kind == "package_delete":
+        from app.domains.library.cleanup import delete_package
+
+        delete_package(db, settings, task)
+    elif task.kind == "storage_probe":
+        from app.domains.storage.service import probe
+
+        probe(db, settings, task)
+    elif task.kind == "publication_access":
+        from app.domains.storage.publications import synchronize
+
+        synchronize(db, settings, task)
+    elif task.kind == "package_ingest":
+        from app.domains.library.ingestion import ingest
+
+        ingest(db, settings, task)
+    elif task.kind in {"release_sync", "release_import"}:
         from app.domains.github.releases import execute_release_task
 
         execute_release_task(db, settings, task)
@@ -135,8 +168,10 @@ def dispatch(db, settings, task):
         download_cache(db, settings, UUID(task.resource_id), task.id)
     elif task.kind == "cache_cleanup":
         from app.domains.distribution.packages import cleanup_cache
+        from app.domains.library.cleanup import cleanup_expired
 
         cleanup_cache(db, settings, task.payload.get("scope", "expired"))
+        cleanup_expired(db, settings)
     elif task.kind == "notification":
         from app.domains.distribution.feishu import send_delivery
 

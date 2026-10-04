@@ -15,6 +15,20 @@ export const router = createBrowserRouter([
           Component: (await import("../features/m1/Debug")).CatalogPage,
         }),
       },
+      {
+        path: "releases",
+        lazy: async () => ({
+          Component: (await import("../features/library/Library"))
+            .PublishedReleasesPage,
+        }),
+      },
+      {
+        path: "releases/:id",
+        lazy: async () => ({
+          Component: (await import("../features/library/Library"))
+            .PublishedReleasePage,
+        }),
+      },
       { path: "login", Component: LoginPage },
       { path: "auth/error", Component: AuthErrorPage },
       {
@@ -70,6 +84,30 @@ export const router = createBrowserRouter([
         path: "debug/:id",
         lazy: async () => ({
           Component: (await import("../features/m1/Debug")).DebugAdminPage,
+        }),
+      },
+      {
+        path: "apps/:id/packages",
+        lazy: async () => ({
+          Component: (await import("../features/library/Library")).PackagesPage,
+        }),
+      },
+      {
+        path: "apps/:id/versions",
+        lazy: async () => ({
+          Component: (await import("../features/library/Library")).VersionsPage,
+        }),
+      },
+      {
+        path: "versions/:id",
+        lazy: async () => ({
+          Component: (await import("../features/library/Library")).VersionPage,
+        }),
+      },
+      {
+        path: "settings/storage",
+        lazy: async () => ({
+          Component: (await import("../features/library/Storage")).StoragePage,
         }),
       },
       {

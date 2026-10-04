@@ -17,6 +17,7 @@ from app.api import contracts as dto
 from app.api.dependencies import CSRF, DB, Admin, require_downloader, require_revision
 from app.core.errors import AppError, error_response
 from app.domains.applications.models import AppRecord
+from app.domains.applications.service import platform_enabled, require_platform_enabled
 from app.domains.audit.service import record_audit
 from app.domains.auth.service import AuthContext, token_hash, utcnow
 from app.domains.distribution.feishu import verify_download_context
@@ -52,7 +53,7 @@ Downloader = Annotated[AuthContext, Depends(require_downloader)]
 def visible_entry(db, id):
     entry = must_get(db, DebugRecord, id)
     app = db.get(AppRecord, entry.app_id)
-    if not entry.enabled or not app or not app.enabled:
+    if not entry.enabled or not platform_enabled(app, entry.platform):
         raise AppError(404, "RESOURCE_NOT_AVAILABLE", "资源不存在或不可访问")
     return entry
 
@@ -146,6 +147,12 @@ def update_entry(
     if_match: Annotated[str | None, Header()] = None,
 ):
     row = must_get(db, DebugRecord, id)
+    if body.enabled:
+        from app.api.applications import get_app
+
+        if get_app(db, row.app_id, lock=True).archived_at:
+            raise AppError(409, "APP_ARCHIVED", "归档应用不能重新启用安装包")
+        require_platform_enabled(db.get(AppRecord, row.app_id), row.platform)
     lock(db, cache_lock_key(row))
     db.refresh(row)
     require_revision(if_match, row.revision)
@@ -243,7 +250,8 @@ def catalog_entries(
         [
             catalog_entry(db, r, request.app.state.settings)
             for r in sort_entries(rows, sort)
-            if (not app_id or r.app_id == app_id)
+            if platform_enabled(db.get(AppRecord, r.app_id), r.platform)
+            and (not app_id or r.app_id == app_id)
             and (not platform or r.platform == platform)
             and (
                 not q
@@ -323,7 +331,7 @@ def grant(
     )
     lock(db, cache_lock_key(row))
     db.refresh(row)
-    if not row.enabled or not app or not app.enabled:
+    if not row.enabled or not platform_enabled(app, row.platform):
         raise AppError(404, "RESOURCE_NOT_AVAILABLE", "资源不存在或不可访问")
     if previous:
         if "encrypted" in previous.data:
@@ -342,7 +350,39 @@ def grant(
     lock(db, cache_lock_key(row))
     db.refresh(row)
     path = cache_path(settings, row)
-    if row.cache_state != "ready" or not path.is_file() or path.is_symlink():
+    if row.persistent_package_id:
+        import json
+
+        from app.domains.library.models import PackageRecord
+        from app.domains.storage.service import cloud_grant
+
+        package = must_get(db, PackageRecord, row.persistent_package_id)
+        if package.state != "ready" or not package.storage_location_id:
+            raise AppError(503, "PACKAGE_NOT_READY", "私有原件暂时不可用")
+        result = dict(
+            download_url=cloud_grant(db, settings, package),
+            expires_at=(utcnow() + timedelta(seconds=300)).isoformat(),
+            file_name=row.file_name,
+            size_bytes=package.size_bytes,
+            sha256=package.sha256,
+        )
+        idem_save(
+            db,
+            key,
+            {},
+            {"encrypted": SecretBox(settings).encrypt(json.dumps(result), scope="download-grant")},
+        )
+        record_audit(
+            db,
+            action="download.grant",
+            resource_type="debug_entry",
+            resource_id=str(id),
+            actor_kind="feishu",
+            actor_id=str(downloader.user.id),
+            request_id=request.state.request_id,
+            summary="签发私有云存储下载授权；旧本机链接保持原有效期",
+        )
+    elif row.cache_state != "ready" or not path.is_file() or path.is_symlink():
         if row.cache_state == "ready":
             mark_cache_missing(db, row)
         ensure_cache(db, row)

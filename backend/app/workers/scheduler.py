@@ -55,7 +55,9 @@ def scan(engine, sent):
             celery_app.send_task(
                 "fuma.execute",
                 args=[str(job.id)],
-                queue="files" if job.kind == "cache_download" else "general",
+                queue="files"
+                if job.kind in {"cache_download", "package_ingest", "publication_access"}
+                else "general",
             )
             sent[job.id] = time.monotonic()
         active_ids = {job.id for job in jobs}

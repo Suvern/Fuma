@@ -23,6 +23,7 @@ export function PublicLayout() {
         </Link>
         <nav aria-label="主要">
           <Space spacing={16}>
+            <Link to="/releases">已发布版本</Link>
             <Link to="/admin">管理入口</Link>
             {session.data?.authenticated && (
               <>
@@ -36,7 +37,7 @@ export function PublicLayout() {
           </Space>
         </nav>
       </Layout.Header>
-      <Layout.Content>
+      <Layout.Content tagName="div">
         <main id="main" tabIndex={-1}>
           <Outlet />
         </main>

@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     encryption_key: SecretStr | None = None
     session_ttl_seconds: int = 28800
     cache_dir: Path = Path("~/.local/share/fuma/cache").expanduser()
+    parser_dir: Path | None = None
+
+    @property
+    def parser_inbox(self) -> Path:
+        return (self.parser_dir or self.state_dir / "parser") / "inbox"
+
+    @property
+    def parser_outbox(self) -> Path:
+        return (self.parser_dir or self.state_dir / "parser") / "outbox"
 
     @property
     def database_dsn(self) -> SecretStr:

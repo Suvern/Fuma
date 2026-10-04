@@ -553,6 +553,10 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-access: admin
       parameters:
+      - name: archived
+        in: query
+        schema:
+          type: boolean
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
       - $ref: '#/components/parameters/Query'
@@ -5680,8 +5684,2429 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ReleaseImportRequest'
+  /api/v1/apps/{id}/archive-impact:
+    get:
+      operationId: get_app_archive_impact
+      tags:
+      - apps
+      summary: get_app_archive_impact
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppArchiveImpact'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/apps/{id}/archive:
+    post:
+      operationId: archive_app
+      tags:
+      - apps
+      summary: archive_app
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/App'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/apps/{id}/restore:
+    post:
+      operationId: restore_app
+      tags:
+      - apps
+      summary: restore_app
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/App'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/apps/{id}/uploads:
+    post:
+      operationId: create_upload
+      tags:
+      - PackageLibrary
+      summary: create_upload
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: &m2path001
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadCreate'
+    get:
+      operationId: list_uploads
+      tags:
+      - PackageLibrary
+      summary: list_uploads
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Query'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadPage'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/uploads/{id}:
+    get:
+      operationId: get_upload
+      tags:
+      - PackageLibrary
+      summary: get_upload
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: cancel_upload
+      tags:
+      - PackageLibrary
+      summary: cancel_upload
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/uploads/{id}/parts/{part_number}:
+    put:
+      operationId: put_upload_part
+      tags:
+      - PackageLibrary
+      summary: put_upload_part
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      - name: part_number
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      - name: X-Chunk-SHA256
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadPart'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+  /api/v1/uploads/{id}/complete:
+    post:
+      operationId: complete_upload
+      tags:
+      - PackageLibrary
+      summary: complete_upload
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/uploads/{id}/retry:
+    post:
+      operationId: retry_upload
+      tags:
+      - PackageLibrary
+      summary: retry_upload
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/apps/{id}/packages:
+    get:
+      operationId: list_packages
+      tags:
+      - PackageLibrary
+      summary: list_packages
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Query'
+      - name: platform
+        in: query
+        schema:
+          type: string
+          enum:
+          - android
+          - ios
+      - name: mode
+        in: query
+        schema:
+          type: string
+          enum:
+          - debug
+          - release
+      - name: state
+        in: query
+        schema:
+          type: string
+          enum:
+          - processing
+          - ready
+          - deleting
+          - deleted
+      - name: source_kind
+        in: query
+        schema:
+          type: string
+          enum:
+          - upload
+          - github
+      - name: created_from
+        in: query
+        description: 入库起始时间（含），必须包含时区。
+        schema:
+          type: string
+          format: date-time
+      - name: created_before
+        in: query
+        description: 入库结束时间（不含），必须包含时区。
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackagePage'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/packages/{id}:
+    delete:
+      operationId: delete_package
+      tags:
+      - PackageLibrary
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAccepted'
+    get:
+      operationId: get_package
+      tags:
+      - PackageLibrary
+      summary: get_package
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: update_package_notes
+      tags:
+      - PackageLibrary
+      summary: update_package_notes
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackageNotes'
+  /api/v1/apps/{id}/versions:
+    get:
+      operationId: list_versions
+      tags:
+      - PackageLibrary
+      summary: list_versions
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Query'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionPage'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: create_version
+      tags:
+      - PackageLibrary
+      summary: create_version
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionCreate'
+  /api/v1/versions/{id}:
+    get:
+      operationId: get_version
+      tags:
+      - PackageLibrary
+      summary: get_version
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: update_version
+      tags:
+      - PackageLibrary
+      summary: update_version
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionCreate'
+  /api/v1/versions/{id}/publications:
+    get:
+      operationId: list_publications
+      tags:
+      - PackageLibrary
+      summary: list_publications
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Query'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationPage'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: create_publication
+      tags:
+      - PackageLibrary
+      summary: create_publication
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationCreate'
+  /api/v1/publications/{id}:
+    get:
+      operationId: get_publication
+      tags:
+      - PackageLibrary
+      summary: get_publication
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/publications/{id}/publish:
+    post:
+      operationId: publish_publication
+      tags:
+      - PackageLibrary
+      summary: publish_publication
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/publications/{id}/unpublish:
+    post:
+      operationId: unpublish_publication
+      tags:
+      - PackageLibrary
+      summary: unpublish_publication
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/publications/{id}/archive:
+    post:
+      operationId: archive_publication
+      tags:
+      - PackageLibrary
+      summary: archive_publication
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/publications/{id}/restore:
+    post:
+      operationId: restore_publication
+      tags:
+      - PackageLibrary
+      summary: restore_publication
+      security:
+      - SessionCookie: []
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *m2path001
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationInfo'
+        '401':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/catalog/publications:
+    get:
+      operationId: catalog_publications
+      tags:
+      - PackageLibrary
+      x-access: feishu
+      security:
+      - SessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Query'
+      - name: app_name
+        in: query
+        description: 按应用名称筛选，仅匹配当前身份可见的发布。
+        schema:
+          type: string
+          maxLength: 100
+      - name: version_name
+        in: query
+        description: 按版本名称筛选，仅匹配当前身份可见的发布。
+        schema:
+          type: string
+          maxLength: 100
+      - name: platform
+        in: query
+        schema:
+          type: string
+          enum:
+          - android
+          - ios
+      - name: mode
+        in: query
+        schema:
+          type: string
+          enum:
+          - debug
+          - release
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedReleasePage'
+  /api/v1/catalog/publications/{id}:
+    get:
+      operationId: catalog_publication
+      tags:
+      - PackageLibrary
+      x-access: feishu
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedRelease'
+  /api/v1/catalog/publications/{id}/grants:
+    post:
+      operationId: grant_publication_download
+      tags:
+      - PackageLibrary
+      x-access: feishu
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationDownloadGrant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationDownloadRequest'
+  /api/v1/library-downloads/{token}:
+    get:
+      operationId: download_publication_file
+      tags:
+      - PackageLibrary
+      x-access: capability
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: File content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+    head:
+      operationId: head_publication_file
+      tags:
+      - PackageLibrary
+      x-access: capability
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: File metadata
+  /api/v1/settings/storage-locations:
+    get:
+      operationId: list_storage_locations
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Query'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoragePage'
+    post:
+      operationId: create_storage_location
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageInfo'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageCreate'
+  /api/v1/settings/storage-locations/{id}:
+    get:
+      operationId: get_storage_location
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageInfo'
+  /api/v1/settings/storage-locations/{id}/test:
+    post:
+      operationId: test_storage_location
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageInfo'
+  /api/v1/settings/storage-locations/{id}/make-default:
+    post:
+      operationId: make_default_storage_location
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageInfo'
+  /api/v1/settings/storage-locations/{id}/disable:
+    post:
+      operationId: disable_storage_location
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageInfo'
+  /api/v1/settings/storage-locations/{id}/enable:
+    post:
+      operationId: enable_storage_location
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageInfo'
+  /api/v1/settings/storage-locations/{id}/credentials:
+    put:
+      operationId: rotate_storage_credentials
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageInfo'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageCredentials'
+  /api/v1/publications/{id}/retry-access:
+    post:
+      operationId: retry_publication_access
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationInfo'
+  /api/v1/connectors/github-app:
+    post:
+      operationId: create_github_app
+      tags:
+      - github
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GitHubAppCreate'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Connector'
+  /api/v1/connectors/github/{id}/app-credentials:
+    put:
+      operationId: rotate_github_app
+      tags:
+      - github
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/CSRF'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GitHubAppCredentials'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Connector'
+  /api/v1/apps/{id}/package-imports:
+    post:
+      operationId: import_package
+      tags:
+      - PackageLibrary
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackageImport'
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+  /api/v1/debug-entries/{id}/persist:
+    post:
+      operationId: persist_legacy_package
+      tags:
+      - PackageLibrary
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LegacyPersistence'
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+  /api/v1/apps/{id}/release-defaults/{platform}:
+    get:
+      operationId: get_release_default
+      tags:
+      - PackageLibrary
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: platform
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - android
+          - ios
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseDefault'
+    put:
+      operationId: set_release_default
+      tags:
+      - PackageLibrary
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: platform
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - android
+          - ios
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseDefault'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseDefaultUpdate'
+  /api/v1/packages/{id}/deletion-impact:
+    get:
+      operationId: package_deletion_impact
+      tags:
+      - PackageLibrary
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageDeletionImpact'
+  /api/v1/apps/{id}/distribution-statistics:
+    get:
+      operationId: get_app_distribution_statistics
+      tags: [apps]
+      x-access: admin
+      summary: Formal distribution measurements observed by Fuma; never an install count
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: start_date
+        in: query
+        schema: {type: string, format: date}
+        description: UTC inclusive date; defaults to 29 days ago.
+      - name: end_date
+        in: query
+        schema: {type: string, format: date}
+        description: UTC inclusive date; defaults to today. Maximum range 90 days.
+      responses:
+        '200':
+          description: Daily and total counters; pre-upgrade grant timestamps are unknown and excluded.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DistributionStatistics'}
+        '401':
+          description: Authentication required
+        '403':
+          description: Administrator required
+        '404':
+          description: App unavailable
+        '422':
+          description: Invalid date range
 components:
   schemas:
+    DistributionCounters:
+      type: object
+      additionalProperties: false
+      properties:
+        grant_count:
+          type: integer
+          minimum: 0
+        local_get_requests:
+          type: integer
+          minimum: 0
+        local_head_requests:
+          type: integer
+          minimum: 0
+        partial_get_requests:
+          type: integer
+          minimum: 0
+        interrupted_get_requests:
+          type: integer
+          minimum: 0
+        observed_bytes:
+          type: integer
+          minimum: 0
+      required: [grant_count, local_get_requests, local_head_requests, partial_get_requests, interrupted_get_requests, observed_bytes]
+    DistributionDay:
+      type: object
+      additionalProperties: false
+      properties:
+        date: {type: string, format: date}
+        grant_count:
+          type: integer
+          minimum: 0
+        local_get_requests:
+          type: integer
+          minimum: 0
+        local_head_requests:
+          type: integer
+          minimum: 0
+        partial_get_requests:
+          type: integer
+          minimum: 0
+        interrupted_get_requests:
+          type: integer
+          minimum: 0
+        observed_bytes:
+          type: integer
+          minimum: 0
+      required: [date, grant_count, local_get_requests, local_head_requests, partial_get_requests, interrupted_get_requests, observed_bytes]
+    DistributionStatistics:
+      type: object
+      additionalProperties: false
+      properties:
+        app_id: {type: string, format: uuid}
+        start_date: {type: string, format: date}
+        end_date: {type: string, format: date}
+        totals: {$ref: '#/components/schemas/DistributionCounters'}
+        days:
+          type: array
+          items: {$ref: '#/components/schemas/DistributionDay'}
+      required: [app_id, start_date, end_date, totals, days]
     DependencyChecks:
       properties:
         database:
@@ -5907,6 +8332,18 @@ components:
       type: object
       additionalProperties: false
       properties:
+        icon_data:
+          type: string
+          maxLength: 90000
+          description: Optional inline PNG, JPEG or WebP data URL, decoded maximum 64 KiB. Empty string clears the icon; omission preserves it on update.
+        disabled_platforms:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items:
+            type: string
+            enum: [android, ios]
+          description: Selected platforms paused for new ingestion, publication and download grants. Existing history and short-lived grants remain unchanged. Defaults to empty.
         name: *id004
         public_slug:
           type: string
@@ -5937,6 +8374,18 @@ components:
       type: object
       additionalProperties: false
       properties:
+        icon_data:
+          type: string
+          maxLength: 90000
+          description: Optional inline PNG, JPEG or WebP data URL, decoded maximum 64 KiB. Empty string clears the icon; omission preserves it on update.
+        disabled_platforms:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items:
+            type: string
+            enum: [android, ios]
+          description: Selected platforms paused for new ingestion, publication and download grants. Existing history and short-lived grants remain unchanged. Defaults to empty.
         name: *id004
         description: *id005
         platforms:
@@ -5989,6 +8438,26 @@ components:
       type: object
       additionalProperties: false
       properties:
+        icon_data:
+          type: string
+          maxLength: 90000
+          description: Optional inline PNG, JPEG or WebP data URL, decoded maximum 64 KiB. Empty string clears the icon; omission preserves it on update.
+        disabled_platforms:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items:
+            type: string
+            enum: [android, ios]
+          description: Selected platforms paused for new ingestion, publication and download grants. Existing history and short-lived grants remain unchanged. Defaults to empty.
+        package_count:
+          type: integer
+          minimum: 0
+          description: Formal package records excluding physically deleted records.
+        publication_count:
+          type: integer
+          minimum: 0
+          description: All formal publication records including draft and historical publications.
         id: *id001
         created_at: *id003
         updated_at: *id003
@@ -6015,6 +8484,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AllowedPackageId'
+        archived_at:
+          type: [string, "null"]
+          format: date-time
       required:
       - id
       - created_at
@@ -6079,11 +8551,22 @@ components:
       type: object
       additionalProperties: false
       properties:
-        id: *id001
-        created_at: *id003
-        updated_at: *id003
-        revision: *id007
-        name: *id004
+        id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        revision:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
         enabled:
           type: boolean
         has_token:
@@ -6092,9 +8575,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-        last_tested_at: &id009
+        last_tested_at:
           anyOf:
-          - *id003
+          - type: string
+            format: date-time
           - type: 'null'
         last_test_status:
           type: string
@@ -6103,6 +8587,19 @@ components:
           - ok
           - failed
         last_error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+        auth_kind:
+          type: string
+          enum:
+          - pat
+          - github_app
+        app_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        installation_id:
           anyOf:
           - type: string
           - type: 'null'
@@ -6309,7 +8806,7 @@ components:
           type: boolean
         prerelease:
           type: boolean
-        published_at: *id009
+        published_at: {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
         assets:
           type: array
           items:
@@ -6341,7 +8838,7 @@ components:
         total:
           type: integer
           minimum: 0
-        synced_at: *id009
+        synced_at: {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
         sync_state:
           type: string
           enum:
@@ -6615,7 +9112,7 @@ components:
         callback_url:
           type: string
           format: uri
-        last_tested_at: *id009
+        last_tested_at: {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
         checks:
           type: array
           items:
@@ -6669,7 +9166,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Check'
-        last_tested_at: *id009
+        last_tested_at: {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
         revision:
           type: integer
           minimum: 0
@@ -6734,7 +9231,7 @@ components:
         total:
           type: integer
           minimum: 0
-        synced_at: *id009
+        synced_at: {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
         sync_state:
           type: string
           enum:
@@ -6936,7 +9433,7 @@ components:
           - type: string
             maxLength: 500
           - type: 'null'
-        updated_at: *id009
+        updated_at: {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
       required:
       - state
       - downloaded_bytes
@@ -7010,16 +9507,30 @@ components:
       type: object
       additionalProperties: false
       properties:
-        id: *id001
-        created_at: *id003
-        updated_at: *id003
-        revision: *id007
-        app_id: *id001
+        id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        revision:
+          type: integer
+          minimum: 1
+        app_id:
+          type: string
+          format: uuid
         mode:
           type: string
           enum:
           - debug
-        platform: *id002
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
         file_name:
           type: string
         size_bytes:
@@ -7049,6 +9560,11 @@ components:
         page_url:
           type: string
           format: uri
+        persistent_package_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
       required:
       - id
       - created_at
@@ -7393,7 +9909,7 @@ components:
           - debug
         has_token:
           type: boolean
-        token_created_at: *id009
+        token_created_at: {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
         callback_url:
           type: string
           format: uri
@@ -7565,8 +10081,8 @@ components:
           - type: string
             maxLength: 500
           - type: 'null'
-        started_at: *id009
-        finished_at: *id009
+        started_at: {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
+        finished_at: {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
       required:
       - name
       - state
@@ -7679,7 +10195,9 @@ components:
       type: object
       additionalProperties: false
       properties:
-        id: *id001
+        id:
+          type: string
+          format: uuid
         kind:
           type: string
           enum:
@@ -7690,7 +10208,19 @@ components:
           - build_event
           - notification
           - cache_cleanup
-        state: *id020
+          - package_ingest
+          - storage_probe
+          - publication_access
+          - package_delete
+        state:
+          type: string
+          enum:
+          - queued
+          - running
+          - succeeded
+          - partial_success
+          - failed
+          - unknown
         phase:
           type: string
         progress:
@@ -7701,7 +10231,8 @@ components:
           - type: 'null'
         app_id:
           anyOf:
-          - *id001
+          - type: string
+            format: uuid
           - type: 'null'
         resource_id:
           anyOf:
@@ -7719,9 +10250,17 @@ components:
           - type: string
             maxLength: 500
           - type: 'null'
-        created_at: *id003
-        updated_at: *id003
-        next_check_at: *id009
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        next_check_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
         can_retry:
           type: boolean
       required:
@@ -7739,9 +10278,9 @@ components:
       - updated_at
       - next_check_at
       - can_retry
-      description: Worker retry_wait and waiting_external map to queued plus next_check_at; recovering
-        maps to queued until reclaimed. phase describes waiting_run/recovery explicitly; queued is not
-        active execution.
+      description: Worker retry_wait and waiting_external map to queued plus next_check_at;
+        recovering maps to queued until reclaimed. phase describes waiting_run/recovery
+        explicitly; queued is not active execution.
     TaskPage:
       type: object
       additionalProperties: false
@@ -7932,7 +10471,7 @@ components:
           - ok
           - unavailable
           - unknown
-        worker_last_seen_at: *id009
+        worker_last_seen_at: {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]}
         scheduler:
           type: string
           enum:
@@ -8004,6 +10543,958 @@ components:
         binding_id: *id001
       required:
       - binding_id
+    AppArchiveImpact:
+      type: object
+      additionalProperties: false
+      properties:
+        app_id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          minimum: 1
+        can_archive:
+          type: boolean
+        debug_entries:
+          type: integer
+          minimum: 0
+        active_debug_entries:
+          type: integer
+          minimum: 0
+        active_tasks:
+          type: integer
+          minimum: 0
+        active_actions_rules:
+          type: integer
+          minimum: 0
+        automatic_import_enabled:
+          type: boolean
+        blockers:
+          type: array
+          items:
+            type: string
+      required:
+      - app_id
+      - revision
+      - can_archive
+      - debug_entries
+      - active_debug_entries
+      - active_tasks
+      - active_actions_rules
+      - automatic_import_enabled
+      - blockers
+    UploadCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        file_name:
+          type: string
+          maxLength: 255
+          minLength: 1
+        declared_size:
+          type: integer
+          minimum: 1
+          maximum: 4294967296
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+        mode:
+          type: string
+          enum:
+          - debug
+          - release
+        storage_location_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      required:
+      - file_name
+      - declared_size
+      - platform
+      - mode
+    UploadPart:
+      type: object
+      additionalProperties: false
+      properties:
+        part_number: &m2schema001
+          type: integer
+          minimum: 0
+        size_bytes: *m2schema001
+        sha256:
+          type: string
+          maxLength: 64
+      required:
+      - part_number
+      - size_bytes
+      - sha256
+    UploadSession:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        app_id:
+          type: string
+          format: uuid
+        file_name:
+          type: string
+          maxLength: 255
+        declared_size:
+          type: integer
+          minimum: 0
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+        mode:
+          type: string
+          enum:
+          - debug
+          - release
+        chunk_size:
+          type: integer
+          minimum: 0
+        expected_parts:
+          type: integer
+          minimum: 0
+        parts:
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadPart'
+        state:
+          type: string
+          enum:
+          - receiving
+          - processing
+          - ready
+          - failed
+          - cancelled
+          - expired
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        task_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        package_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        error_message:
+          type:
+          - string
+          - 'null'
+        storage_location_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        source_snapshot:
+          anyOf:
+          - type: object
+            additionalProperties: true
+          - type: 'null'
+      required:
+      - id
+      - app_id
+      - file_name
+      - declared_size
+      - platform
+      - mode
+      - chunk_size
+      - expected_parts
+      - parts
+      - state
+      - expires_at
+      - created_at
+      - task_id
+      - package_id
+      - error_message
+    UploadPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadSession'
+        page: *m2schema001
+        page_size: *m2schema001
+        total: *m2schema001
+      required:
+      - items
+      - page
+      - page_size
+      - total
+    PackageInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        related_uploads:
+          description: 仅管理员包详情返回关联上传记录与任务。
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadSession'
+        publication_refs:
+          description: 仅管理员包详情返回全部发布引用，包括草稿与历史发布。
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicationInfo'
+        id:
+          type: string
+          format: uuid
+        app_id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+        mode:
+          type: string
+          enum:
+          - debug
+          - release
+        file_name:
+          type: string
+          maxLength: 255
+        size_bytes:
+          type: integer
+          minimum: 0
+        sha256:
+          type: string
+          maxLength: 64
+        package_identifier:
+          type: string
+          maxLength: 255
+        version_name:
+          type: string
+          maxLength: 100
+        build_number:
+          type: string
+          maxLength: 100
+        min_os:
+          type:
+          - string
+          - 'null'
+        architectures:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+        signer_fingerprints:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+        signature_status:
+          type: string
+          maxLength: 100
+        source_kind:
+          type: string
+          enum:
+          - upload
+          - github
+        state:
+          type: string
+          enum:
+          - ready
+          - deleting
+          - deleted
+          - processing
+        created_at:
+          type: string
+          format: date-time
+        internal_notes:
+          type: string
+          maxLength: 2000
+        revision:
+          type: integer
+          minimum: 0
+        parser_version:
+          type: string
+          maxLength: 100
+        storage_location_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        source_snapshot:
+          anyOf:
+          - type: object
+            additionalProperties: true
+          - type: 'null'
+      required:
+      - id
+      - app_id
+      - platform
+      - mode
+      - file_name
+      - size_bytes
+      - sha256
+      - package_identifier
+      - version_name
+      - build_number
+      - min_os
+      - architectures
+      - signer_fingerprints
+      - signature_status
+      - source_kind
+      - state
+      - created_at
+      - internal_notes
+      - revision
+      - parser_version
+    PackagePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackageInfo'
+        page: *m2schema001
+        page_size: *m2schema001
+        total: *m2schema001
+      required:
+      - items
+      - page
+      - page_size
+      - total
+    PackageNotes:
+      type: object
+      additionalProperties: false
+      properties:
+        internal_notes:
+          type: string
+          maxLength: 2000
+      required:
+      - internal_notes
+    VersionCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        display_name:
+          type: string
+          maxLength: 100
+          minLength: 1
+        mode: {type: string, enum: [debug, release]}
+        release_notes:
+          type: string
+          maxLength: 10000
+      required:
+      - display_name
+      - mode
+      - release_notes
+    VersionInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        app_id: {type: string, format: uuid}
+        display_name:
+          type: string
+          maxLength: 100
+        mode: {type: string, enum: [debug, release]}
+        release_notes:
+          type: string
+          maxLength: 10000
+        revision: *m2schema001
+        created_at: {type: string, format: date-time}
+      required:
+      - id
+      - app_id
+      - display_name
+      - mode
+      - release_notes
+      - revision
+      - created_at
+    VersionPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/VersionInfo'
+        page: *m2schema001
+        page_size: *m2schema001
+        total: *m2schema001
+      required:
+      - items
+      - page
+      - page_size
+      - total
+    PublicationCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+        package_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+        public_storage_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      required:
+      - platform
+      - package_ids
+    PublicationInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        app_id:
+          type: string
+          format: uuid
+        version_id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+        mode:
+          type: string
+          enum:
+          - debug
+          - release
+        package_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        state:
+          type: string
+          enum:
+          - draft
+          - published
+          - unpublished
+          - archived
+        file_set_frozen:
+          type: boolean
+        revision:
+          type: integer
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+        published_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        public_storage_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        access_state:
+          type: string
+          enum:
+          - private
+          - publishing
+          - public
+          - reclaiming
+          - reclaim_failed
+          - reclaimed
+          - publish_failed
+        access_task_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        access_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - id
+      - app_id
+      - version_id
+      - platform
+      - mode
+      - package_ids
+      - state
+      - file_set_frozen
+      - revision
+      - created_at
+      - published_at
+    PublicationPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicationInfo'
+        page: *m2schema001
+        page_size: *m2schema001
+        total: *m2schema001
+      required:
+      - items
+      - page
+      - page_size
+      - total
+    PublishedFile:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_name:
+          type: string
+        size_bytes:
+          type: integer
+        sha256:
+          type: string
+        version_name:
+          type: string
+        build_number:
+          type: string
+        package_identifier:
+          type: string
+        signature_status:
+          type: string
+      required:
+      - id
+      - file_name
+      - size_bytes
+      - sha256
+      - version_name
+      - build_number
+      - package_identifier
+      - signature_status
+    PublishedRelease:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        app_id:
+          type: string
+          format: uuid
+        app_name:
+          type: string
+        version_name:
+          type: string
+        release_notes:
+          type: string
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+        mode:
+          type: string
+          enum:
+          - debug
+          - release
+        published_at:
+          type: string
+          format: date-time
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublishedFile'
+        is_default:
+          type: boolean
+      required:
+      - id
+      - app_id
+      - app_name
+      - version_name
+      - release_notes
+      - platform
+      - mode
+      - published_at
+      - files
+    PublishedReleasePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublishedRelease'
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+      required:
+      - items
+      - page
+      - page_size
+      - total
+    PublicationDownloadRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        package_id:
+          type: string
+          format: uuid
+      required:
+      - package_id
+    PublicationDownloadGrant:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      required:
+      - url
+      - expires_at
+    StorageCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+        provider:
+          type: string
+          enum:
+          - cos
+          - oss
+        region:
+          type: string
+          maxLength: 40
+          minLength: 1
+        bucket:
+          type: string
+          maxLength: 100
+          minLength: 1
+        prefix:
+          type: string
+          maxLength: 100
+          minLength: 1
+        read_mode:
+          type: string
+          enum:
+          - private
+          - public
+        access_key_id:
+          type: string
+          maxLength: 200
+          minLength: 1
+          writeOnly: true
+        access_key_secret:
+          type: string
+          maxLength: 500
+          minLength: 1
+          writeOnly: true
+      required:
+      - name
+      - provider
+      - region
+      - bucket
+      - prefix
+      - read_mode
+      - access_key_id
+      - access_key_secret
+    StorageCredentials:
+      type: object
+      additionalProperties: false
+      properties:
+        access_key_id:
+          type: string
+          maxLength: 200
+          minLength: 1
+          writeOnly: true
+        access_key_secret:
+          type: string
+          maxLength: 500
+          minLength: 1
+          writeOnly: true
+      required:
+      - access_key_id
+      - access_key_secret
+    StorageInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+        provider:
+          type: string
+          enum:
+          - cos
+          - oss
+        region:
+          type: string
+          maxLength: 40
+          minLength: 1
+        bucket:
+          type: string
+          maxLength: 100
+          minLength: 1
+        prefix:
+          type: string
+          maxLength: 100
+          minLength: 1
+        read_mode:
+          type: string
+          enum:
+          - private
+          - public
+        enabled:
+          type: boolean
+        is_default:
+          type: boolean
+        status:
+          type: string
+          enum:
+          - unverified
+          - testing
+          - ready
+          - failed
+        revision:
+          type: integer
+        checked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        capabilities:
+          type: object
+          additionalProperties:
+            type: string
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+        task_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        object_count:
+          type: integer
+        managed_bytes:
+          type: integer
+      required:
+      - id
+      - name
+      - provider
+      - region
+      - bucket
+      - prefix
+      - read_mode
+      - enabled
+      - is_default
+      - status
+      - revision
+      - checked_at
+      - capabilities
+      - error_message
+      - task_id
+      - object_count
+      - managed_bytes
+    StoragePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorageInfo'
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+      required:
+      - items
+      - page
+      - page_size
+      - total
+    GitHubAppCredentials:
+      type: object
+      additionalProperties: false
+      properties:
+        app_id:
+          type: string
+          pattern: ^[0-9]+$
+          maxLength: 30
+        installation_id:
+          type: string
+          pattern: ^[0-9]+$
+          maxLength: 30
+        private_key:
+          type: string
+          minLength: 100
+          maxLength: 20000
+          writeOnly: true
+      required:
+      - app_id
+      - installation_id
+      - private_key
+    GitHubAppCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        app_id:
+          type: string
+          pattern: ^[0-9]+$
+          maxLength: 30
+        installation_id:
+          type: string
+          pattern: ^[0-9]+$
+          maxLength: 30
+        private_key:
+          type: string
+          minLength: 100
+          maxLength: 20000
+          writeOnly: true
+      required:
+      - name
+      - app_id
+      - installation_id
+      - private_key
+    PackageImport:
+      type: object
+      additionalProperties: false
+      properties:
+        release_id:
+          type: string
+          pattern: ^[0-9]+$
+        asset_id:
+          type: string
+          pattern: ^[0-9]+$
+        mode:
+          type: string
+          enum:
+          - debug
+          - release
+        storage_location_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        version_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      required:
+      - release_id
+      - asset_id
+      - mode
+    LegacyPersistence:
+      type: object
+      additionalProperties: false
+      properties:
+        storage_location_id:
+          type: string
+          format: uuid
+      required:
+      - storage_location_id
+    ReleaseDefault:
+      type: object
+      additionalProperties: false
+      properties:
+        app_id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+        publication_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        revision:
+          type: integer
+          minimum: 0
+      required:
+      - app_id
+      - platform
+      - publication_id
+      - revision
+    ReleaseDefaultUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        publication_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      required:
+      - publication_id
+    PackageDeletionImpact:
+      type: object
+      additionalProperties: false
+      properties:
+        package_id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+        can_delete:
+          type: boolean
+        retained_until:
+          type: string
+          format: date-time
+        blockers:
+          type: array
+          items:
+            type: string
+      required:
+      - package_id
+      - revision
+      - can_delete
+      - retained_until
+      - blockers
   parameters:
     Page:
       name: page

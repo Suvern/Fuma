@@ -1,3 +1,4 @@
+import { ActionsGuide, RuleConnection } from "./ActionsGuide";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import Table from "@douyinfe/semi-ui-19/lib/es/table";
 import {
@@ -52,6 +53,7 @@ export function ActionsPage() {
         <Link to={`/admin/apps/${id}`}>应用设置</Link>
         <Link to={`/admin/apps/${id}/events`}>查看构建事件</Link>
       </PageTabs>
+      <ActionsGuide appId={id} />
       <Disclosure title={<>＋ 新建分发规则</>} className="panel">
         <RuleForm appId={id} />
       </Disclosure>
@@ -215,34 +217,7 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
       <Disclosure title={<>编辑规则与通知群</>}>
         <RuleForm key={r.revision} appId={r.app_id} rule={r} />
       </Disclosure>
-      <Disclosure title={<>接入信息</>}>
-        <label className="field">
-          回调 URL
-          <Input value={r.callback_url} readOnly />
-        </label>
-        <p>
-          在构建流程上传 Release 安装包后 POST 回调，Authorization 使用 Bearer
-          CI 令牌。响应 202 后立即结束回调步骤；服务会等待同次 run 成功再下载。
-        </p>
-        <pre>
-          {JSON.stringify(
-            {
-              repository_id: r.repository_id,
-              run_id: "GitHub run ID",
-              run_attempt: 1,
-              head_sha: "40 位提交 SHA",
-              release_id: "Release ID",
-              asset_ids: ["Asset ID"],
-            },
-            null,
-            2,
-          )}
-        </pre>
-        <p>
-          字段须来自 GitHub Actions 上下文和已上传 Release 的结果，回调不接收
-          URL 或群参数。
-        </p>
-      </Disclosure>
+      <RuleConnection rule={r} />
       <div className="toolbar">
         <Button
           disabled={cmd.pending}

@@ -348,7 +348,7 @@ def test_populated_migration_preserves_grants_and_accounts_legacy_files(shared, 
 
     from alembic.migration import MigrationContext
     from alembic.operations import Operations
-    from sqlalchemy import text
+    from sqlalchemy import MetaData, Table, text
 
     engine, settings, _, _, data = shared
     schema = "cache_migration_" + uuid4().hex
@@ -363,6 +363,11 @@ def test_populated_migration_preserves_grants_and_accounts_legacy_files(shared, 
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 module.upgrade()
+            # Build fixtures with the historical schema, never current ORM defaults.
+            legacy = MetaData()
+            legacy_apps = Table("applications", legacy, autoload_with=connection)
+            legacy_entries = Table("debug_entries", legacy, autoload_with=connection)
+            legacy_grants = Table("download_grants", legacy, autoload_with=connection)
             identities = []
             source = {
                 "repository_id": "42",
@@ -377,7 +382,7 @@ def test_populated_migration_preserves_grants_and_accounts_legacy_files(shared, 
                 app_id, entry_id = uuid4(), uuid4()
                 identities.append(entry_id)
                 connection.execute(
-                    AppRecord.__table__.insert().values(
+                    legacy_apps.insert().values(
                         id=app_id,
                         name="Legacy",
                         public_slug=f"legacy-{number}",
@@ -390,7 +395,7 @@ def test_populated_migration_preserves_grants_and_accounts_legacy_files(shared, 
                     )
                 )
                 connection.execute(
-                    DebugRecord.__table__.insert().values(
+                    legacy_entries.insert().values(
                         id=entry_id,
                         app_id=app_id,
                         connector_id=uuid4(),
@@ -412,7 +417,7 @@ def test_populated_migration_preserves_grants_and_accounts_legacy_files(shared, 
                 )
                 (settings.cache_dir / f"{entry_id}.package").write_bytes(data)
             connection.execute(
-                GrantRecord.__table__.insert().values(
+                legacy_grants.insert().values(
                     token_hash="a" * 64,
                     entry_id=identities[1],
                     expires_at=utcnow() + timedelta(minutes=5),
@@ -423,6 +428,15 @@ def test_populated_migration_preserves_grants_and_accounts_legacy_files(shared, 
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             module.upgrade()
+            # Current application code runs only after the deployment migration gate.
+            # Preserve the M1 populated fixture while completing subsequent upgrades.
+            for path in sorted(directory.glob("*.py")):
+                if path.name <= "0005_shared_source_cache.py":
+                    continue
+                spec = importlib.util.spec_from_file_location(path.stem, path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                module.upgrade()
         with Session(bind=connection) as db:
             shared_cache = db.scalar(select(CacheRecord))
             assert shared_cache.cache_state == ("failed" if conflicting_hashes else "ready")
