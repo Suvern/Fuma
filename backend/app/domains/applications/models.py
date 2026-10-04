@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, DateTime, Integer, String
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database import Base
@@ -28,3 +28,19 @@ class AppCreation(Base):
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     body_hash: Mapped[str] = mapped_column(String(64))
     app_id: Mapped[UUID] = mapped_column()
+
+
+class AllowedPackageIdRecord(Base):
+    __tablename__ = "allowed_package_ids"
+    __table_args__ = (
+        CheckConstraint("platform IN ('android', 'ios')", name="ck_package_id_platform"),
+        CheckConstraint("mode IN ('debug', 'release')", name="ck_package_id_mode"),
+    )
+
+    app_id: Mapped[UUID] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), primary_key=True
+    )
+    platform: Mapped[str] = mapped_column(String(16), primary_key=True)
+    mode: Mapped[str] = mapped_column(String(16), primary_key=True)
+    normalized_identifier: Mapped[str] = mapped_column(String(255), primary_key=True)
+    identifier: Mapped[str] = mapped_column(String(255))

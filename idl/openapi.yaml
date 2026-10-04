@@ -492,7 +492,8 @@ paths:
       tags:
       - apps
       summary: list apps
-      description: list apps
+      description: Search name or configured package identifier; filter by supported platform and enabled
+        state. Enabled apps first, then most recently updated. M1 enabled is not an archive state.
       security:
       - SessionCookie: []
       responses:
@@ -555,6 +556,15 @@ paths:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
       - $ref: '#/components/parameters/Query'
+      - name: platform
+        in: query
+        schema:
+          type: string
+          enum: [android, ios]
+      - name: enabled
+        in: query
+        schema:
+          type: boolean
     post:
       operationId: create_apps
       tags:
@@ -5856,6 +5866,23 @@ components:
       - viewer_key
       - csrf_token
       - user
+    AllowedPackageId:
+      type: object
+      additionalProperties: false
+      description: Future package ingestion policy. Preserve original casing; compare iOS identifiers
+        case-insensitively. Android uses applicationId syntax. No wildcards. Scope is platform and mode.
+      properties:
+        platform:
+          type: string
+          enum: [android, ios]
+        mode:
+          type: string
+          enum: [debug, release]
+        identifier:
+          type: string
+          minLength: 1
+          maxLength: 255
+      required: [platform, mode, identifier]
     AppCreate:
       type: object
       additionalProperties: false
@@ -5875,6 +5902,13 @@ components:
           minItems: 1
           maxItems: 2
           uniqueItems: true
+        allowed_package_ids:
+          type: array
+          maxItems: 80
+          items:
+            $ref: '#/components/schemas/AllowedPackageId'
+          description: Optional initial configuration; empty scopes remain unconfigured. Does not
+            validate or reclassify existing M1 Debug entries.
       required:
       - name
       - public_slug
@@ -5893,6 +5927,14 @@ components:
           uniqueItems: true
         enabled:
           type: boolean
+        allowed_package_ids:
+          type: array
+          maxItems: 80
+          items:
+            $ref: '#/components/schemas/AllowedPackageId'
+          description: Replace the full set; omission preserves it, [] clears it. Only selected
+            platforms are accepted. Removing a platform clears its configuration, but existing
+            Debug entries or unfinished App tasks block removal with PLATFORM_IN_USE.
       required: []
     RepositoryBinding:
       type: object
@@ -5949,6 +5991,10 @@ components:
         debug_entry_count:
           type: integer
           minimum: 0
+        allowed_package_ids:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllowedPackageId'
       required:
       - id
       - created_at
@@ -5961,6 +6007,7 @@ components:
       - enabled
       - repository
       - debug_entry_count
+      - allowed_package_ids
     AppPage:
       type: object
       additionalProperties: false

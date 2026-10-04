@@ -143,6 +143,8 @@ const fieldHints: Record<string, string> = {
     "分发标识须为 3–64 位小写字母、数字或连字符，首尾须为字母或数字。",
   description: "描述不能超过 2000 个字符。",
   platforms: "请至少选择一个支持平台。",
+  allowed_package_ids:
+    "请检查包标识：每项最多 255 个字符，合计最多 80 项，且仅配置已选择的平台。",
   full_name: "请按 owner/repository 格式填写仓库完整名称。",
   workflow_path:
     "Workflow 路径须以 .github/workflows/ 开头，并以 .yml 或 .yaml 结尾。",

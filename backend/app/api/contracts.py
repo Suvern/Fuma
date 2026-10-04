@@ -87,6 +87,15 @@ class BrowserContext(BaseModel):
     user: SessionUser | None
 
 
+class AllowedPackageId(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    platform: Literal["android", "ios"]
+    mode: Literal["debug", "release"]
+    identifier: str = Field(..., max_length=255, min_length=1)
+
+
 class AppCreate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -97,6 +106,11 @@ class AppCreate(BaseModel):
     )
     description: str | None = Field(None, max_length=2000)
     platforms: list[Literal["android", "ios"]] = Field(..., max_length=2, min_length=1)
+    allowed_package_ids: list[AllowedPackageId] | None = Field(
+        None,
+        description="Optional initial configuration; empty scopes remain unconfigured. Does not validate or reclassify existing M1 Debug entries.",
+        max_length=80,
+    )
 
 
 class AppUpdate(BaseModel):
@@ -107,6 +121,11 @@ class AppUpdate(BaseModel):
     description: str | None = Field(None, max_length=2000)
     platforms: list[Literal["android", "ios"]] | None = Field(None, max_length=2, min_length=1)
     enabled: bool | None = None
+    allowed_package_ids: list[AllowedPackageId] | None = Field(
+        None,
+        description="Replace the full set; omission preserves it, [] clears it. Only selected platforms are accepted. Removing a platform clears its configuration, but existing Debug entries or unfinished App tasks block removal with PLATFORM_IN_USE.",
+        max_length=80,
+    )
 
 
 class RepositoryBinding(BaseModel):
@@ -142,6 +161,7 @@ class App(BaseModel):
     enabled: bool
     repository: RepositoryBinding | None
     debug_entry_count: int = Field(..., ge=0)
+    allowed_package_ids: list[AllowedPackageId]
 
 
 class AppPage(BaseModel):

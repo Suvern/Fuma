@@ -32,6 +32,7 @@ const app: DTO<"App"> = {
   enabled: false,
   revision: 1,
   debug_entry_count: 0,
+  allowed_package_ids: [],
   created_at: "2026-10-02T00:00:00Z",
   updated_at: "2026-10-02T00:00:00Z",
   repository: {
@@ -97,6 +98,139 @@ afterEach(() => {
 });
 
 describe("应用管理走查问题回归", () => {
+  it("包标识按平台和模式提交，未配置模式可保存", async () => {
+    vi.mocked(write).mockImplementation(async (_path, _method, body) => {
+      server = {
+        ...server,
+        ...(body as DTO<"AppUpdate">),
+        revision: 2,
+      } as DTO<"App">;
+      return server as never;
+    });
+    mount(<AppPage />);
+    fireEvent.change(await screen.findByLabelText("Android Debug 包名"), {
+      target: { value: "com.example.debug, com.example.qa" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await screen.findByText("基本信息已保存。");
+    expect(server.allowed_package_ids).toEqual([
+      { platform: "android", mode: "debug", identifier: "com.example.debug" },
+      { platform: "android", mode: "debug", identifier: "com.example.qa" },
+    ]);
+    expect(
+      (screen.getByLabelText("Android Release 包名") as HTMLInputElement).value,
+    ).toBe("");
+  });
+
+  it("移除平台失败后保留包标识草稿与错误原因", async () => {
+    server = {
+      ...server,
+      platforms: ["android", "ios"],
+      allowed_package_ids: [
+        { platform: "ios", mode: "release", identifier: "com.Example.App" },
+      ],
+    };
+    vi.mocked(write).mockRejectedValue(
+      new ApiError(409, {
+        code: "PLATFORM_IN_USE",
+        message: "iOS 仍有关联安装包",
+        retryable: false,
+      }),
+    );
+    mount(<AppPage />);
+    fireEvent.change(await screen.findByLabelText("Android Debug 包名"), {
+      target: { value: "com.example.draft" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "iOS" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await screen.findByText("iOS 仍有关联安装包");
+    expect(
+      (screen.getByLabelText("Android Debug 包名") as HTMLInputElement).value,
+    ).toBe("com.example.draft");
+    expect(vi.mocked(write).mock.calls.at(-1)?.[2]).toEqual(
+      expect.objectContaining({
+        platforms: ["android"],
+        allowed_package_ids: [
+          {
+            platform: "android",
+            mode: "debug",
+            identifier: "com.example.draft",
+          },
+        ],
+      }),
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "iOS" }));
+    expect(
+      (screen.getByLabelText("iOS Release Bundle ID") as HTMLInputElement)
+        .value,
+    ).toBe("com.Example.App");
+  });
+
+  it("创建时动态显示各端包标识，不提交未选择端的草稿", async () => {
+    vi.mocked(write).mockRejectedValue(new Error("创建失败"));
+    mount(<AppsPage />, "/admin/apps", "/admin/apps?new=1");
+    fireEvent.change(await screen.findByLabelText(/应用名称/), {
+      target: { value: "新应用" },
+    });
+    fireEvent.change(screen.getByLabelText(/分发标识/), {
+      target: { value: "new-app" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "iOS" }));
+    fireEvent.change(screen.getByLabelText("iOS Release Bundle ID"), {
+      target: { value: "com.example.app" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "iOS" }));
+    fireEvent.click(screen.getByRole("button", { name: "创建应用" }));
+    await screen.findByText("创建失败");
+    expect(vi.mocked(write).mock.calls.at(-1)?.[2]).toEqual(
+      expect.objectContaining({
+        platforms: ["android"],
+        allowed_package_ids: [],
+      }),
+    );
+  });
+
+  it("URL 还原组合筛选，清空筛选同时回到第一页", async () => {
+    mount(
+      <AppsPage />,
+      "/admin/apps",
+      "/admin/apps?q=com.example&platform=ios&enabled=false&page=3",
+    );
+    await screen.findByText("没有匹配的应用");
+    expect(read).toHaveBeenCalledWith(
+      "/api/v1/apps",
+      expect.objectContaining({
+        query: { page: 3, q: "com.example", platform: "ios", enabled: false },
+      }),
+    );
+    expect((screen.getByLabelText("关键词") as HTMLInputElement).value).toBe(
+      "com.example",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "清空筛选" }));
+    await screen.findByText("添加你的第一个应用");
+    expect(read).toHaveBeenCalledWith(
+      "/api/v1/apps",
+      expect.objectContaining({
+        query: { page: 1, q: "", platform: undefined, enabled: undefined },
+      }),
+    );
+  });
+
+  it.each([
+    ["Android Debug 包名", "com.1bad", "com.example.app, com.example.qa"],
+    ["iOS Release Bundle ID", "com.example.*", "com.Example.my-app"],
+  ])("%s 的可选多标识校验支持 HTML v 模式", async (label, invalid, valid) => {
+    server = { ...server, platforms: ["android", "ios"] };
+    mount(<AppPage />);
+    const field = (await screen.findByLabelText(label)) as HTMLInputElement;
+    const pattern = new RegExp(`^(?:${field.pattern})$`, "v");
+    expect(pattern.test(invalid)).toBe(false);
+    expect(pattern.test(valid)).toBe(true);
+    expect(pattern.test("")).toBe(true);
+    fireEvent.change(field, { target: { value: invalid } });
+    expect(field.validity.patternMismatch).toBe(true);
+  });
+
   it("仓库更新保留草稿，随后保存使用新版本且保留成功反馈", async () => {
     vi.mocked(write).mockImplementation(async (path, _method, body) => {
       if (path === "/api/v1/apps/{id}/repository")

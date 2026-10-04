@@ -81,7 +81,7 @@ export interface paths {
         };
         /**
          * list apps
-         * @description list apps
+         * @description Search name or configured package identifier; filter by supported platform and enabled state. Enabled apps first, then most recently updated. M1 enabled is not an archive state.
          */
         get: operations["list_apps"];
         put?: never;
@@ -1345,7 +1345,16 @@ export interface components {
             /** @description One-time visible secret */
             token: string;
         };
+        /** @description Future package ingestion policy. Preserve original casing; compare iOS identifiers case-insensitively. Android uses applicationId syntax. No wildcards. Scope is platform and mode. */
+        AllowedPackageId: {
+            identifier: string;
+            /** @enum {string} */
+            mode: "debug" | "release";
+            /** @enum {string} */
+            platform: "android" | "ios";
+        };
         App: {
+            allowed_package_ids: components["schemas"]["AllowedPackageId"][];
             /** Format: date-time */
             created_at: string;
             debug_entry_count: number;
@@ -1362,6 +1371,8 @@ export interface components {
             updated_at: string;
         };
         AppCreate: {
+            /** @description Optional initial configuration; empty scopes remain unconfigured. Does not validate or reclassify existing M1 Debug entries. */
+            allowed_package_ids?: components["schemas"]["AllowedPackageId"][];
             description?: string;
             name: string;
             platforms: ("android" | "ios")[];
@@ -1374,6 +1385,8 @@ export interface components {
             total: number;
         };
         AppUpdate: {
+            /** @description Replace the full set; omission preserves it, [] clears it. Only selected platforms are accepted. Removing a platform clears its configuration, but existing Debug entries or unfinished App tasks block removal with PLATFORM_IN_USE. */
+            allowed_package_ids?: components["schemas"]["AllowedPackageId"][];
             description?: string;
             enabled?: boolean;
             name?: string;
@@ -2592,6 +2605,8 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 page_size?: components["parameters"]["PageSize"];
                 q?: components["parameters"]["Query"];
+                platform?: "android" | "ios";
+                enabled?: boolean;
             };
             header?: never;
             path?: never;

@@ -1,16 +1,23 @@
 import hashlib
 import json
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from sqlalchemy import func, select, text
+from sqlalchemy import cast, func, or_, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 
 from app.api.contracts import App, AppCreate, AppPage, AppUpdate
 from app.api.dependencies import DB, require_admin, require_csrf, require_revision
 from app.core.errors import AppError
-from app.domains.applications.models import AppCreation, AppRecord
+from app.domains.applications.models import AllowedPackageIdRecord, AppCreation, AppRecord
+from app.domains.applications.service import (
+    check_platform_removal,
+    normalize_package_ids,
+    package_ids,
+    replace_package_ids,
+)
 from app.domains.audit.service import record_audit
 from app.domains.auth.service import AuthContext, utcnow
 from app.infrastructure.database import Base
@@ -36,6 +43,7 @@ def app_dto(db, app: AppRecord) -> App:
         enabled=app.enabled,
         repository=app.repository,
         debug_entry_count=count,
+        allowed_package_ids=package_ids(db, app.id),
     )
 
 
@@ -70,13 +78,27 @@ def list_apps(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = Query(None, max_length=200),
+    platform: Literal["android", "ios"] | None = None,
+    enabled: bool | None = None,
 ):
     stmt = select(AppRecord)
     if q:
-        stmt = stmt.where(AppRecord.name.icontains(q, autoescape=True))
+        identifiers = (
+            select(AllowedPackageIdRecord.app_id)
+            .where(
+                AllowedPackageIdRecord.app_id == AppRecord.id,
+                AllowedPackageIdRecord.identifier.icontains(q, autoescape=True),
+            )
+            .exists()
+        )
+        stmt = stmt.where(or_(AppRecord.name.icontains(q, autoescape=True), identifiers))
+    if platform:
+        stmt = stmt.where(cast(AppRecord.platforms, JSONB).contains([platform]))
+    if enabled is not None:
+        stmt = stmt.where(AppRecord.enabled.is_(enabled))
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))
     rows = db.scalars(
-        stmt.order_by(AppRecord.created_at.desc(), AppRecord.id)
+        stmt.order_by(AppRecord.enabled.desc(), AppRecord.updated_at.desc(), AppRecord.id)
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
@@ -102,8 +124,14 @@ def create_app(
 ):
     if not body.name.strip() or len(set(body.platforms)) != len(body.platforms):
         raise AppError(422, "VALIDATION_ERROR", "App 名称和平台不合法")
+    if "allowed_package_ids" in body.model_fields_set and body.allowed_package_ids is None:
+        raise AppError(422, "VALIDATION_ERROR", "包标识配置不能为空值，请使用空数组或省略字段")
     key = str(context.user.id) + ":" + str(idempotency_key)
-    digest = hashlib.sha256(json.dumps(body.model_dump(), sort_keys=True).encode()).hexdigest()
+    payload = body.model_dump()
+    if body.allowed_package_ids is None:
+        # Preserve M1 request hashes across upgrades when the new field is omitted.
+        payload.pop("allowed_package_ids")
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     db.execute(
         text("SELECT pg_advisory_xact_lock(:key)"),
         {"key": int(hashlib.sha256(key.encode()).hexdigest()[:15], 16)},
@@ -116,6 +144,9 @@ def create_app(
         etag(response, app)
         return app_dto(db, app)
     now = utcnow()
+    identifiers = normalize_package_ids(
+        [item.model_dump() for item in body.allowed_package_ids or []], body.platforms
+    )
     app = AppRecord(
         name=body.name.strip(),
         public_slug=body.public_slug,
@@ -128,6 +159,7 @@ def create_app(
     db.add(app)
     try:
         db.flush()
+        replace_package_ids(db, app.id, identifiers)
         db.add(AppCreation(key=key, body_hash=digest, app_id=app.id))
         audit(db, request, context, "app.create", app)
         db.commit()
@@ -166,6 +198,14 @@ def update_app(
         raise AppError(422, "VALIDATION_ERROR", "平台不可重复")
     app = get_app(db, id, lock=True)
     require_revision(if_match, app.revision)
+    platforms = fields.get("platforms", app.platforms)
+    check_platform_removal(db, app, platforms)
+    if "allowed_package_ids" in fields:
+        identifiers = normalize_package_ids(fields.pop("allowed_package_ids"), platforms)
+        replace_package_ids(db, app.id, identifiers)
+    elif "platforms" in fields:
+        identifiers = [item for item in package_ids(db, app.id) if item["platform"] in platforms]
+        replace_package_ids(db, app.id, normalize_package_ids(identifiers, platforms))
     for key, value in fields.items():
         setattr(app, key, value if value is not None else "")
     app.updated_at, app.revision = utcnow(), app.revision + 1
@@ -189,6 +229,8 @@ def delete_app(
     require_revision(if_match, app.revision)
     # Check registered children; database foreign keys remain the final deletion guard.
     for table in Base.metadata.tables.values():
+        if table.name == "allowed_package_ids":
+            continue  # Owned configuration cascades; package/task references still block deletion.
         if "app_id" in table.c and any(
             fk.target_fullname == "applications.id" for fk in table.c.app_id.foreign_keys
         ):

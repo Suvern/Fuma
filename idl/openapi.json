@@ -395,9 +395,46 @@
         ],
         "type": "object"
       },
+      "AllowedPackageId": {
+        "additionalProperties": false,
+        "description": "Future package ingestion policy. Preserve original casing; compare iOS identifiers case-insensitively. Android uses applicationId syntax. No wildcards. Scope is platform and mode.",
+        "properties": {
+          "identifier": {
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "debug",
+              "release"
+            ],
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "android",
+              "ios"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "mode",
+          "identifier"
+        ],
+        "type": "object"
+      },
       "App": {
         "additionalProperties": false,
         "properties": {
+          "allowed_package_ids": {
+            "items": {
+              "$ref": "#/components/schemas/AllowedPackageId"
+            },
+            "type": "array"
+          },
           "created_at": {
             "format": "date-time",
             "type": "string"
@@ -465,13 +502,22 @@
           "platforms",
           "enabled",
           "repository",
-          "debug_entry_count"
+          "debug_entry_count",
+          "allowed_package_ids"
         ],
         "type": "object"
       },
       "AppCreate": {
         "additionalProperties": false,
         "properties": {
+          "allowed_package_ids": {
+            "description": "Optional initial configuration; empty scopes remain unconfigured. Does not validate or reclassify existing M1 Debug entries.",
+            "items": {
+              "$ref": "#/components/schemas/AllowedPackageId"
+            },
+            "maxItems": 80,
+            "type": "array"
+          },
           "description": {
             "maxLength": 2000,
             "type": "string"
@@ -542,6 +588,14 @@
       "AppUpdate": {
         "additionalProperties": false,
         "properties": {
+          "allowed_package_ids": {
+            "description": "Replace the full set; omission preserves it, [] clears it. Only selected platforms are accepted. Removing a platform clears its configuration, but existing Debug entries or unfinished App tasks block removal with PLATFORM_IN_USE.",
+            "items": {
+              "$ref": "#/components/schemas/AllowedPackageId"
+            },
+            "maxItems": 80,
+            "type": "array"
+          },
           "description": {
             "maxLength": 2000,
             "type": "string"
@@ -4586,7 +4640,7 @@
     },
     "/api/v1/apps": {
       "get": {
-        "description": "list apps",
+        "description": "Search name or configured package identifier; filter by supported platform and enabled state. Enabled apps first, then most recently updated. M1 enabled is not an archive state.",
         "operationId": "list_apps",
         "parameters": [
           {
@@ -4597,6 +4651,24 @@
           },
           {
             "$ref": "#/components/parameters/Query"
+          },
+          {
+            "in": "query",
+            "name": "platform",
+            "schema": {
+              "enum": [
+                "android",
+                "ios"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "enabled",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {

@@ -338,6 +338,15 @@ fieldset > small {
   display: block;
   margin-top: 8px;
 }
+.package-identifiers > .field {
+  margin-top: 16px;
+}
+.app-filters .search {
+  align-items: flex-end;
+}
+.app-filters .search > .field {
+  flex: 1;
+}
 .form > .semi-button,
 .form fieldset > .semi-button {
   align-self: flex-start;

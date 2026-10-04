@@ -25,10 +25,102 @@ import {
   Pager,
   Status,
   Title,
+  date,
   text,
   useCommand,
-  useFilters,
 } from "../../shared/ui/common";
+
+const platformNames = { android: "Android", ios: "iOS" } as const;
+const modes = ["debug", "release"] as const;
+type IdentifierDraft = Record<string, string>;
+
+function identifierDraft(items: DTO<"AllowedPackageId">[]): IdentifierDraft {
+  const result: IdentifierDraft = {};
+  for (const platform of ["android", "ios"] as const) {
+    for (const mode of modes) {
+      result[`${platform}-${mode}`] = items
+        .filter((item) => item.platform === platform && item.mode === mode)
+        .map((item) => item.identifier)
+        .join(", ");
+    }
+  }
+  return result;
+}
+
+function identifierPayload(
+  values: IdentifierDraft,
+  platforms: DTO<"App">["platforms"],
+): DTO<"AllowedPackageId">[] {
+  return platforms.flatMap((platform) =>
+    modes.flatMap((mode) =>
+      (values[`${platform}-${mode}`] ?? "")
+        .split(",")
+        .map((identifier) => identifier.trim())
+        .filter(Boolean)
+        .map((identifier) => ({ platform, mode, identifier })),
+    ),
+  );
+}
+
+function PackageIdentifiers({
+  platforms,
+  values,
+  onChange,
+  disabled,
+}: {
+  platforms: DTO<"App">["platforms"];
+  values: IdentifierDraft;
+  onChange: (values: IdentifierDraft) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <fieldset className="package-identifiers" disabled={disabled}>
+      <legend>允许的包标识</legend>
+      <p className="muted">
+        按平台分别配置 Debug 和 Release；多个标识用英文逗号分隔。
+        可留空，待正式包导入前补齐。现有 GitHub Debug 下载不受此配置影响。
+      </p>
+      {platforms.map((platform) =>
+        modes.map((mode) => {
+          const key = `${platform}-${mode}`;
+          const identifier =
+            platform === "android"
+              ? String.raw`[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+`
+              : String.raw`[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*`;
+          return (
+            <Field
+              key={key}
+              name={`package_ids-${key}`}
+              label={`${platformNames[platform]} ${mode === "debug" ? "Debug" : "Release"} ${platform === "android" ? "包名" : "Bundle ID"}`}
+              value={values[key] ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, [key]: event.target.value })
+              }
+              disabled={disabled}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={20479}
+              pattern={String.raw`\s*(?:${identifier}(?:\s*,\s*${identifier})*)?\s*`}
+              validationMessage={
+                platform === "android"
+                  ? "请输入合法 Android 包名，例如 com.example.app；各段以字母开头，不支持通配符。"
+                  : "Bundle ID 仅支持字母、数字、连字符和分隔点，不支持通配符。"
+              }
+              help={
+                values[key]?.trim()
+                  ? platform === "ios"
+                    ? "比较时不区分大小写，保存原始拼写。"
+                    : "包名区分大小写。"
+                  : "待配置"
+              }
+            />
+          );
+        }),
+      )}
+    </fieldset>
+  );
+}
 
 function Platforms({
   selected,
@@ -85,6 +177,7 @@ function Platforms({
           ? "请至少选择一个支持平台。"
           : "至少选择一个支持平台。"}
       </small>
+      <small>HarmonyOS 待定，暂不支持。</small>
     </fieldset>
   );
 }
@@ -103,13 +196,40 @@ export function AppsPage() {
       { replace: true },
     );
   }
-  const filters = useFilters();
+  const q = params.get("q") ?? "";
+  const requestedPage = Number(params.get("page") ?? 1);
+  const page =
+    Number.isSafeInteger(requestedPage) && requestedPage > 0
+      ? requestedPage
+      : 1;
+  const platformValue = params.get("platform");
+  const platform =
+    platformValue === "android" || platformValue === "ios"
+      ? platformValue
+      : undefined;
+  const enabledValue = params.get("enabled");
+  const enabled =
+    enabledValue === "true"
+      ? true
+      : enabledValue === "false"
+        ? false
+        : undefined;
+  const hasFilters = Boolean(q || platform || enabled !== undefined);
+  function filter(name: string, value: string) {
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      if (value) next.set(name, value);
+      else next.delete(name);
+      if (name !== "page") next.delete("page");
+      return next;
+    });
+  }
   const query = useQuery({
-    queryKey: ["apps", filters.page, filters.q],
+    queryKey: ["apps", page, q, platform, enabled],
     queryFn: ({ signal }) =>
       read("/api/v1/apps", {
         signal,
-        query: { page: filters.page, q: filters.q },
+        query: { page, q, platform, enabled },
       }),
   });
   return (
@@ -136,12 +256,68 @@ export function AppsPage() {
           onPendingChange={setSaving}
         />
       </Dialog>
-      <div className="collection-toolbar">
+      <div className="collection-toolbar app-filters">
         <span className="collection-label">
           全部应用{" "}
           {query.data && <Badge className="count">{query.data.total}</Badge>}
         </span>
-        {filters.search}
+        <form
+          role="search"
+          className="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            filter("q", text(new FormData(event.currentTarget), "q"));
+          }}
+        >
+          <Field
+            key={q}
+            name="q"
+            label="关键词"
+            type="search"
+            defaultValue={q}
+            maxLength={200}
+            placeholder="搜索应用名称或包标识"
+          />
+          <Button>搜索</Button>
+        </form>
+        <Select
+          aria-label="平台筛选"
+          value={platform ?? ""}
+          onChange={(value) => filter("platform", String(value ?? ""))}
+          optionList={[
+            { value: "", label: "全部平台" },
+            { value: "android", label: "Android" },
+            { value: "ios", label: "iOS" },
+          ]}
+        />
+        <Select
+          aria-label="状态筛选"
+          value={
+            enabledValue === "true" || enabledValue === "false"
+              ? enabledValue
+              : ""
+          }
+          onChange={(value) => filter("enabled", String(value ?? ""))}
+          optionList={[
+            { value: "", label: "全部状态" },
+            { value: "true", label: "已启用" },
+            { value: "false", label: "已停用" },
+          ]}
+        />
+        {hasFilters && (
+          <Button
+            onClick={() =>
+              setParams((current) => {
+                const next = new URLSearchParams(current);
+                for (const key of ["q", "platform", "enabled", "page"])
+                  next.delete(key);
+                return next;
+              })
+            }
+          >
+            清空筛选
+          </Button>
+        )}
       </div>
       <ErrorBox error={query.error} />
       {query.isPending ? (
@@ -170,15 +346,16 @@ export function AppsPage() {
                   {app.debug_entry_count} 个 Debug 包 ·{" "}
                   {app.repository?.full_name ?? "未绑定仓库"}
                 </p>
+                <p className="muted">更新于 {date(app.updated_at)}</p>
               </CardLink>
             ))}
           </div>
           {query.data && !query.data.items.length && (
             <Empty
-              title={filters.q ? "没有匹配的应用" : "添加你的第一个应用"}
+              title={hasFilters ? "没有匹配的应用" : "添加你的第一个应用"}
               icon="apps"
               action={
-                !filters.q && (
+                !hasFilters && (
                   <Button className="primary" onClick={() => setCreating(true)}>
                     <Icon name="plus" size={16} />
                     新建应用
@@ -186,12 +363,16 @@ export function AppsPage() {
                 )
               }
             >
-              {filters.q
-                ? "试试其他名称或关键词。"
+              {hasFilters
+                ? "试试其他名称、包标识或筛选条件。"
                 : "支持 Android 与 iOS。关联 GitHub 仓库后，即可导入 Release 安装包。"}
             </Empty>
           )}
-          <Pager data={query.data} {...filters} />
+          <Pager
+            data={query.data}
+            page={page}
+            setPage={(value) => filter("page", String(value))}
+          />
         </>
       )}
     </>
@@ -212,6 +393,9 @@ function CreateAppForm({
   const [platforms, setPlatforms] = useState<DTO<"App">["platforms"]>([
     "android",
   ]);
+  const [identifiers, setIdentifiers] = useState<IdentifierDraft>(() =>
+    identifierDraft([]),
+  );
   return (
     <>
       <p className="muted">先添加基本信息，创建后即可关联 GitHub 仓库。</p>
@@ -229,6 +413,10 @@ function CreateAppForm({
                   public_slug: text(f, "public_slug"),
                   description: text(f, "description"),
                   platforms,
+                  allowed_package_ids: identifierPayload(
+                    identifiers,
+                    platforms,
+                  ),
                 },
                 { key },
               ),
@@ -249,6 +437,12 @@ function CreateAppForm({
         />
         <Field name="description" label="描述" maxLength={2000} />
         <Platforms selected={platforms} onChange={setPlatforms} />
+        <PackageIdentifiers
+          platforms={platforms}
+          values={identifiers}
+          onChange={setIdentifiers}
+          disabled={cmd.pending}
+        />
         <div className="form-actions">
           <Button type="button" disabled={cmd.pending} onClick={onClose}>
             取消
@@ -268,6 +462,7 @@ function basicValues(app: DTO<"App">) {
     description: app.description ?? "",
     platforms: app.platforms,
     enabled: app.enabled,
+    identifiers: identifierDraft(app.allowed_package_ids ?? []),
   };
 }
 export function AppPage() {
@@ -328,8 +523,12 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
                     {
                       name: text(f, "name"),
                       description: text(f, "description"),
-                      platforms: f.getAll("platforms") as ("android" | "ios")[],
-                      enabled: f.has("enabled"),
+                      platforms: values.platforms,
+                      enabled: values.enabled,
+                      allowed_package_ids: identifierPayload(
+                        values.identifiers,
+                        values.platforms,
+                      ),
                     },
                     { id: app.id, revision },
                   ),
@@ -374,6 +573,12 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
               label="启用 App"
               checked={values.enabled}
               onChange={(event) => change({ enabled: event.target.checked })}
+              disabled={cmd.pending}
+            />
+            <PackageIdentifiers
+              platforms={values.platforms}
+              values={values.identifiers}
+              onChange={(identifiers) => change({ identifiers })}
               disabled={cmd.pending}
             />
             <Button disabled={cmd.pending} className="primary">
