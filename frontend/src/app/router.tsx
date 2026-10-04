@@ -2,7 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { PublicLayout } from "./layouts/PublicLayout";
 import { RouteError } from "../shared/components/RouteError";
 import { RouteLoading } from "../shared/components/RouteLoading";
-import { LoginPage, AuthErrorPage, PasswordPage } from "../features/m1/Auth";
+import { LoginPage, AuthErrorPage } from "../features/m1/Auth";
 export const router = createBrowserRouter([
   {
     Component: PublicLayout,
@@ -178,7 +178,18 @@ export const router = createBrowserRouter([
           Component: (await import("../features/m1/Operations")).CachePage,
         }),
       },
-      { path: "settings/account", Component: PasswordPage },
+      {
+        path: "settings/account",
+        lazy: async () => ({
+          Component: (await import("../features/m1/Account")).AccountPage,
+        }),
+      },
+      {
+        path: "settings/members",
+        lazy: async () => ({
+          Component: (await import("../features/m1/Members")).MembersPage,
+        }),
+      },
       { path: "*", lazy: () => import("../shared/components/NotFoundPage") },
     ],
   },

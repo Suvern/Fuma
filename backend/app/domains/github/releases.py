@@ -201,6 +201,9 @@ def schedule_release_checks(db, now):
 
 
 def check_automatic_policy(db, task):
+    from app.domains.access.task_authorization import check_task_authorization
+
+    check_task_authorization(db, task)
     revision = task.payload.get("policy_revision")
     if revision is None:
         return
@@ -224,6 +227,7 @@ def import_matches(db, settings, task, matches, binding):
         "errors": [],
     }
     fatal = {
+        "TASK_AUTHORIZATION_REVOKED",
         "RELEASE_POLICY_CHANGED",
         "SOURCE_CHANGED",
         "APP_CHANGED",
@@ -238,7 +242,12 @@ def import_matches(db, settings, task, matches, binding):
         succeeded, errors = {}, []
         try:
             check_automatic_policy(db, task)
-            app = db.get(AppRecord, task.app_id, populate_existing=True)
+            app = db.scalar(
+                select(AppRecord)
+                .where(AppRecord.id == task.app_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
             if not app or not app.enabled or app.repository != binding:
                 raise AppError(409, "SOURCE_CHANGED", "应用或仓库来源已变化，本次导入已停止")
             if "policy_revision" in task.payload:
@@ -253,7 +262,15 @@ def import_matches(db, settings, task, matches, binding):
                 if source_key(match["source"]) in known:
                     succeeded[digest(match["source"])] = {"created_count": 0, "existing_count": 1}
             if pending:
+                db.commit()  # Release authority/policy fences before provider reads.
                 repo, release, assets = fetch_import_source(db, app, release_id, settings)
+                check_automatic_policy(db, task)
+                db.refresh(app, with_for_update=True)
+                if not app.enabled or app.repository != binding:
+                    raise AppError(409, "SOURCE_CHANGED", "导入期间应用或仓库来源已变化")
+                if "policy_revision" in task.payload:
+                    lock(db, f"release-policy:{app.id}")
+                    check_automatic_policy(db, task)
                 for match in pending:
                     try:
                         with db.begin_nested():

@@ -4,16 +4,19 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import AwareDatetime
 from sqlalchemy import func, select
 
+from app.api.app_access import ScopedManager, require_scoped_manager
 from app.api.contracts import AuditEvent, AuditPage
-from app.api.dependencies import DB, require_admin
+from app.api.dependencies import DB
+from app.domains.access.authorization import manageable_app_ids
 from app.domains.audit.models import AuditRecord
 
-router = APIRouter(tags=["audit-events"], dependencies=[Depends(require_admin)])
+router = APIRouter(tags=["audit-events"], dependencies=[Depends(require_scoped_manager)])
 
 
 @router.get("/audit-events", response_model=AuditPage, operation_id="list_audit_events")
 def list_audit_events(
     db: DB,
+    context: ScopedManager,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = Query(None, max_length=200),
@@ -22,6 +25,9 @@ def list_audit_events(
     until: Annotated[AwareDatetime | None, Query()] = None,
 ):
     stmt = select(AuditRecord)
+    ids = manageable_app_ids(db, context)
+    if ids is not None:
+        stmt = stmt.where(AuditRecord.app_id.in_(ids))
     if q:
         stmt = stmt.where(AuditRecord.summary.icontains(q, autoescape=True))
     if action:

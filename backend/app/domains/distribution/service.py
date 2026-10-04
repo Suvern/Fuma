@@ -75,6 +75,8 @@ def enqueue(db, kind, resource_id=None, app_id=None, payload=None, dedupe_key=No
         phase="queued",
         resource_id=resource_id,
         app_id=app_id,
+        created_actor_id=db.info.get("actor_user_id"),
+        actor_permission_revision=db.info.get("actor_permission_revision"),
         payload=payload or {},
         dedupe_key=dedupe_key,
         attempts=0,

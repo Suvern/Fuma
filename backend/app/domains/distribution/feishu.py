@@ -65,6 +65,8 @@ def verify_download_context(db, context):
         not d.get("enabled")
         or not d.get("verified")
         or d.get("tenant_key") != context.user.tenant_key
+        or context.user.provider_app_id != d.get("app_id")
+        or not context.user.active
         or row.revision != context.session.feishu_config_revision
     ):
         raise AppError(403, "ELIGIBILITY_UNVERIFIED", "飞书配置或资格已变更，请重新登录")
@@ -202,8 +204,23 @@ def send_delivery(db, settings, delivery_id):
 
 
 def _send_delivery(db, settings, delivery_id):
-    lock(db, f"delivery:{delivery_id}")
-    row = db.get(DeliveryRecord, delivery_id, populate_existing=True)
+    from app.domains.access.task_authorization import check_task_authorization
+
+    candidate = db.get(DeliveryRecord, delivery_id)
+    if candidate is None:
+        return
+    app_id = candidate.app_id
+
+    def lock_delivery():
+        # The same order applies to browser retries and CI deliveries.
+        check_task_authorization(db)
+        state(db, "feishu", locked=True)
+        if app_id:
+            db.scalar(select(AppRecord).where(AppRecord.id == app_id).with_for_update())
+        lock(db, f"delivery:{delivery_id}")
+        return db.get(DeliveryRecord, delivery_id, populate_existing=True)
+
+    row = lock_delivery()
     if row is None or row.state in {"succeeded", "unknown", "failed"}:
         return
     if row.state == "sending":
@@ -217,7 +234,9 @@ def _send_delivery(db, settings, delivery_id):
     api = None
     try:
         api = bot_client(db, settings)
+        db.commit()  # Never hold role/configuration locks during provider token I/O.
         api.tenant_token()
+        row = lock_delivery()
         cfg = state(db, "feishu", locked=True)
         bot = state(db, "bot", locked=True)
         if cfg.revision != fs_revision or bot.revision != bot_revision:
@@ -249,12 +268,17 @@ def _send_delivery(db, settings, delivery_id):
         row.state, row.error_code, row.error_message = "failed", exc.code, exc.message
         row.updated_at = utcnow()
         db.commit()
+        if exc.code == "TASK_AUTHORIZATION_REVOKED":
+            raise
         return
     # Committing sending before outbound I/O makes crash recovery conservatively unknown.
     row.state, row.updated_at = "sending", utcnow()
     row.attempts += 1
     db.commit()
+    authorization_error = None
     try:
+        check_task_authorization(db)
+        db.commit()  # Sending is durable; later revocation cannot retract submitted I/O.
         message_id = api.send_card(row.chat_id, row.card, row.id)
     except AppError as exc:
         row.state = (
@@ -264,7 +288,9 @@ def _send_delivery(db, settings, delivery_id):
             else "failed"
         )
         row.error_code, row.error_message = exc.code, exc.message
-        if row.state == "failed":
+        if exc.code == "TASK_AUTHORIZATION_REVOKED":
+            authorization_error = exc
+        if row.state == "failed" and exc.code != "TASK_AUTHORIZATION_REVOKED":
             chat = db.get(ChatRecord, row.chat_id)
             if chat:
                 chat.send_status = "unavailable"
@@ -281,3 +307,5 @@ def _send_delivery(db, settings, delivery_id):
         api.close()
     row.updated_at = utcnow()
     db.commit()
+    if authorization_error:
+        raise authorization_error

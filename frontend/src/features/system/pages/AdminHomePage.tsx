@@ -18,8 +18,10 @@ import {
   date,
   labels,
   size,
+  useSession,
 } from "../../../shared/ui/common";
 import { Icon } from "../../../shared/ui/Icon";
+import { isGlobalAdmin } from "../../m1/permissions";
 
 const services = [
   ["api", "API 服务"],
@@ -30,6 +32,80 @@ const services = [
 ] as const;
 
 export function Component() {
+  const session = useSession();
+  if (session.isPending) return <Loading />;
+  return isGlobalAdmin(session.data?.user) ? (
+    <AdminDashboard />
+  ) : (
+    <MaintainerDashboard />
+  );
+}
+
+function MaintainerDashboard() {
+  const apps = useQuery({
+    queryKey: ["maintainer-apps"],
+    queryFn: () => read("/api/v1/apps", { query: { page: 1, page_size: 8 } }),
+  });
+  const tasks = useQuery({
+    queryKey: ["maintainer-tasks"],
+    queryFn: () => read("/api/v1/tasks", { query: { page: 1, page_size: 8 } }),
+    refetchInterval: 10000,
+  });
+  return (
+    <>
+      <Title description="管理获授权应用的安装包、版本发布和任务。全局连接、存储及成员授权由管理员维护。">
+        我的工作台
+      </Title>
+      <div className="dashboard-columns">
+        <Card
+          className="panel"
+          title="我的应用"
+          headerExtraContent={<Link to="/admin/apps">查看全部</Link>}
+        >
+          <ErrorBox error={apps.error} />
+          {apps.isPending && <Loading />}
+          {apps.data?.items.map((app) => (
+            <Link
+              className="dashboard-row"
+              key={app.id}
+              to={`/admin/apps/${app.id}`}
+            >
+              <strong>{app.name}</strong>
+              <span>
+                {app.package_count ?? 0} 个正式包 · {app.publication_count ?? 0}{" "}
+                个发布
+              </span>
+            </Link>
+          ))}
+          {apps.data?.total === 0 && (
+            <Empty>尚未获得应用授权，请联系管理员分配。</Empty>
+          )}
+        </Card>
+        <Card
+          className="panel"
+          title="应用最近任务"
+          headerExtraContent={<Link to="/admin/tasks">查看全部</Link>}
+        >
+          <ErrorBox error={tasks.error} />
+          {tasks.isPending && <Loading />}
+          {tasks.data?.items.map((task) => (
+            <Link
+              className="dashboard-row"
+              key={task.id}
+              to={`/admin/tasks/${task.id}`}
+            >
+              <strong>{labels[task.kind] ?? task.kind}</strong>
+              <Status value={task.state} />
+            </Link>
+          ))}
+          {tasks.data?.total === 0 && <Empty>获授权应用暂无任务。</Empty>}
+        </Card>
+      </div>
+    </>
+  );
+}
+
+function AdminDashboard() {
   const health = useQuery({
     queryKey: ["system-health"],
     queryFn: () => read("/api/v1/system/health"),

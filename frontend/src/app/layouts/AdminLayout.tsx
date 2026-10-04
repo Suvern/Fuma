@@ -11,6 +11,8 @@ import Space from "@douyinfe/semi-ui-19/lib/es/space";
 import Typography from "@douyinfe/semi-ui-19/lib/es/typography";
 import { Link, Outlet, useLocation, useMatch } from "react-router";
 import { AdminGuard, LogoutButton } from "../../features/m1/Auth";
+import { globalOnlyPath, isGlobalAdmin } from "../../features/m1/permissions";
+import { useSession } from "../../shared/ui/common";
 import { BrandMark, Icon, type IconName } from "../../shared/ui/Icon";
 
 const groups: {
@@ -39,11 +41,22 @@ const groups: {
       { to: "/admin/settings/cache", title: "本地缓存", icon: "disk" },
       { to: "/admin/settings/storage", title: "对象存储", icon: "disk" },
       { to: "/admin/audit", title: "审计日志", icon: "history" },
-      { to: "/admin/settings/account", title: "账号安全", icon: "shield" },
+      { to: "/admin/settings/members", title: "成员与角色", icon: "shield" },
+      { to: "/admin/settings/account", title: "账号与会话", icon: "shield" },
     ],
   },
 ];
 function AdminShell() {
+  const session = useSession();
+  const user = session.data?.user;
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => isGlobalAdmin(user) || !globalOnlyPath(item.to),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
   const { pathname } = useLocation();
   const appMatch = useMatch("/admin/apps/:appId/*");
   const appId = appMatch?.params.appId;
@@ -62,7 +75,7 @@ function AdminShell() {
   }[appMatch?.params["*"] ?? ""];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const current = groups
+  const current = visibleGroups
     .flatMap((group) => group.items)
     .find((item) =>
       item.to === "/admin"
@@ -74,7 +87,7 @@ function AdminShell() {
       aria-label="管理导航"
       className="admin-nav"
       isCollapsed={!mobile && collapsed}
-      defaultOpenKeys={groups.map((group) => group.title)}
+      defaultOpenKeys={visibleGroups.map((group) => group.title)}
       onCollapseChange={setCollapsed}
       selectedKeys={[current?.to ?? ""]}
       renderWrapper={({ itemElement, props }) =>
@@ -87,7 +100,7 @@ function AdminShell() {
         )
       }
     >
-      {groups.map((group) => (
+      {visibleGroups.map((group) => (
         <Nav.Sub key={group.title} itemKey={group.title} text={group.title}>
           {group.items.map((item) => (
             <Nav.Item
@@ -133,12 +146,12 @@ function AdminShell() {
             <Link
               className="account-link"
               to="/admin/settings/account"
-              aria-label="admin 账号安全"
+              aria-label={`${user?.display_name ?? "当前用户"} 账号与会话`}
             >
               <Avatar size="small" color="blue">
-                A
+                {user?.display_name?.[0] ?? "?"}
               </Avatar>
-              <span>admin</span>
+              <span>{user?.display_name}</span>
             </Link>
             <LogoutButton compact />
           </Space>

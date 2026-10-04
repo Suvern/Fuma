@@ -245,7 +245,10 @@ def sync_releases(db: Session, app_id: UUID | str, settings: Settings) -> None:
                 release_dto(row).model_dump(mode="json")
                 for row in client.list_releases(binding["full_name"])
             ]
-        # Recheck current configuration after the network round trip, before switching snapshots.
+        # Recheck current authority before acquiring the App lock and switching snapshots.
+        from app.domains.access.task_authorization import check_task_authorization
+
+        check_task_authorization(db)
         db.refresh(app, with_for_update=True)
         if not app.enabled or app.repository != binding:
             raise AppError(409, "SOURCE_CHANGED", "同步期间仓库关联或 App 状态发生变化")

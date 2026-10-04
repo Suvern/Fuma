@@ -356,7 +356,9 @@ def test_populated_migration_preserves_grants_and_accounts_legacy_files(shared, 
     with engine.begin() as connection:
         connection.execute(text(f'CREATE SCHEMA "{schema}"'))
         connection.execute(text(f'SET LOCAL search_path TO "{schema}"'))
-        with Operations.context(MigrationContext.configure(connection)):
+        with Operations.context(
+            MigrationContext.configure(connection, opts={"target_metadata": Base.metadata})
+        ):
             files = sorted(directory.glob("000[1-4]*.py"))
             for path in files:
                 spec = importlib.util.spec_from_file_location(path.stem, path)

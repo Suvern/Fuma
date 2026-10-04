@@ -22,7 +22,7 @@ def optional_context(request: Request, db: DB) -> AuthContext | None:
     if session is None or session.revoked_at is not None or session.expires_at <= utcnow():
         return None
     user = db.get(User, session.user_id) if session.user_id else None
-    if session.user_id and user is None:
+    if session.user_id and (user is None or not user.active):
         return None
     return AuthContext(session=session, user=user)
 
@@ -47,10 +47,20 @@ def require_local_admin(context: Annotated[AuthContext, Depends(require_user)]) 
     return context
 
 
-def require_admin(context: Annotated[AuthContext, Depends(require_local_admin)]) -> AuthContext:
-    if context.user.must_change_password:
-        raise AppError(403, "PASSWORD_CHANGE_REQUIRED", "首次登录必须先修改管理员密码")
-    return context
+def require_admin(
+    context: Annotated[AuthContext, Depends(require_user)], db: DB, request: Request
+) -> AuthContext:
+    from app.domains.access.authorization import require_global_admin
+
+    return require_global_admin(db, context, lock=request.method not in {"GET", "HEAD", "OPTIONS"})
+
+
+def require_manager(
+    context: Annotated[AuthContext, Depends(require_user)], db: DB, request: Request
+) -> AuthContext:
+    from app.domains.access.authorization import require_manager as authorize
+
+    return authorize(db, context, lock=request.method not in {"GET", "HEAD", "OPTIONS"})
 
 
 def require_downloader(context: Annotated[AuthContext, Depends(require_user)]) -> AuthContext:
@@ -87,4 +97,5 @@ def require_revision(if_match: str | None, revision: int) -> None:
 
 
 Admin = Annotated[AuthContext, Depends(require_admin)]
+Manager = Annotated[AuthContext, Depends(require_manager)]
 CSRF = Annotated[AuthContext, Depends(require_csrf)]

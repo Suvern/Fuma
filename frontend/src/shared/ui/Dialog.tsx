@@ -1,5 +1,10 @@
 import Modal from "@douyinfe/semi-ui-19/lib/es/modal";
-import type { ReactNode } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 
 export function Dialog({
   open,
@@ -7,14 +12,15 @@ export function Dialog({
   title,
   children,
   busy = false,
+  motion = true,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
   busy?: boolean;
+  motion?: boolean;
 }) {
-  if (!open) return null;
   return (
     <Modal
       visible={open}
@@ -27,6 +33,17 @@ export function Dialog({
       maskClosable={!busy}
       closable={!busy}
       keepDOM={false}
+      motion={motion}
+      modalRender={(node) =>
+        isValidElement<HTMLAttributes<HTMLElement>>(node)
+          ? cloneElement(node, {
+              // Semi uses shared title/body IDs; nested dialogs need their own name.
+              "aria-label": title,
+              "aria-labelledby": undefined,
+              "aria-describedby": undefined,
+            })
+          : node
+      }
     >
       {open && children}
     </Modal>

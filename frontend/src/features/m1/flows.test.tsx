@@ -137,7 +137,7 @@ describe("M1 页面关键流程", () => {
     } as never);
     mount(<LoginPage />, "/login?return_to=%2Fdebug%2Fentry", "/login");
     const link = await screen.findByRole("link", {
-      name: "使用飞书访问 Debug 下载",
+      name: "使用飞书登录",
     });
     expect(link.getAttribute("href")).toBe(
       "/api/v1/auth/feishu/start?return_to=%2Fdebug%2Fentry",

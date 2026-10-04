@@ -41,6 +41,7 @@ def reclaim(db, settings, row):
 
 def synchronize(db, settings, task):
     from app.api.library import active_app, package_file, validate_scope
+    from app.domains.access.task_authorization import check_task_authorization
 
     row = must_get(db, PublicationRecord, UUID(task.resource_id))
     if row.access_task_id != task.id:
@@ -61,8 +62,10 @@ def synchronize(db, settings, task):
     if row.access_state != "publishing":
         raise AppError(409, "PUBLICATION_TASK_STALE", "发布访问状态已改变")
     try:
+        check_task_authorization(db, task)
         location = ready_location(db, row.public_storage_id, "public")
         client = adapter(settings, location)
+        db.commit()
         client.check_bucket()
         packages = list(
             db.scalars(
@@ -88,6 +91,11 @@ def synchronize(db, settings, task):
                 )
             db.commit()
         for item in objects(db, row.id):
+            check_task_authorization(db, task)
+            # This external step is now authorized to start. Release global
+            # identity locks before transferring bytes; final publication has
+            # its own locked recheck and compensates if authority changed.
+            db.commit()
             package = must_get(db, PackageRecord, item.package_id)
             if item.state != "ready":
                 client.put(
@@ -98,6 +106,7 @@ def synchronize(db, settings, task):
             )
             item.state = "ready"
             db.commit()
+        check_task_authorization(db, task)
         app = active_app(db, row.app_id)
         db.refresh(row, with_for_update=True)
         if row.access_task_id != task.id or row.access_state != "publishing":
@@ -108,7 +117,7 @@ def synchronize(db, settings, task):
         row.access_error = None
         row.revision += 1
         db.commit()
-    except Exception:
+    except Exception as failure:
         db.rollback()
         row = must_get(db, PublicationRecord, row.id)
         row.state, row.access_state = "unpublished", "reclaiming"
@@ -122,4 +131,6 @@ def synchronize(db, settings, task):
             row.access_error = "公开副本发布失败，部分对象访问收回未确认；请重试收回"
         row.revision += 1
         db.commit()
+        if isinstance(failure, AppError) and failure.code == "TASK_AUTHORIZATION_REVOKED":
+            raise AppError(403, failure.code, f"任务发起者权限已撤销；{row.access_error}") from None
         raise AppError(503, "PUBLICATION_ACCESS_FAILED", row.access_error) from None

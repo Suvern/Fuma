@@ -14,7 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api import contracts as dto
-from app.api.dependencies import CSRF, DB, Admin, require_downloader, require_revision
+from app.api.app_access import ScopedManager
+from app.api.dependencies import CSRF, DB, require_downloader, require_revision
 from app.core.errors import AppError, error_response
 from app.domains.applications.models import AppRecord
 from app.domains.applications.service import platform_enabled, require_platform_enabled
@@ -65,7 +66,7 @@ def entries(
     id: UUID,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     page_number: Annotated[int, Query(alias="page", ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     q: str | None = None,
@@ -102,7 +103,7 @@ def select_entries(
     body: dto.DebugEntryCreate,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     idempotency_key: Annotated[str | None, Header()] = None,
 ):
@@ -127,7 +128,7 @@ def select_entries(
 
 
 @router.get("/debug-entries/{id}", response_model=dto.DebugEntry, operation_id="get_debug_entry")
-def entry(id: UUID, request: Request, response: Response, db: DB, admin: Admin):
+def entry(id: UUID, request: Request, response: Response, db: DB, admin: ScopedManager):
     row = must_get(db, DebugRecord, id)
     response.headers["ETag"] = f'"{row.revision}"'
     return entry_dto(row, request.app.state.settings)
@@ -142,7 +143,7 @@ def update_entry(
     request: Request,
     response: Response,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):
@@ -180,7 +181,7 @@ def update_entry(
 def precache(
     id: UUID,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     idempotency_key: Annotated[str | None, Header()] = None,
 ):

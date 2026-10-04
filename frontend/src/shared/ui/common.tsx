@@ -20,7 +20,7 @@ import { Link } from "react-router";
 import { ApiError, read, ssoUrl, type DTO } from "../api/http";
 import { PageTitle } from "../components/PageTitle";
 import { Icon, type IconName } from "./Icon";
-import { confirmAction } from "./confirm";
+import { useConfirmAction } from "./confirm";
 
 export const labels: Record<string, string> = {
   package_ingest: "安装包解析入库",
@@ -307,6 +307,7 @@ export const lines = (f: FormData, name: string) =>
     .map((x) => x.trim())
     .filter(Boolean);
 export function useCommand() {
+  const { confirmAction, holder } = useConfirmAction();
   const client = useQueryClient();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>();
@@ -346,6 +347,7 @@ export function useCommand() {
     pending,
     feedback: (
       <>
+        {holder}
         <ErrorBox error={error} />
         {message && (
           <Notice role="status" className="notice success">
@@ -459,9 +461,9 @@ export function TaskNotice({ task }: { task?: DTO<"TaskAccepted"> }) {
   });
   const settled = Boolean(
     query.data &&
-    ["succeeded", "partial_success", "failed", "unknown"].includes(
-      query.data.state,
-    ),
+      ["succeeded", "partial_success", "failed", "unknown"].includes(
+        query.data.state,
+      ),
   );
   useEffect(() => {
     if (settled) {

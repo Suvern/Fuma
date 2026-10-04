@@ -45,6 +45,16 @@ def execute_task(engine, settings, task_id):
                 state(db, "worker", locked=True).data = {"last_seen_at": utcnow().isoformat()}
                 db.commit()
                 try:
+                    db.info["active_task"] = task
+                    from app.domains.access.task_authorization import check_task_authorization
+
+                    # Publication access handles revocation inside its compensation
+                    # boundary, so an already-created public copy is still reclaimed.
+                    if task.kind != "publication_access":
+                        check_task_authorization(db, task)
+                        # Starting a queued step is a short authorization fence;
+                        # provider I/O must not block role revocation globally.
+                        db.commit()
                     dispatch(db, settings, task)
                 except RetryLater as wait:
                     task.state, task.phase = "queued", "waiting"
@@ -59,11 +69,46 @@ def execute_task(engine, settings, task_id):
                         if isinstance(exc, AppError)
                         else "任务执行失败，请重试或检查配置"
                     )
+                    if task.error_code == "TASK_AUTHORIZATION_REVOKED":
+                        from app.domains.audit.service import record_audit
+
+                        record_audit(
+                            db,
+                            action="task.authorization_revoked",
+                            resource_type="task",
+                            resource_id=str(task.id),
+                            app_id=task.app_id,
+                            actor_kind="system",
+                            actor_id=str(task.created_actor_id),
+                            request_id=f"task:{task.id}",
+                            outcome="failure",
+                            summary="发起者权限已撤销，停止后续受限操作；已提交外部结果继续核对",
+                        )
+                        if task.kind == "notification":
+                            ids = (
+                                [task.resource_id]
+                                if task.resource_id
+                                else task.payload.get("delivery_ids", [])
+                            )
+                            for delivery_id in ids:
+                                delivery = db.get(DeliveryRecord, UUID(delivery_id))
+                                if delivery and delivery.state == "queued":
+                                    delivery.state = "failed"
+                                    delivery.error_code = task.error_code
+                                    delivery.error_message = task.error_message
+                        if task.kind == "build_event":
+                            event = db.get(EventRecord, UUID(task.resource_id))
+                            if event and event.state not in {
+                                "succeeded",
+                                "partial_success",
+                                "unknown",
+                            }:
+                                event.state = "failed"
                     if task.kind == "package_ingest":
                         from app.domains.library.models import UploadRecord
 
                         upload = db.get(UploadRecord, UUID(task.resource_id))
-                        if upload and upload.task_id == task.id:
+                        if upload and upload.task_id == task.id and upload.state == "processing":
                             upload.state, upload.error_message = "failed", task.error_message
                     if task.kind == "storage_probe":
                         from app.domains.storage.models import StorageLocation
@@ -177,6 +222,9 @@ def dispatch(db, settings, task):
 
         ids = [task.resource_id] if task.resource_id else task.payload.get("delivery_ids", [])
         for delivery_id in ids:
+            from app.domains.access.task_authorization import check_task_authorization
+
+            check_task_authorization(db, task)
             row = db.get(DeliveryRecord, UUID(delivery_id))
             if row:
                 send_delivery(db, settings, row.id)

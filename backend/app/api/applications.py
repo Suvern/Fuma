@@ -8,9 +8,11 @@ from sqlalchemy import cast, func, or_, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 
-from app.api.contracts import App, AppArchiveImpact, AppCreate, AppPage, AppUpdate
+from app.api.app_access import ScopedManager, require_scoped_manager
+from app.api.contracts import App, AppArchiveImpact, AppCreate, AppPage, AppUpdate, AvailableStorage
 from app.api.dependencies import DB, require_admin, require_csrf, require_revision
 from app.core.errors import AppError
+from app.domains.access.authorization import manageable_app_ids
 from app.domains.applications.models import AllowedPackageIdRecord, AppCreation, AppRecord
 from app.domains.applications.service import (
     archive_impact,
@@ -25,9 +27,10 @@ from app.domains.applications.service import (
 from app.domains.audit.service import record_audit
 from app.domains.auth.service import AuthContext, utcnow
 from app.domains.library.models import PackageRecord, PublicationRecord
+from app.domains.storage.models import StorageLocation
 from app.infrastructure.database import Base
 
-router = APIRouter(prefix="/apps", tags=["apps"], dependencies=[Depends(require_admin)])
+router = APIRouter(prefix="/apps", tags=["apps"], dependencies=[Depends(require_scoped_manager)])
 Admin = Annotated[AuthContext, Depends(require_admin)]
 
 
@@ -80,6 +83,7 @@ def audit(db, request, context, action, app):
         db,
         action=action,
         resource_type="app",
+        app_id=app.id,
         resource_id=str(app.id),
         actor_id=str(context.user.id),
         request_id=request.state.request_id,
@@ -93,6 +97,7 @@ def etag(response, app):
 @router.get("", response_model=AppPage, operation_id="list_apps")
 def list_apps(
     db: DB,
+    context: ScopedManager,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = Query(None, max_length=200),
@@ -101,6 +106,9 @@ def list_apps(
     archived: bool | None = None,
 ):
     stmt = select(AppRecord)
+    ids = manageable_app_ids(db, context)
+    if ids is not None:
+        stmt = stmt.where(AppRecord.id.in_(ids))
     if q:
         identifiers = (
             select(AllowedPackageIdRecord.app_id)
@@ -217,7 +225,7 @@ def update_app(
     request: Request,
     response: Response,
     db: DB,
-    context: Admin,
+    context: ScopedManager,
     if_match: Annotated[str | None, Header()] = None,
 ):
     fields = body.model_dump(exclude_unset=True)
@@ -300,7 +308,7 @@ def archive_app(
     request: Request,
     response: Response,
     db: DB,
-    context: Admin,
+    context: ScopedManager,
     if_match: Annotated[str | None, Header()] = None,
 ):
     return lifecycle(id, request, response, db, context, if_match, False)
@@ -317,7 +325,7 @@ def restore_app(
     request: Request,
     response: Response,
     db: DB,
-    context: Admin,
+    context: ScopedManager,
     if_match: Annotated[str | None, Header()] = None,
 ):
     return lifecycle(id, request, response, db, context, if_match, True)
@@ -351,3 +359,25 @@ def delete_app(
     except IntegrityError as exc:
         db.rollback()
         raise AppError(409, "APP_IN_USE", "App 已有关联数据，请停用而非删除") from exc
+
+
+@router.get(
+    "/{id}/available-storage",
+    response_model=AvailableStorage,
+    operation_id="list_available_storage",
+)
+def available_storage(id: UUID, db: DB, context: ScopedManager):
+    rows = db.scalars(
+        select(StorageLocation)
+        .where(StorageLocation.enabled.is_(True), StorageLocation.status == "ready")
+        .order_by(StorageLocation.name, StorageLocation.id)
+    )
+    return {
+        "items": [
+            {
+                name: getattr(row, name)
+                for name in ("id", "name", "provider", "read_mode", "is_default")
+            }
+            for row in rows
+        ]
+    }

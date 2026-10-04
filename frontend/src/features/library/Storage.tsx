@@ -15,7 +15,9 @@ import {
   text,
   useCommand,
   useFilters,
+  useSession,
 } from "../../shared/ui/common";
+import { isGlobalAdmin } from "../m1/permissions";
 
 const statuses: Record<string, string> = {
   unverified: "待验证",
@@ -286,23 +288,22 @@ function StorageCard({ row }: { row: DTO<"StorageInfo"> }) {
 }
 
 export function StorageChoice({
+  appId,
   mode,
   value,
   onChange,
   disabled,
 }: {
+  appId: string;
   mode: "private" | "public";
   value: string;
   onChange: (id: string) => void;
   disabled?: boolean;
 }) {
-  const [page, setPage] = useState(1);
+  const session = useSession();
   const query = useQuery({
-    queryKey: ["storage-choice", page],
-    queryFn: () =>
-      read("/api/v1/settings/storage-locations", {
-        query: { page, page_size: 100 },
-      }),
+    queryKey: ["storage-choice", appId, session.data?.viewer_key],
+    queryFn: () => read("/api/v1/apps/{id}/available-storage", { id: appId }),
   });
   return (
     <div>
@@ -322,10 +323,7 @@ export function StorageChoice({
             <option value="">仅已验证的飞书租户成员</option>
           )}
           {query.data?.items
-            .filter(
-              (row) =>
-                row.enabled && row.status === "ready" && row.read_mode === mode,
-            )
+            .filter((row) => row.read_mode === mode)
             .map((row) => (
               <option key={row.id} value={row.id}>
                 {row.name} ·{" "}
@@ -337,10 +335,13 @@ export function StorageChoice({
         </select>
       </label>
       <ErrorBox error={query.error} />
-      {query.data && query.data.total > 100 && (
-        <Pager data={query.data} page={page} setPage={setPage} />
+      {isGlobalAdmin(session.data?.user) ? (
+        <Link to="/admin/settings/storage">配置或测试云存储</Link>
+      ) : (
+        <p className="muted">
+          仅列出管理员已验证的可用存储，配置和凭据由管理员管理。
+        </p>
       )}
-      <Link to="/admin/settings/storage">配置或测试云存储</Link>
     </div>
   );
 }

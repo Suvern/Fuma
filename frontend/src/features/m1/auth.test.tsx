@@ -24,6 +24,9 @@ const user: DTO<"SessionUser"> = {
   id: "admin-user",
   kind: "local",
   role: "admin",
+  managed_app_ids: [],
+  active: true,
+  permission_revision: 1,
   display_name: "admin",
   tenant_key: null,
   must_change_password: true,
@@ -159,6 +162,9 @@ describe("自动管理员初始化与强制改密", () => {
     fireEvent.change(screen.getByLabelText(/^新密码/), {
       target: { value: "temporary-admin-password" },
     });
+    fireEvent.change(screen.getByLabelText(/^确认新密码/), {
+      target: { value: "temporary-admin-password" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
     expect(await screen.findByRole("alert")).toHaveProperty(
       "textContent",
@@ -174,6 +180,9 @@ describe("自动管理员初始化与强制改密", () => {
       target: { value: "temporary-admin-password" },
     });
     fireEvent.change(screen.getByLabelText(/^新密码/), {
+      target: { value: "  a-new-admin-password  " },
+    });
+    fireEvent.change(screen.getByLabelText(/^确认新密码/), {
       target: { value: "  a-new-admin-password  " },
     });
     fireEvent.click(screen.getByRole("button", { name: "修改密码" }));

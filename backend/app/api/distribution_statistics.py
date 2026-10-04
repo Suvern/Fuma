@@ -4,9 +4,10 @@ from uuid import UUID
 from fastapi import APIRouter
 from sqlalchemy import Date, cast, func, select
 
+from app.api.app_access import ScopedManager
 from app.api.applications import get_app
 from app.api.contracts import DistributionStatistics
-from app.api.dependencies import DB, Admin
+from app.api.dependencies import DB
 from app.core.errors import AppError
 from app.domains.distribution.statistics import COUNTERS, DistributionObservation
 from app.domains.library.models import LibraryGrant, PublicationRecord
@@ -20,7 +21,11 @@ router = APIRouter(tags=["apps"])
     operation_id="get_app_distribution_statistics",
 )
 def distribution_statistics(
-    id: UUID, db: DB, admin: Admin, start_date: date | None = None, end_date: date | None = None
+    id: UUID,
+    db: DB,
+    admin: ScopedManager,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ):
     get_app(db, id)
     today = datetime.now(UTC).date()

@@ -17,6 +17,8 @@ from app.domains.library.models import PackageRecord, UploadRecord
 
 
 def ingest(db, settings, task):
+    from app.domains.access.task_authorization import check_task_authorization
+
     upload = db.get(UploadRecord, UUID(task.resource_id))
     if upload.state == "ready":
         return
@@ -132,6 +134,7 @@ def ingest(db, settings, task):
         PackageInfo.model_validate(values)
     except ValidationError as exc:
         raise AppError(422, "INVALID_PARSER_RESULT", "解析结果字段不合法") from exc
+    check_task_authorization(db, task)
     app = active_app(db, upload.app_id)
     validate_scope(db, app, upload.platform, upload.mode, metadata["package_identifier"])
     package = db.scalar(
@@ -158,19 +161,6 @@ def ingest(db, settings, task):
             409, "PACKAGE_IDENTITY_CONFLICT", "同包标识和构建号已存在不同内容，请使用新的构建号"
         )
     if package is None or package.state == "deleted":
-        target = package_file(settings, package.id if package else package_id)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        # Never move the parser input while the offline process might still be reading it.
-        staged = target.with_suffix(".tmp")
-        try:
-            shutil.copyfile(source, staged)
-            with staged.open("rb") as stream:
-                if hashlib.file_digest(stream, "sha256").hexdigest() != result["sha256"]:
-                    raise AppError(409, "PACKAGE_HASH_MISMATCH", "入库文件校验失败")
-                os.fsync(stream.fileno())
-            os.replace(staged, target)
-        finally:
-            staged.unlink(missing_ok=True)
         if package is None:
             package = PackageRecord(**values)
             db.add(package)
@@ -182,13 +172,29 @@ def ingest(db, settings, task):
             package.revision += 1
         package.state = "processing"
         db.flush()
-    elif (
-        package.state not in {"processing", "ready"}
-        or not package_file(settings, package.id).is_file()
-    ):
+    elif package.state not in {"processing", "ready"}:
         raise AppError(409, "PACKAGE_NOT_READY", "相同内容存在未完成清理或丢失文件，请先处理原记录")
+    target = package_file(settings, package.id)
+    if not target.is_file():
+        if package.state != "processing":
+            raise AppError(409, "PACKAGE_NOT_READY", "原安装包文件丢失，请先处理原记录")
+        # Persist a non-distributable checkpoint before copying/hashing up to
+        # 4 GiB. Neither authority nor App locks may span disk/network I/O.
+        db.commit()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        staged = target.with_name(f"{package.id}.{upload.id}.tmp")
+        try:
+            shutil.copyfile(source, staged)
+            with staged.open("rb") as stream:
+                if hashlib.file_digest(stream, "sha256").hexdigest() != result["sha256"]:
+                    raise AppError(409, "PACKAGE_HASH_MISMATCH", "入库文件校验失败")
+                os.fsync(stream.fileno())
+            os.replace(staged, target)
+        finally:
+            staged.unlink(missing_ok=True)
     from app.domains.storage.service import store_canonical
 
+    check_task_authorization(db, task)
     target_location_id = upload.storage_location_id or package.storage_location_id
     if (
         upload.storage_location_id
@@ -208,6 +214,7 @@ def ingest(db, settings, task):
         location_id=target_location_id,
     )
     # Cloud round-trips may commit checkpoints; recheck the app before publishing readiness.
+    check_task_authorization(db, task)
     app = active_app(db, upload.app_id)
     validate_scope(db, app, upload.platform, upload.mode, metadata["package_identifier"])
     if upload.source_snapshot and app.repository != upload.source_snapshot["repository"]:

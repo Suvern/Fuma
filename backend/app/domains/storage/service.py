@@ -145,7 +145,10 @@ def store_canonical(db, settings, package, path, *, location_id=None):
             created_at=utcnow(),
         )
         db.add(record)
-        db.commit()
+    # Record the authorized external step before outbound I/O, including retries
+    # of an existing pending/ready object. Callers recheck actor and App scope
+    # before promoting package readiness or switching legacy download pointers.
+    db.commit()
     client = adapter(settings, location)
     if record.state != "ready":
         client.put(key, path, package.sha256)

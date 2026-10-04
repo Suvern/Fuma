@@ -5,9 +5,11 @@ from fastapi import APIRouter, Header, Request
 from sqlalchemy import select
 
 from app.api import contracts as dto
-from app.api.dependencies import CSRF, DB, Admin
+from app.api.app_access import ScopedManager
+from app.api.dependencies import CSRF, DB
 from app.api.library import active_app, audit, create_upload, upload_dto
 from app.core.errors import AppError
+from app.domains.access.authorization import require_app_permission
 from app.domains.distribution.models import DebugRecord
 from app.domains.distribution.service import enqueue, idem_begin, idem_save, must_get
 from app.domains.github.models import GithubRepositorySync
@@ -59,6 +61,8 @@ def schedule_import(id, body, request, db, admin, csrf, key, legacy=None):
     # Reuse the same budget, safe names and session idempotency checks as manual upload.
     created = create_upload(id, dto.UploadCreate(**creation), request, db, admin, csrf, key)
     row = must_get(db, UploadRecord, created["id"])
+    require_app_permission(db, admin, id, lock=True)
+    db.info["actor_app_id"] = id
     active_app(db, id)
     db.refresh(row, with_for_update=True)
     if row.source_snapshot:
@@ -90,7 +94,7 @@ def import_package(
     body: dto.PackageImport,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     idempotency_key: Annotated[str, Header()],
 ):
@@ -108,7 +112,7 @@ def persist_legacy(
     body: dto.LegacyPersistence,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     idempotency_key: Annotated[str, Header()],
 ):

@@ -16,10 +16,12 @@ def record_audit(
     resource_id: str | None = None,
     outcome: str = "success",
     summary: str = "",
+    app_id=None,
 ) -> None:
     """Only caller-authored summaries; never pass request bodies or provider errors."""
     db.add(
         AuditRecord(
+            app_id=app_id or db.info.get("actor_app_id"),
             actor_kind=actor_kind,
             actor_id=actor_id,
             action=action,

@@ -163,6 +163,13 @@ it("saving an edit retains feedback and invalidates previous diagnostics", async
   fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
   await screen.findByText("连接已保存。请重新检查仓库权限。");
   expect(screen.queryByText(result.checks[1]!.message)).toBeNull();
+  // Dialog stays mounted until the leave animation completes; jsdom has no CSS animation.
+  await act(async () => {
+    document.querySelectorAll(".semi-modal-mask-animate-hide").forEach((mask) => {
+      fireEvent.animationEnd(mask);
+      fireEvent(mask, new Event("webkitAnimationEnd", { bubbles: true }));
+    });
+  });
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 it("provider authorization errors do not suggest logging into Fuma again", async () => {

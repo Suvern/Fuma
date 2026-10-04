@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy import select
 
+from app.api.app_access import ScopedManager, require_scoped_manager
 from app.api.applications import get_app
 from app.api.contracts import (
     ActionsRule,
@@ -22,8 +23,9 @@ from app.api.contracts import (
     BuildRetryRequest,
     TaskAccepted,
 )
-from app.api.dependencies import DB, Admin, require_admin, require_csrf, require_revision
+from app.api.dependencies import DB, Admin, require_csrf, require_revision
 from app.core.errors import AppError
+from app.domains.access.authorization import manageable_app_ids
 from app.domains.applications.models import AppRecord
 from app.domains.audit.service import record_audit
 from app.domains.auth.service import token_hash, utcnow
@@ -48,8 +50,8 @@ from app.domains.distribution.service import (
 )
 
 router = APIRouter(tags=["actions"])
-WRITE = [Depends(require_admin), Depends(require_csrf)]
-READ = [Depends(require_admin)]
+WRITE = [Depends(require_scoped_manager), Depends(require_csrf)]
+READ = [Depends(require_scoped_manager)]
 
 
 def audit(db, request, actor, action, resource_id, *, kind="admin"):
@@ -137,6 +139,7 @@ def create_rule(
     )
     db.add(row)
     db.flush()
+    db.info["actor_app_id"] = id
     audit(db, request, context, "actions.rule.create", row.id)
     db.commit()
     response.headers["ETag"] = '"1"'
@@ -167,7 +170,7 @@ def update_rule(
     request: Request,
     response: Response,
     db: DB,
-    context: Admin,
+    context: ScopedManager,
     if_match: Annotated[str | None, Header()] = None,
 ):
     patch = body.model_dump(mode="json", exclude_unset=True)
@@ -178,6 +181,9 @@ def update_rule(
     if app.archived_at:
         raise AppError(409, "APP_ARCHIVED", "归档应用不能修改分发规则")
     row = rule_locked(db, id, if_match)
+    if "chat_ids" in patch and manageable_app_ids(db, context) is not None:
+        if set(patch["chat_ids"]) != set(row.data["chat_ids"]):
+            raise AppError(403, "ADMIN_REQUIRED", "通知目标由管理员配置")
     data = {**row.data, **patch}
     validate_rule(db, data)
     row.data = data
@@ -195,7 +201,7 @@ def delete_rule(
     id: UUID,
     request: Request,
     db: DB,
-    context: Admin,
+    context: ScopedManager,
     if_match: Annotated[str | None, Header()] = None,
 ):
     row = rule_locked(db, id, if_match)
@@ -217,7 +223,7 @@ def rotate_token(
     request: Request,
     response: Response,
     db: DB,
-    context: Admin,
+    context: ScopedManager,
     if_match: Annotated[str | None, Header()] = None,
 ):
     recent_admin(context)
@@ -241,7 +247,7 @@ def revoke_token(
     id: UUID,
     request: Request,
     db: DB,
-    context: Admin,
+    context: ScopedManager,
     if_match: Annotated[str | None, Header()] = None,
 ):
     row = rule_locked(db, id, if_match)
@@ -264,19 +270,27 @@ def receive_event(
     db: DB,
     authorization: Annotated[str | None, Header()] = None,
 ):
-    # Serialize revocation/rotation with acceptance, and never use browser admin authority here.
-    lock(db, f"rule:{id}")
+    # Check once before taking the App lock, then recheck under App -> rule locks.
+    # Management writes take the same order; stale tokens never gain authority
+    # while waiting for another transaction to rotate or revoke them.
     rule = db.get(RuleRecord, id)
     raw = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
-    if (
-        not raw
-        or len(raw) > 200
-        or rule is None
-        or not rule.token_hash
-        or not secrets.compare_digest(token_hash(raw), rule.token_hash)
-    ):
-        raise AppError(401, "INVALID_CI_TOKEN", "构建回调凭据无效")
-    app = must_get(db, AppRecord, rule.app_id)
+
+    def verify_rule(candidate):
+        if (
+            not raw
+            or len(raw) > 200
+            or candidate is None
+            or not candidate.token_hash
+            or not secrets.compare_digest(token_hash(raw), candidate.token_hash)
+        ):
+            raise AppError(401, "INVALID_CI_TOKEN", "构建回调凭据无效")
+
+    verify_rule(rule)
+    app = get_app(db, rule.app_id, lock=True)
+    lock(db, f"rule:{id}")
+    rule = db.get(RuleRecord, id, populate_existing=True)
+    verify_rule(rule)
     if not rule.data["enabled"] or not app.enabled or not app.repository:
         raise AppError(403, "RULE_DISABLED", "规则或 App 当前不可用")
     if app.repository["repository_id"] != rule.data["repository_id"]:
@@ -385,7 +399,7 @@ def retry_event(
     body: BuildRetryRequest,
     request: Request,
     db: DB,
-    context: Admin,
+    context: ScopedManager,
     idempotency_key: Annotated[str | None, Header()] = None,
 ):
     lock(db, f"event:{id}")

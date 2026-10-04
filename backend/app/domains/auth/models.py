@@ -1,7 +1,18 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, false
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    false,
+    true,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database import Base
@@ -9,7 +20,10 @@ from app.infrastructure.database import Base
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (UniqueConstraint("tenant_key", "open_id"),)
+    __table_args__ = (
+        UniqueConstraint("provider_app_id", "tenant_key", "open_id"),
+        CheckConstraint("global_role IN ('admin', 'maintainer', 'downloader')", name="user_role"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     kind: Mapped[str] = mapped_column(String(16))
@@ -21,6 +35,31 @@ class User(Base):
     )
     tenant_key: Mapped[str | None] = mapped_column(String(200))
     open_id: Mapped[str | None] = mapped_column(String(200))
+    provider_app_id: Mapped[str | None] = mapped_column(String(200))
+    identity_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    global_role: Mapped[str] = mapped_column(
+        String(16), default="downloader", server_default="downloader"
+    )
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    permission_revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    permission_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AppRoleRecord(Base):
+    __tablename__ = "app_roles"
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    app_id: Mapped[UUID] = mapped_column(ForeignKey("applications.id"), primary_key=True)
+
+
+class RoleChangeRecord(Base):
+    __tablename__ = "member_role_changes"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    permission_revision: Mapped[int]
+    before_rules: Mapped[dict] = mapped_column(JSON)
+    after_rules: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class AuthSession(Base):

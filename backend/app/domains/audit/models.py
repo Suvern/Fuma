@@ -11,6 +11,8 @@ class AuditRecord(Base):
     __tablename__ = "audit_events"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    # Historical scope survives App deletion; it is never inferred from resource IDs.
+    app_id: Mapped[UUID | None] = mapped_column(index=True)
     actor_kind: Mapped[str] = mapped_column(String(16))
     actor_id: Mapped[str | None] = mapped_column(String(200))
     action: Mapped[str] = mapped_column(String(100))

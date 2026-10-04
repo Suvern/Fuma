@@ -9,8 +9,10 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
 from app.api import contracts as dto
+from app.api.app_access import ScopedManager
 from app.api.dependencies import CSRF, DB, Admin, optional_context, require_revision
 from app.core.errors import AppError
+from app.domains.access.authorization import manageable_app_ids
 from app.domains.audit.service import record_audit
 from app.domains.auth.models import AuthSession, User
 from app.domains.auth.service import AuthContext, create_user_session, token_hash, utcnow
@@ -300,19 +302,31 @@ def callback(
         else:
             if tenant != cfg.data.get("tenant_key"):
                 raise AppError(403, "TENANT_MISMATCH", "租户不匹配")
-            lock(db, f"user:{tenant}:{user_info['open_id']}")
+            provider_app_id = cfg.data["app_id"]
+            lock(db, f"user:{provider_app_id}:{tenant}:{user_info['open_id']}")
             user = db.scalar(
-                select(User).where(User.tenant_key == tenant, User.open_id == user_info["open_id"])
+                select(User)
+                .where(
+                    User.provider_app_id == provider_app_id,
+                    User.tenant_key == tenant,
+                    User.open_id == user_info["open_id"],
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
             )
             if user is None:
                 user = User(
                     kind="feishu",
                     tenant_key=tenant,
+                    provider_app_id=provider_app_id,
                     open_id=user_info["open_id"],
                     display_name=user_info.get("name", "飞书用户")[:100],
                 )
                 db.add(user)
                 db.flush()
+            if not user.active:
+                raise AppError(403, "ACCOUNT_DISABLED", "此账号已停用，请联系管理员")
+            user.identity_verified_at = utcnow()
             create_user_session(
                 db,
                 response,
@@ -583,14 +597,18 @@ def test_message(
 @router.get("/notifications", response_model=dto.DeliveryPage, operation_id="list_notifications")
 def notifications(
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     page_number: Annotated[int, Query(alias="page", ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     q: str | None = None,
     app_id: UUID | None = None,
     state_filter: Annotated[str | None, Query(alias="state")] = None,
 ):
-    rows = db.scalars(select(DeliveryRecord).order_by(DeliveryRecord.created_at.desc())).all()
+    stmt = select(DeliveryRecord).order_by(DeliveryRecord.created_at.desc())
+    ids = manageable_app_ids(db, admin)
+    if ids is not None:
+        stmt = stmt.where(DeliveryRecord.app_id.in_(ids))
+    rows = db.scalars(stmt).all()
     return page(
         [
             fs.delivery_dto(r)
@@ -605,7 +623,7 @@ def notifications(
 
 
 @router.get("/notifications/{id}", response_model=dto.Delivery, operation_id="get_notification")
-def notification(id: UUID, db: DB, admin: Admin):
+def notification(id: UUID, db: DB, admin: ScopedManager):
     return fs.delivery_dto(must_get(db, DeliveryRecord, id))
 
 
@@ -620,7 +638,7 @@ def retry_notification(
     body: dto.DeliveryRetryRequest,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     idempotency_key: Annotated[str | None, Header()] = None,
 ):
@@ -636,7 +654,9 @@ def retry_notification(
         raise AppError(409, "DUPLICATE_ACK_REQUIRED", "请确认重试可能造成重复通知")
     fs.validate_chats(db, [row.chat_id])
     row.state, row.error_code, row.error_message = "queued", None, None
-    task = enqueue(db, "notification", resource_id=str(id), dedupe_key=f"notification:{id}")
+    task = enqueue(
+        db, "notification", resource_id=str(id), app_id=row.app_id, dedupe_key=f"notification:{id}"
+    )
     if row.event_id:
         lock(db, f"event:{row.event_id}")
         event = db.get(EventRecord, row.event_id, populate_existing=True)

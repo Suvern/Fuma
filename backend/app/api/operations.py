@@ -8,8 +8,10 @@ from fastapi import APIRouter, Header, Query, Request, Response
 from sqlalchemy import select
 
 from app.api import contracts as dto
+from app.api.app_access import ScopedManager
 from app.api.dependencies import CSRF, DB, Admin, require_revision
 from app.core.errors import AppError
+from app.domains.access.authorization import manageable_app_ids
 from app.domains.auth.service import utcnow
 from app.domains.distribution.models import TaskRecord, TransferLease
 from app.domains.distribution.packages import cache_root, cache_settings, cache_usage
@@ -59,7 +61,7 @@ TASK_NAMES = {
 @router.get("/tasks", response_model=dto.TaskPage, operation_id="list_tasks")
 def tasks(
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     page_number: Annotated[int, Query(alias="page", ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     q: str | None = None,
@@ -67,9 +69,11 @@ def tasks(
     state_filter: Annotated[str | None, Query(alias="state")] = None,
     kind: TaskKind | None = None,
 ):
-    rows = db.scalars(
-        select(TaskRecord).order_by(TaskRecord.created_at.desc(), TaskRecord.id.desc())
-    ).all()
+    stmt = select(TaskRecord).order_by(TaskRecord.created_at.desc(), TaskRecord.id.desc())
+    ids = manageable_app_ids(db, admin)
+    if ids is not None:
+        stmt = stmt.where(TaskRecord.app_id.in_(ids))
+    rows = db.scalars(stmt).all()
     keyword = (q or "").strip().casefold()
     return page(
         [
@@ -92,7 +96,7 @@ def tasks(
 
 
 @router.get("/tasks/{id}", response_model=dto.Task, operation_id="get_task")
-def task(id: UUID, db: DB, admin: Admin):
+def task(id: UUID, db: DB, admin: ScopedManager):
     return task_dto(must_get(db, TaskRecord, id))
 
 
@@ -102,7 +106,7 @@ def task(id: UUID, db: DB, admin: Admin):
 def retry_task(
     id: UUID,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     idempotency_key: Annotated[str | None, Header()] = None,
 ):
@@ -125,6 +129,8 @@ def retry_task(
         raise AppError(409, "NOT_RETRYABLE", "请通过对应业务详情页重试，未知通知结果需单独确认")
     row.state, row.phase, row.error_code, row.error_message = "queued", "queued", None, None
     row.updated_at, row.next_check_at = utcnow(), None
+    row.created_actor_id = admin.user.id
+    row.actor_permission_revision = admin.user.permission_revision
     result = task_accepted(row)
     idem_save(db, key, {}, result)
     db.commit()

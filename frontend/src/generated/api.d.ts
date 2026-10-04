@@ -182,6 +182,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/apps/{id}/available-storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Available storage summaries for an authorized application */
+        get: operations["list_available_storage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/apps/{id}/build-events": {
         parameters: {
             query?: never;
@@ -643,6 +660,38 @@ export interface paths {
          * @description Validate current password, reject an unchanged password, clear must_change_password, revoke all existing admin sessions and issue a fresh session. Available to an administrator whose initial password still needs changing.
          */
         post: operations["change_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_own_sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sessions/revoke-others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revoke_other_sessions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1568,6 +1617,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_members"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/members/{id}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["update_member_roles"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/storage-locations": {
         parameters: {
             query?: never;
@@ -2060,6 +2141,19 @@ export interface components {
             page: number;
             page_size: number;
             total: number;
+        };
+        AvailableStorage: {
+            items: components["schemas"]["AvailableStorageItem"][];
+        };
+        AvailableStorageItem: {
+            /** Format: uuid */
+            id: string;
+            is_default: boolean;
+            name: string;
+            /** @enum {string} */
+            provider: "cos" | "oss";
+            /** @enum {string} */
+            read_mode: "private" | "public";
         };
         BootstrapStatus: {
             initialized: boolean;
@@ -2583,6 +2677,36 @@ export interface components {
             /** @constant */
             username: "admin";
         };
+        MemberInfo: {
+            active: boolean;
+            display_name: string;
+            /** Format: uuid */
+            id: string;
+            identity_verified: boolean;
+            /** @enum {string} */
+            kind: "local" | "feishu";
+            managed_app_ids: string[];
+            open_id: string | null;
+            /** Format: date-time */
+            permission_changed_at: string | null;
+            permission_revision: number;
+            provider_app_id: string | null;
+            /** @enum {string} */
+            role: "admin" | "maintainer" | "downloader";
+            tenant_key: string | null;
+        };
+        MemberPage: {
+            items: components["schemas"]["MemberInfo"][];
+            page: number;
+            page_size: number;
+            total: number;
+        };
+        MemberRolesUpdate: {
+            active: boolean;
+            managed_app_ids: string[];
+            /** @enum {string} */
+            role: "admin" | "maintainer" | "downloader";
+        };
         NotificationCard: {
             app_name: string | null;
             file_names: string[];
@@ -2596,6 +2720,29 @@ export interface components {
             summary: string;
             title: string;
             version_label: string | null;
+        };
+        OwnSession: {
+            /** Format: date-time */
+            authenticated_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            current: boolean;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "local" | "feishu";
+            /** Format: date-time */
+            revoked_at: string | null;
+            /** @enum {string} */
+            state: "active" | "expired" | "revoked";
+        };
+        OwnSessionPage: {
+            items: components["schemas"]["OwnSession"][];
+            page: number;
+            page_size: number;
+            total: number;
         };
         PackageDeletionImpact: {
             blockers: string[];
@@ -2868,16 +3015,25 @@ export interface components {
             expires_at: string;
             user: components["schemas"]["SessionUser"];
         };
+        SessionRevocation: {
+            revoked_count: number;
+        };
         SessionUser: {
+            /** @default true */
+            active: boolean;
             display_name: string;
             /** Format: uuid */
             id: string;
             /** @enum {string} */
             kind: "local" | "feishu";
+            /** @default [] */
+            managed_app_ids: string[];
             /** @description Auto-generated local admin password must be changed before using administrative APIs. False for Feishu users. */
             must_change_password: boolean;
+            /** @default 1 */
+            permission_revision: number;
             /** @enum {string} */
-            role: "admin" | "downloader";
+            role: "admin" | "maintainer" | "downloader";
             tenant_key: string | null;
         };
         SourceSnapshot: {
@@ -4414,6 +4570,37 @@ export interface operations {
             };
             /** @description Request rejected */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_available_storage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enabled, verified storage without provider configuration or credentials */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailableStorage"];
+                };
+            };
+            /** @description Application management permission required */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6997,6 +7184,72 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
+            };
+        };
+    };
+    list_own_sessions: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Own sessions only; no session credentials or client fingerprints. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnSessionPage"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revoke_other_sessions: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CSRF"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Other currently active sessions revoked; current session remains active. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRevocation"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CSRF validation failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -11816,6 +12069,63 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_members: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                q?: components["parameters"]["Query"];
+                role?: "admin" | "maintainer" | "downloader";
+                app_id?: string;
+                active?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current identifiable members; restricted to global administrators. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberPage"];
+                };
+            };
+        };
+    };
+    update_member_roles: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CSRF"];
+                /** @description ETag revision obtained from the resource; stale value returns 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberRolesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated authorization; local rescue administrator is immutable. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberInfo"];
                 };
             };
         };

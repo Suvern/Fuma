@@ -17,16 +17,17 @@ from sqlalchemy import func, select
 from starlette.concurrency import run_in_threadpool
 
 from app.api import contracts as dto
+from app.api.app_access import ScopedManager
 from app.api.applications import get_app
 from app.api.dependencies import (
     CSRF,
     DB,
-    Admin,
     optional_context,
     require_downloader,
     require_revision,
 )
 from app.core.errors import AppError
+from app.domains.access.authorization import require_app_permission
 from app.domains.applications.models import AppRecord
 from app.domains.applications.service import package_ids, platform_enabled, require_platform_enabled
 from app.domains.audit.service import record_audit
@@ -149,7 +150,7 @@ def create_upload(
     body: dto.UploadCreate,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     idempotency_key: Annotated[str, Header()],
 ):
@@ -219,7 +220,7 @@ def create_upload(
 def uploads(
     id: UUID,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     page_number: Annotated[int, Query(alias="page", ge=1)] = 1,
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = None,
@@ -238,7 +239,7 @@ def uploads(
 
 
 @router.get("/uploads/{id}", response_model=dto.UploadSession, operation_id="get_upload")
-def upload(id: UUID, db: DB, admin: Admin):
+def upload(id: UUID, db: DB, admin: ScopedManager):
     return upload_dto(must_get(db, UploadRecord, id))
 
 
@@ -252,13 +253,15 @@ async def upload_part(
     part_number: int,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     x_chunk_sha256: Annotated[str, Header()],
 ):
     # Do not hold a blocking database row lock while awaiting an HTTP body: a
     # concurrent request could otherwise block the event loop needed by this one.
     def snapshot():
+        row = must_get(db, UploadRecord, id)
+        require_app_permission(db, admin, row.app_id, lock=True)
         row = locked_upload(db, id, receiving=True)
         values = row.expected_parts, row.chunk_size, row.declared_size
         db.rollback()
@@ -288,6 +291,9 @@ async def upload_part(
         part = {"part_number": part_number, "size_bytes": size, "sha256": x_chunk_sha256}
 
         def finalize():
+            row = must_get(db, UploadRecord, id)
+            require_app_permission(db, admin, row.app_id, lock=True)
+            db.info["actor_app_id"] = row.app_id
             row = locked_upload(db, id, receiving=True)
             old = next((p for p in row.parts if p["part_number"] == part_number), None)
             if old and old != part:
@@ -308,7 +314,7 @@ async def upload_part(
 
 
 @router.delete("/uploads/{id}", response_model=dto.UploadSession, operation_id="cancel_upload")
-def cancel_upload(id: UUID, request: Request, db: DB, admin: Admin, csrf: CSRF):
+def cancel_upload(id: UUID, request: Request, db: DB, admin: ScopedManager, csrf: CSRF):
     row = must_get(db, UploadRecord, id)
     get_app(db, row.app_id, lock=True)
     db.refresh(row, with_for_update=True)
@@ -354,7 +360,7 @@ def submit_upload(id, request, db, admin, retry):
     status_code=202,
     operation_id="complete_upload",
 )
-def complete_upload(id: UUID, request: Request, db: DB, admin: Admin, csrf: CSRF):
+def complete_upload(id: UUID, request: Request, db: DB, admin: ScopedManager, csrf: CSRF):
     return submit_upload(id, request, db, admin, False)
 
 
@@ -364,7 +370,7 @@ def complete_upload(id: UUID, request: Request, db: DB, admin: Admin, csrf: CSRF
     status_code=202,
     operation_id="retry_upload",
 )
-def retry_upload(id: UUID, request: Request, db: DB, admin: Admin, csrf: CSRF):
+def retry_upload(id: UUID, request: Request, db: DB, admin: ScopedManager, csrf: CSRF):
     return submit_upload(id, request, db, admin, True)
 
 
@@ -372,7 +378,7 @@ def retry_upload(id: UUID, request: Request, db: DB, admin: Admin, csrf: CSRF):
 def packages(
     id: UUID,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     page_number: Annotated[int, Query(alias="page", ge=1)] = 1,
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = None,
@@ -413,7 +419,7 @@ def packages(
 
 
 @router.get("/packages/{id}", response_model=dto.PackageInfo, operation_id="get_package")
-def package(id: UUID, db: DB, admin: Admin):
+def package(id: UUID, db: DB, admin: ScopedManager):
     row = must_get(db, PackageRecord, id)
     return {
         **package_dto(row),
@@ -443,7 +449,7 @@ def notes(
     body: dto.PackageNotes,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):
@@ -468,7 +474,7 @@ def create_version(
     body: dto.VersionCreate,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     idempotency_key: Annotated[str | None, Header()] = None,
 ):
@@ -496,7 +502,7 @@ def create_version(
 def versions(
     id: UUID,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     page_number: Annotated[int, Query(alias="page", ge=1)] = 1,
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = None,
@@ -515,7 +521,7 @@ def versions(
 
 
 @router.get("/versions/{id}", response_model=dto.VersionInfo, operation_id="get_version")
-def version(id: UUID, db: DB, admin: Admin):
+def version(id: UUID, db: DB, admin: ScopedManager):
     return version_dto(must_get(db, VersionRecord, id))
 
 
@@ -525,7 +531,7 @@ def update_version(
     body: dto.VersionCreate,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):
@@ -558,7 +564,7 @@ def create_publication(
     body: dto.PublicationCreate,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     idempotency_key: Annotated[str | None, Header()] = None,
 ):
@@ -617,7 +623,7 @@ def create_publication(
 def publications(
     id: UUID,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     page_number: Annotated[int, Query(alias="page", ge=1)] = 1,
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = None,
@@ -636,7 +642,7 @@ def publications(
 @router.get(
     "/publications/{id}", response_model=dto.PublicationInfo, operation_id="get_publication"
 )
-def publication(id: UUID, db: DB, admin: Admin):
+def publication(id: UUID, db: DB, admin: ScopedManager):
     return publication_dto(db, must_get(db, PublicationRecord, id))
 
 
@@ -708,7 +714,7 @@ def publish(
     id: UUID,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):
@@ -724,7 +730,7 @@ def unpublish(
     id: UUID,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):
@@ -740,7 +746,7 @@ def archive(
     id: UUID,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):
@@ -756,7 +762,7 @@ def restore(
     id: UUID,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):
@@ -772,7 +778,7 @@ def retry_access(
     id: UUID,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):

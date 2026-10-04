@@ -2,6 +2,7 @@ import { RepositorySelect } from "../../shared/ui/RepositorySelect";
 import { AppLifecycle } from "./AppLifecycle";
 import { AppIcon, AppIconField } from "./AppIcon";
 import { Statistics } from "./Statistics";
+import { isGlobalAdmin } from "./permissions";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import {
   Button,
@@ -30,6 +31,7 @@ import {
   date,
   text,
   useCommand,
+  useSession,
 } from "../../shared/ui/common";
 
 const platformNames = { android: "Android", ios: "iOS" } as const;
@@ -184,8 +186,10 @@ function Platforms({
   );
 }
 export function AppsPage() {
+  const session = useSession();
+  const globalAdmin = isGlobalAdmin(session.data?.user);
   const [params, setParams] = useSearchParams();
-  const creating = params.get("new") === "1";
+  const creating = globalAdmin && params.get("new") === "1";
   const [saving, setSaving] = useState(false);
   function setCreating(open: boolean) {
     setParams(
@@ -248,10 +252,12 @@ export function AppsPage() {
       <Title
         description="连接应用与仓库，让每个版本都有归处。"
         actions={
-          <Button className="primary" onClick={() => setCreating(true)}>
-            <Icon name="plus" size={17} />
-            新建应用
-          </Button>
+          globalAdmin && (
+            <Button className="primary" onClick={() => setCreating(true)}>
+              <Icon name="plus" size={17} />
+              新建应用
+            </Button>
+          )
         }
       >
         应用管理
@@ -390,6 +396,7 @@ export function AppsPage() {
               title={hasFilters ? "没有匹配的应用" : "添加你的第一个应用"}
               icon="apps"
               action={
+                globalAdmin &&
                 !hasFilters && (
                   <Button className="primary" onClick={() => setCreating(true)}>
                     <Icon name="plus" size={16} />
@@ -400,7 +407,9 @@ export function AppsPage() {
             >
               {hasFilters
                 ? "试试其他名称、包标识或筛选条件。"
-                : "支持 Android 与 iOS。关联 GitHub 仓库后，即可导入 Release 安装包。"}
+                : globalAdmin
+                  ? "支持 Android 与 iOS。关联 GitHub 仓库后，即可导入 Release 安装包。"
+                  : "尚未获得应用授权，请联系管理员分配应用。"}
             </Empty>
           )}
           <Pager
@@ -525,6 +534,8 @@ export function AppPage() {
   return <AppEditor key={id} app={query.data} />;
 }
 function AppEditor({ app }: { app: DTO<"App"> }) {
+  const session = useSession();
+  const globalAdmin = isGlobalAdmin(session.data?.user);
   const cmd = useCommand();
   const client = useQueryClient();
   const [draft, setDraft] = useState<{
@@ -687,28 +698,42 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
                 保存
               </Button>
             </Form>
-            <Button
-              className="danger"
-              disabled={cmd.pending}
-              onClick={() =>
-                void cmd.run(
-                  "app-delete",
-                  () =>
-                    write("/api/v1/apps/{id}", "delete", undefined, {
-                      id: app.id,
-                      revision: app.revision,
-                    }),
-                  () => navigate("/admin/apps"),
-                  undefined,
-                  `删除 App「${app.name}」？历史记录将保留，下载入口将不可用。`,
-                )
-              }
-            >
-              删除 App
-            </Button>
+            {globalAdmin && (
+              <Button
+                className="danger"
+                disabled={cmd.pending}
+                onClick={() =>
+                  void cmd.run(
+                    "app-delete",
+                    () =>
+                      write("/api/v1/apps/{id}", "delete", undefined, {
+                        id: app.id,
+                        revision: app.revision,
+                      }),
+                    () => navigate("/admin/apps"),
+                    undefined,
+                    `删除 App「${app.name}」？历史记录将保留，下载入口将不可用。`,
+                  )
+                }
+              >
+                删除 App
+              </Button>
+            )}
           </fieldset>
         </Panel>
-        {!app.archived_at && <RepositoryBinding app={app} />}
+        {!app.archived_at &&
+          (globalAdmin ? (
+            <RepositoryBinding app={app} />
+          ) : (
+            <Panel>
+              <h2>仓库绑定</h2>
+              <p>{app.repository?.full_name ?? "尚未绑定仓库"}</p>
+              <p className="muted">
+                仓库凭据与绑定由管理员管理。已有绑定可用于此应用的 Release
+                导入。
+              </p>
+            </Panel>
+          ))}
       </div>
     </>
   );

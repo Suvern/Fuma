@@ -6,7 +6,8 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router";
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { canManage, globalOnlyPath, isGlobalAdmin } from "./permissions";
 import { BrandMark, Icon } from "../../shared/ui/Icon";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -56,7 +57,7 @@ export function LoginPage() {
       <div className="auth-symbol">
         <BrandMark />
       </div>
-      <Title>管理员登录</Title>
+      <Title>后台登录</Title>
       <p className="muted">欢迎回来，继续管理团队的应用与分发。</p>
       {!status.data?.initialized && (
         <Notice role="status" className="notice">
@@ -145,8 +146,11 @@ export function LoginPage() {
         </p>
       </Disclosure>
       {status.data?.sso_enabled && (
-        <a className="button" href={ssoUrl(returnTo)}>
-          使用飞书访问 Debug 下载
+        <a
+          className="button"
+          href={ssoUrl(returnTo === "/" ? "/admin" : returnTo)}
+        >
+          使用飞书登录
         </a>
       )}
       <p>
@@ -162,20 +166,72 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   const requestedPath = location.pathname + location.search;
   if (session.isPending) return <Loading />;
   if (session.error) return <ErrorBox error={session.error} />;
-  if (session.data?.user?.role !== "admin")
+  if (!session.data?.authenticated)
     return (
       <Navigate
         to={`/login?return_to=${encodeURIComponent(requestedPath)}`}
         replace
       />
     );
+  if (!canManage(session.data.user))
+    return (
+      <Panel className="panel">
+        <Title>暂无后台权限</Title>
+        <p>
+          当前账号仅可按下载权限访问前台。如需维护应用，请联系管理员分配后台角色。
+        </p>
+        <Link to="/">前往下载门户</Link>
+        <LogoutButton />
+      </Panel>
+    );
+  if (!isGlobalAdmin(session.data.user) && globalOnlyPath(location.pathname))
+    return (
+      <Panel className="panel">
+        <Title>此页面需要管理员权限</Title>
+        <p>你可以管理获授权的应用、安装包、版本和任务。</p>
+        <Link to="/admin/apps">返回我的应用</Link>
+      </Panel>
+    );
   // Do not mount protected descendants until the first-password requirement is met.
   if (
-    session.data.user.must_change_password &&
+    session.data.user?.must_change_password &&
     location.pathname !== accountPath
   )
     return <Navigate to={passwordPath(requestedPath)} replace />;
-  return children;
+  return (
+    <ManagementScope
+      scope={`${session.data.viewer_key}:${session.data.user?.role}:${session.data.user?.permission_revision ?? 1}`}
+    >
+      {children}
+    </ManagementScope>
+  );
+}
+
+function ManagementScope({
+  scope,
+  children,
+}: {
+  scope: string;
+  children: React.ReactNode;
+}) {
+  const client = useQueryClient();
+  const [visibleScope, setVisibleScope] = useState<string | null>(null);
+  useEffect(() => {
+    if (visibleScope === scope) return;
+    let active = true;
+    void client
+      .cancelQueries({ predicate: (query) => query.queryKey[0] !== "session" })
+      .then(() => {
+        client.removeQueries({
+          predicate: (query) => query.queryKey[0] !== "session",
+        });
+        if (active) setVisibleScope(scope);
+      });
+    return () => {
+      active = false;
+    };
+  }, [scope, visibleScope, client]);
+  return visibleScope === scope ? children : <Loading />;
 }
 
 export function DownloadGuard({ children }: { children: React.ReactNode }) {
@@ -251,6 +307,14 @@ export function PasswordPage() {
   const [params] = useSearchParams();
   const returnTo = destination(params.get("return_to"));
   const mandatory = Boolean(session.data?.user?.must_change_password);
+  if (session.isPending) return <Loading />;
+  if (session.error) return <ErrorBox error={session.error} />;
+  if (session.data?.user?.kind !== "local")
+    return (
+      <Panel className="panel">
+        <p>飞书账号不使用本地密码，请在飞书管理登录凭据。</p>
+      </Panel>
+    );
   return (
     <>
       <Title
@@ -273,6 +337,8 @@ export function PasswordPage() {
                 const newPassword = String(f.get("new_password") ?? "");
                 if (oldPassword === newPassword)
                   throw new Error("新密码不能与当前密码相同。");
+                if (newPassword !== String(f.get("confirm_password") ?? ""))
+                  throw new Error("两次输入的新密码不一致。");
                 await write("/api/v1/auth/password", "post", {
                   old_password: oldPassword,
                   new_password: newPassword,
@@ -335,6 +401,15 @@ export function PasswordPage() {
             maxLength={128}
             autoComplete="new-password"
             help="至少 12 位，且不能与当前密码相同。"
+          />
+          <Field
+            label="确认新密码"
+            name="confirm_password"
+            required
+            type="password"
+            minLength={12}
+            maxLength={128}
+            autoComplete="new-password"
           />
           <Button className="primary" disabled={cmd.pending}>
             {cmd.pending ? "正在修改…" : "修改密码"}

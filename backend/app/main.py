@@ -19,9 +19,11 @@ from app.api.health import router as health_router
 from app.api.library import router as library_router
 from app.api.library_imports import router as library_imports_router
 from app.api.library_management import router as library_management_router
+from app.api.members import router as members_router
 from app.api.operations import router as operations_router
 from app.api.packages import router as packages_router
 from app.api.schemas import ErrorResponse
+from app.api.self_sessions import router as self_sessions_router
 from app.api.storage import router as storage_router
 from app.core.config import Settings
 from app.core.errors import install_error_handlers, unexpected_error_response
@@ -95,6 +97,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(library_imports_router, prefix="/api/v1")
     app.include_router(library_management_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(self_sessions_router, prefix="/api/v1")
+    app.include_router(members_router, prefix="/api/v1")
     app.include_router(applications_router, prefix="/api/v1")
     app.include_router(distribution_statistics_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")

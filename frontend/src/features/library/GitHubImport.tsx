@@ -55,7 +55,12 @@ export function GitHubPackageImport({
             <option value="debug">Debug</option>
           </select>
         </label>
-        <StorageChoice mode="private" value={storage} onChange={setStorage} />
+        <StorageChoice
+          appId={appId}
+          mode="private"
+          value={storage}
+          onChange={setStorage}
+        />
         <label>
           目标版本
           <select value={version} onChange={(e) => setVersion(e.target.value)}>
@@ -164,7 +169,12 @@ export function LegacyPersistence({ entry }: { entry: DTO<"DebugEntry"> }) {
           和页面，新的下载使用私有原件；失败继续使用旧缓存。请先配置 Debug
           包标识。
         </p>
-        <StorageChoice mode="private" value={storage} onChange={setStorage} />
+        <StorageChoice
+          appId={entry.app_id}
+          mode="private"
+          value={storage}
+          onChange={setStorage}
+        />
         {cmd.feedback}
         <Button
           disabled={cmd.pending || !storage || storage === "default"}

@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
 import { ChatPicker } from "./Feishu";
+import { isGlobalAdmin } from "./permissions";
 import {
   Check,
   Empty,
@@ -32,8 +33,10 @@ import {
   useCommand,
   useFilters,
   labels,
+  useSession,
 } from "../../shared/ui/common";
 export function ActionsPage() {
+  const session = useSession();
   const { id = "" } = useParams();
   const filters = useFilters();
   const q = useQuery({
@@ -54,9 +57,16 @@ export function ActionsPage() {
         <Link to={`/admin/apps/${id}/events`}>查看构建事件</Link>
       </PageTabs>
       <ActionsGuide appId={id} />
-      <Disclosure title={<>＋ 新建分发规则</>} className="panel">
-        <RuleForm appId={id} />
-      </Disclosure>
+      {isGlobalAdmin(session.data?.user) ? (
+        <Disclosure title={<>＋ 新建分发规则</>} className="panel">
+          <RuleForm appId={id} />
+        </Disclosure>
+      ) : (
+        <p className="muted">
+          创建 Actions
+          规则和选择通知群需管理员操作；你可以维护已绑定此应用的规则。
+        </p>
+      )}
       {filters.search}
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
@@ -112,12 +122,19 @@ function RuleForm({
 }) {
   const cmd = useCommand();
   const [selected, setSelected] = useState(rule?.chat_ids ?? []);
+  const session = useSession();
   const [token, setToken] = useState("");
   return (
     <>
       {cmd.feedback}
       {token && <OneTimeToken token={token} close={() => setToken("")} />}
-      <ChatPicker selected={selected} onChange={setSelected} />
+      {isGlobalAdmin(session.data?.user) ? (
+        <ChatPicker selected={selected} onChange={setSelected} />
+      ) : (
+        <p className="muted">
+          沿用已配置的 {selected.length} 个通知群；更换群聊请联系管理员。
+        </p>
+      )}
       <Form
         submit={(f) => {
           const body: DTO<"ActionsRuleCreate"> = {

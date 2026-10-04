@@ -62,6 +62,8 @@ class TaskRecord(Timestamped, Base):
     phase: Mapped[str] = mapped_column(String(100), default="queued")
     progress: Mapped[int | None]
     app_id: Mapped[UUID | None] = mapped_column(ForeignKey("applications.id"))
+    created_actor_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
+    actor_permission_revision: Mapped[int | None]
     resource_id: Mapped[str | None] = mapped_column(String(128))
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     dedupe_key: Mapped[str | None] = mapped_column(String(255), unique=True)

@@ -8,7 +8,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Response
 from sqlalchemy import Engine, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.api.contracts import SessionResponse, SessionUser
 from app.core.config import Settings
@@ -49,6 +49,7 @@ def initialize_admin(engine: Engine) -> None:
             display_name="admin",
             password_hash=password_hasher.hash(password),
             must_change_password=True,
+            global_role="admin",
         )
         db.add(user)
         db.flush()
@@ -92,11 +93,20 @@ class AuthContext:
 
 
 def user_dto(user: User) -> SessionUser:
+    from app.domains.access.authorization import assigned_app_ids, effective_role
+
+    db = object_session(user)
+    role = effective_role(db, user) if db else "downloader"
     return SessionUser(
         id=user.id,
         kind=user.kind,
         display_name=user.display_name,
-        role="admin" if user.kind == "local" else "downloader",
+        role=role,
+        managed_app_ids=sorted(assigned_app_ids(db, user), key=str)
+        if db and role == "maintainer"
+        else [],
+        active=user.active,
+        permission_revision=user.permission_revision,
         tenant_key=user.tenant_key,
         must_change_password=user.must_change_password,
     )

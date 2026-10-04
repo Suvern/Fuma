@@ -127,6 +127,9 @@ def event_dto(db, row):
 
 
 def active_rule(db, event):
+    from app.domains.access.task_authorization import check_task_authorization
+
+    check_task_authorization(db)
     rule = must_get(db, RuleRecord, event.rule_id)
     app = must_get(db, AppRecord, event.app_id)
     if not rule.data.get("enabled") or not rule.token_hash or not app.enabled:
@@ -196,11 +199,24 @@ def _verify_source(client, event):
 
 
 def process_event(db, settings, event_id):
-    from app.domains.distribution.packages import create_entries, ensure_cache
+    from app.domains.access.task_authorization import check_task_authorization
+    from app.domains.distribution.packages import (
+        create_verified_entries,
+        ensure_cache,
+        fetch_import_source,
+    )
 
     event_id = UUID(str(event_id))
-    lock(db, f"event:{event_id}")
-    event = must_get(db, EventRecord, event_id)
+
+    def lock_event():
+        check_task_authorization(db)
+        current = must_get(db, EventRecord, event_id)
+        db.scalar(select(AppRecord).where(AppRecord.id == current.app_id).with_for_update())
+        lock(db, f"event:{event_id}")
+        db.refresh(current)
+        return current
+
+    event = lock_event()
     if event.state in {"succeeded", "partial_success", "failed", "unknown"}:
         return
     current_stage = "verify"
@@ -208,8 +224,15 @@ def process_event(db, settings, event_id):
         rule, app = active_rule(db, event)
         stage(event, "verify", "running")
         event.state = "verifying"
+        db.commit()  # Release App and role locks across GitHub network requests.
         with get_github_client(db, event.rule_snapshot["connector_id"], settings) as client:
             run, release, chosen = verify_source(client, event)
+        if run.get("status") == "completed" and run.get("conclusion") == "success":
+            repo, import_release, import_assets = fetch_import_source(
+                db, app, event.data["release_id"], settings
+            )
+        event = lock_event()
+        rule, app = active_rule(db, event)
         stage(event, "verify", "succeeded")
         current_stage = "wait_run"
         if run.get("status") != "completed":
@@ -239,7 +262,7 @@ def process_event(db, settings, event_id):
                 entry = db.get(DebugRecord, UUID(result["entry_id"]))
             else:
                 try:
-                    batch = create_entries(
+                    batch = create_verified_entries(
                         db,
                         app,
                         {
@@ -255,6 +278,9 @@ def process_event(db, settings, event_id):
                             ],
                         },
                         settings,
+                        repo,
+                        import_release,
+                        import_assets,
                     )
                     entry = db.get(DebugRecord, UUID(str(batch["items"][0]["id"])))
                     result["entry_id"] = str(entry.id)
@@ -275,6 +301,8 @@ def process_event(db, settings, event_id):
         db.commit()
         if any(item["state"] in {"pending", "caching"} for item in event.assets):
             raise RetryLater(delay=5)
+        event = lock_event()
+        rule, app = active_rule(db, event)
         ready = [item for item in event.assets if item["state"] == "ready"]
         partial = len(ready) != len(event.assets)
         stage(
@@ -284,8 +312,6 @@ def process_event(db, settings, event_id):
         )
         current_stage = "notify"
         event.state = "notifying"
-        lock(db, f"event:{event_id}")
-        active_rule(db, event)
         stage(event, "notify", "running")
         deliveries = db.scalars(
             select(DeliveryRecord).where(DeliveryRecord.event_id == event.id)

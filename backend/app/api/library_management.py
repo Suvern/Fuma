@@ -6,7 +6,8 @@ from fastapi import APIRouter, Header, Request
 from sqlalchemy import select
 
 from app.api import contracts as dto
-from app.api.dependencies import CSRF, DB, Admin, require_revision
+from app.api.app_access import ScopedManager
+from app.api.dependencies import CSRF, DB, require_revision
 from app.api.library import active_app, audit
 from app.core.errors import AppError
 from app.domains.auth.service import utcnow
@@ -39,7 +40,7 @@ def defaults(db, id, platform):
     response_model=dto.ReleaseDefault,
     operation_id="get_release_default",
 )
-def get_default(id: UUID, platform: Literal["android", "ios"], db: DB, admin: Admin):
+def get_default(id: UUID, platform: Literal["android", "ios"], db: DB, admin: ScopedManager):
     from app.api.applications import get_app
 
     get_app(db, id)
@@ -57,7 +58,7 @@ def set_default(
     body: dto.ReleaseDefaultUpdate,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):
@@ -129,7 +130,7 @@ def deletion_impact(db, package):
     response_model=dto.PackageDeletionImpact,
     operation_id="package_deletion_impact",
 )
-def impact(id: UUID, db: DB, admin: Admin):
+def impact(id: UUID, db: DB, admin: ScopedManager):
     return deletion_impact(db, must_get(db, PackageRecord, id))
 
 
@@ -143,7 +144,7 @@ def delete(
     id: UUID,
     request: Request,
     db: DB,
-    admin: Admin,
+    admin: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):

@@ -499,6 +499,7 @@ function Uploader({
           />
         </label>
         <StorageChoice
+          appId={appId}
           mode="private"
           value={storage}
           onChange={setStorage}
@@ -805,6 +806,7 @@ function VersionEditor({ version: v }: { version: DTO<"VersionInfo"> }) {
         </label>
         {v.mode === "release" && (
           <StorageChoice
+            appId={v.app_id}
             mode="public"
             value={publicStorage}
             onChange={setPublicStorage}

@@ -8,6 +8,30 @@ info:
 servers:
 - url: /
 paths:
+  /api/v1/apps/{id}/available-storage:
+    get:
+      operationId: list_available_storage
+      summary: Available storage summaries for an authorized application
+      x-access: app-manager
+      tags: [apps]
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Enabled, verified storage without provider configuration or credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailableStorage'
+        '403':
+          description: Application management permission required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/health/live:
     get:
       description: Process liveness only; does not imply integrations or business features are ready.
@@ -551,7 +575,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: archived
         in: query
@@ -716,7 +740,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -792,7 +816,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -1544,7 +1568,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -1630,7 +1654,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -2499,7 +2523,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
@@ -2581,7 +2605,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -2652,7 +2676,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -2730,7 +2754,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -2817,7 +2841,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -2900,7 +2924,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -2974,7 +2998,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -3052,7 +3076,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -3775,7 +3799,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -3930,7 +3954,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -4004,7 +4028,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -4077,7 +4101,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -4155,7 +4179,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -4223,7 +4247,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -4375,7 +4399,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -4462,7 +4486,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -4533,7 +4557,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -4611,7 +4635,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
@@ -4699,7 +4723,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -4770,7 +4794,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -4842,7 +4866,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
@@ -5435,7 +5459,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReleasePolicy'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -5507,7 +5531,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReleasePolicy'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -5588,7 +5612,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReleaseImportPreview'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -5668,7 +5692,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskAccepted'
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -5692,7 +5716,7 @@ paths:
       summary: get_app_archive_impact
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -5751,7 +5775,7 @@ paths:
       summary: archive_app
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -5812,7 +5836,7 @@ paths:
       summary: restore_app
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -5873,7 +5897,7 @@ paths:
       summary: create_upload
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -5951,7 +5975,7 @@ paths:
       summary: list_uploads
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6023,7 +6047,7 @@ paths:
       summary: get_upload
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6091,7 +6115,7 @@ paths:
       summary: cancel_upload
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6161,7 +6185,7 @@ paths:
       summary: put_upload_part
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6250,7 +6274,7 @@ paths:
       summary: complete_upload
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6320,7 +6344,7 @@ paths:
       summary: retry_upload
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6390,7 +6414,7 @@ paths:
       summary: list_packages
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6501,7 +6525,7 @@ paths:
       operationId: delete_package
       tags:
       - PackageLibrary
-      x-access: admin
+      x-access: app-manager
       security:
       - SessionCookie: []
       parameters:
@@ -6527,7 +6551,7 @@ paths:
       summary: get_package
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6595,7 +6619,7 @@ paths:
       summary: update_package_notes
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6672,7 +6696,7 @@ paths:
       summary: list_versions
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6743,7 +6767,7 @@ paths:
       summary: create_version
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6824,7 +6848,7 @@ paths:
       summary: get_version
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6892,7 +6916,7 @@ paths:
       summary: update_version
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -6969,7 +6993,7 @@ paths:
       summary: list_publications
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -7040,7 +7064,7 @@ paths:
       summary: create_publication
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -7121,7 +7145,7 @@ paths:
       summary: get_publication
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -7190,7 +7214,7 @@ paths:
       summary: publish_publication
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -7261,7 +7285,7 @@ paths:
       summary: unpublish_publication
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -7332,7 +7356,7 @@ paths:
       summary: archive_publication
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -7403,7 +7427,7 @@ paths:
       summary: restore_publication
       security:
       - SessionCookie: []
-      x-access: admin
+      x-access: app-manager
       parameters:
       - name: id
         in: path
@@ -7790,7 +7814,7 @@ paths:
       operationId: retry_publication_access
       tags:
       - Storage
-      x-access: admin
+      x-access: app-manager
       security:
       - SessionCookie: []
       parameters:
@@ -7867,7 +7891,7 @@ paths:
       operationId: import_package
       tags:
       - PackageLibrary
-      x-access: admin
+      x-access: app-manager
       security:
       - SessionCookie: []
       parameters:
@@ -7897,7 +7921,7 @@ paths:
       operationId: persist_legacy_package
       tags:
       - PackageLibrary
-      x-access: admin
+      x-access: app-manager
       security:
       - SessionCookie: []
       parameters:
@@ -7927,7 +7951,7 @@ paths:
       operationId: get_release_default
       tags:
       - PackageLibrary
-      x-access: admin
+      x-access: app-manager
       security:
       - SessionCookie: []
       parameters:
@@ -7956,7 +7980,7 @@ paths:
       operationId: set_release_default
       tags:
       - PackageLibrary
-      x-access: admin
+      x-access: app-manager
       security:
       - SessionCookie: []
       parameters:
@@ -7994,7 +8018,7 @@ paths:
       operationId: package_deletion_impact
       tags:
       - PackageLibrary
-      x-access: admin
+      x-access: app-manager
       security:
       - SessionCookie: []
       parameters:
@@ -8015,7 +8039,7 @@ paths:
     get:
       operationId: get_app_distribution_statistics
       tags: [apps]
-      x-access: admin
+      x-access: app-manager
       summary: Formal distribution measurements observed by Fuma; never an install count
       security:
       - SessionCookie: []
@@ -8046,8 +8070,150 @@ paths:
           description: App unavailable
         '422':
           description: Invalid date range
+  /api/v1/settings/members:
+    get:
+      operationId: list_members
+      tags: [Access]
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Query'
+      - name: role
+        in: query
+        schema:
+          type: string
+          enum: [admin, maintainer, downloader]
+      - name: app_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: active
+        in: query
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Current identifiable members; restricted to global administrators.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberPage'
+  /api/v1/settings/members/{id}/roles:
+    put:
+      operationId: update_member_roles
+      tags: [Access]
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberRolesUpdate'
+      responses:
+        '200':
+          description: Updated authorization; local rescue administrator is immutable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberInfo'
+  /api/v1/auth/sessions:
+    get:
+      operationId: list_own_sessions
+      tags: [auth]
+      x-access: session
+      security: [{SessionCookie: []}]
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Own sessions only; no session credentials or client fingerprints.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OwnSessionPage'}
+        '401': {description: Authentication required}
+  /api/v1/auth/sessions/revoke-others:
+    post:
+      operationId: revoke_other_sessions
+      tags: [auth]
+      x-access: session
+      security: [{SessionCookie: []}]
+      parameters:
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '200':
+          description: Other currently active sessions revoked; current session remains active.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SessionRevocation'}
+        '401': {description: Authentication required}
+        '403': {description: CSRF validation failed}
 components:
   schemas:
+    AvailableStorageItem:
+      type: object
+      additionalProperties: false
+      required: [id, name, provider, read_mode, is_default]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        provider: {type: string, enum: [cos, oss]}
+        read_mode: {type: string, enum: [private, public]}
+        is_default: {type: boolean}
+    AvailableStorage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableStorageItem'
+    OwnSession:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string, enum: [local, feishu]}
+        created_at: {type: string, format: date-time}
+        authenticated_at: {type: [string, 'null'], format: date-time}
+        expires_at: {type: string, format: date-time}
+        revoked_at: {type: [string, 'null'], format: date-time}
+        current: {type: boolean}
+        state: {type: string, enum: [active, expired, revoked]}
+      required: [id, kind, created_at, authenticated_at, expires_at, revoked_at, current, state]
+    OwnSessionPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/OwnSession'}
+        page: {type: integer}
+        page_size: {type: integer}
+        total: {type: integer}
+      required: [items, page, page_size, total]
+    SessionRevocation:
+      type: object
+      additionalProperties: false
+      properties:
+        revoked_count: {type: integer, minimum: 0}
+      required: [revoked_count]
     DistributionCounters:
       type: object
       additionalProperties: false
@@ -8245,6 +8411,75 @@ components:
       required:
       - old_password
       - new_password
+    MemberRolesUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        role:
+          type: string
+          enum: [admin, maintainer, downloader]
+        managed_app_ids:
+          type: array
+          maxItems: 200
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        active:
+          type: boolean
+      required: [role, managed_app_ids, active]
+    MemberInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [local, feishu]
+        display_name:
+          type: string
+        tenant_key:
+          type: [string, 'null']
+        provider_app_id:
+          type: [string, 'null']
+        open_id:
+          type: [string, 'null']
+        role:
+          type: string
+          enum: [admin, maintainer, downloader]
+        managed_app_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        active:
+          type: boolean
+        permission_revision:
+          type: integer
+          minimum: 1
+        identity_verified:
+          type: boolean
+        permission_changed_at:
+          type: [string, 'null']
+          format: date-time
+      required: [id, kind, display_name, tenant_key, provider_app_id, open_id, role, managed_app_ids, active, permission_revision, identity_verified, permission_changed_at]
+    MemberPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberInfo'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+      required: [items, total, page, page_size]
     SessionUser:
       type: object
       additionalProperties: false
@@ -8263,7 +8498,21 @@ components:
           type: string
           enum:
           - admin
+          - maintainer
           - downloader
+        managed_app_ids:
+          type: array
+          default: []
+          items:
+            type: string
+            format: uuid
+        active:
+          type: boolean
+          default: true
+        permission_revision:
+          type: integer
+          default: 1
+          minimum: 1
         tenant_key:
           anyOf:
           - type: string

@@ -58,7 +58,12 @@ def download_fixture(tmp_path):
             updated_at=now,
         )
         user = User(
-            kind="feishu", tenant_key="tenant-test", open_id="test-member", display_name="测试成员"
+            kind="feishu",
+            tenant_key="tenant-test",
+            open_id="test-member",
+            display_name="测试成员",
+            provider_app_id="synthetic-app",
+            identity_verified_at=now,
         )
         db.add_all([app, user])
         db.flush()

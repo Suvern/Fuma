@@ -10,6 +10,55 @@ from uuid import UUID
 from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, RootModel
 
 
+class AvailableStorageItem(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    name: str
+    provider: Literal["cos", "oss"]
+    read_mode: Literal["private", "public"]
+    is_default: bool
+
+
+class AvailableStorage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[AvailableStorageItem]
+
+
+class OwnSession(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    kind: Literal["local", "feishu"]
+    created_at: AwareDatetime
+    authenticated_at: AwareDatetime | None
+    expires_at: AwareDatetime
+    revoked_at: AwareDatetime | None
+    current: bool
+    state: Literal["active", "expired", "revoked"]
+
+
+class OwnSessionPage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[OwnSession]
+    page: int
+    page_size: int
+    total: int
+
+
+class SessionRevocation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    revoked_count: int = Field(..., ge=0)
+
+
 class DistributionCounters(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -90,6 +139,43 @@ class PasswordRequest(BaseModel):
     new_password: str = Field(..., max_length=128, min_length=12)
 
 
+class MemberRolesUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    role: Literal["admin", "maintainer", "downloader"]
+    managed_app_ids: list[UUID] = Field(..., max_length=200)
+    active: bool
+
+
+class MemberInfo(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    kind: Literal["local", "feishu"]
+    display_name: str
+    tenant_key: str | None
+    provider_app_id: str | None
+    open_id: str | None
+    role: Literal["admin", "maintainer", "downloader"]
+    managed_app_ids: list[UUID]
+    active: bool
+    permission_revision: int = Field(..., ge=1)
+    identity_verified: bool
+    permission_changed_at: AwareDatetime | None
+
+
+class MemberPage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[MemberInfo]
+    total: int
+    page: int
+    page_size: int
+
+
 class SessionUser(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -97,7 +183,10 @@ class SessionUser(BaseModel):
     id: UUID
     kind: Literal["local", "feishu"]
     display_name: str = Field(..., max_length=100, min_length=1)
-    role: Literal["admin", "downloader"]
+    role: Literal["admin", "maintainer", "downloader"]
+    managed_app_ids: list[UUID] = []
+    active: bool = True
+    permission_revision: int = Field(1, ge=1)
     tenant_key: str | None
     must_change_password: bool = Field(
         ...,

@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy import func, select, text
 
+from app.api.app_access import ScopedManager, require_scoped_manager
 from app.api.applications import app_dto, get_app
 from app.api.contracts import (
     App,
@@ -60,7 +61,7 @@ from app.domains.github.service import (
 from app.integrations.github import GitHubClient
 from app.integrations.github_app import GitHubAppClient
 
-router = APIRouter(tags=["github"], dependencies=[Depends(require_admin)])
+router = APIRouter(tags=["github"], dependencies=[Depends(require_scoped_manager)])
 Admin = Annotated[AuthContext, Depends(require_admin)]
 
 
@@ -333,6 +334,7 @@ def bind_repository(
         if policy:
             db.delete(policy)
     app.revision, app.updated_at = app.revision + 1, utcnow()
+    db.info["actor_app_id"] = id
     audit(db, request, context, "github.repository.bind", id)
     db.commit()
     etag(response, app)
@@ -416,7 +418,11 @@ def list_releases(
     dependencies=[Depends(require_csrf)],
 )
 def refresh_releases(
-    id: UUID, request: Request, db: DB, context: Admin, idempotency_key: Annotated[UUID, Header()]
+    id: UUID,
+    request: Request,
+    db: DB,
+    context: ScopedManager,
+    idempotency_key: Annotated[UUID, Header()],
 ):
     app = get_app(db, id, lock=True)
     if not app.repository or not app.enabled:
@@ -468,7 +474,7 @@ def update_release_policy(
     request: Request,
     response: Response,
     db: DB,
-    context: Admin,
+    context: ScopedManager,
     if_match: Annotated[str | None, Header()] = None,
 ):
     app = get_app(db, id, lock=True)
@@ -515,7 +521,7 @@ def import_release_matches(
     body: ReleaseImportRequest,
     request: Request,
     db: DB,
-    context: Admin,
+    context: ScopedManager,
     idempotency_key: Annotated[UUID, Header()],
 ):
     payload = body.model_dump(mode="json")

@@ -82,6 +82,23 @@ beforeEach(() => {
     },
   });
   vi.mocked(read).mockImplementation(async (path) => {
+    if (path === "/api/v1/auth/browser-context")
+      return {
+        authenticated: true,
+        viewer_key: "admin",
+        csrf_token: "test",
+        user: {
+          id: "admin",
+          kind: "local",
+          role: "admin",
+          active: true,
+          managed_app_ids: [],
+          permission_revision: 1,
+          must_change_password: false,
+          display_name: "admin",
+          tenant_key: null,
+        },
+      } as never;
     if (path === "/api/v1/apps/{id}") return server as never;
     if (path === "/api/v1/apps/{id}/distribution-statistics")
       return {
@@ -406,7 +423,9 @@ describe("应用管理走查问题回归", () => {
       }),
     );
     mount(<AppsPage />, "/admin/apps", "/admin/apps");
-    fireEvent.click(screen.getAllByRole("button", { name: "新建应用" })[0]!);
+    fireEvent.click(
+      (await screen.findAllByRole("button", { name: "新建应用" }))[0]!,
+    );
     fireEvent.change(screen.getByLabelText(/应用名称/), {
       target: { value: "QA" },
     });
@@ -425,7 +444,7 @@ describe("应用管理走查问题回归", () => {
 
   it("平台全部取消时在本地阻止提交，选择 iOS 后恢复", async () => {
     mount(<AppsPage />, "/admin/apps", "/admin/apps?new=1");
-    fireEvent.change(screen.getByLabelText(/应用名称/), {
+    fireEvent.change(await screen.findByLabelText(/应用名称/), {
       target: { value: "QA" },
     });
     fireEvent.change(screen.getByLabelText(/分发标识/), {
@@ -499,7 +518,7 @@ describe("应用管理走查问题回归", () => {
     );
     mount(<AppPage />);
     await screen.findByLabelText("描述");
-    expect(screen.getByText("正在搜索仓库…")).toBeTruthy();
+    expect(await screen.findByText("正在搜索仓库…")).toBeTruthy();
     const select = screen.getByRole("combobox", { name: "GitHub 仓库" });
     fireEvent.click(select);
     fireEvent.change(within(select).getByRole("textbox"), {
