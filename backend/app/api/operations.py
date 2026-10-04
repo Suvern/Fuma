@@ -73,7 +73,14 @@ def retry_task(
     key, previous = idem_begin(db, f"retry_task:{id}", idempotency_key, {})
     if previous:
         return previous.data
-    if row.state != "failed" or row.kind in {"notification", "build_event"}:
+    partial_release = row.state == "partial_success" and row.kind in {
+        "release_sync",
+        "release_import",
+    }
+    if (row.state != "failed" and not partial_release) or row.kind in {
+        "notification",
+        "build_event",
+    }:
         raise AppError(409, "NOT_RETRYABLE", "请通过对应业务详情页重试，未知通知结果需单独确认")
     row.state, row.phase, row.error_code, row.error_message = "queued", "queued", None, None
     row.updated_at, row.next_check_at = utcnow(), None

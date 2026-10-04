@@ -97,7 +97,8 @@ def task_dto(task):
     )
     return {
         **{n: getattr(task, n) for n in names},
-        "can_retry": task.state == "failed" and task.kind not in {"notification", "build_event"},
+        "can_retry": (task.state == "failed" and task.kind not in {"notification", "build_event"})
+        or (task.state == "partial_success" and task.kind in {"release_sync", "release_import"}),
     }
 
 

@@ -251,7 +251,7 @@ def source_snapshot(repo, release, asset):
     }
 
 
-def create_entries(db, app, payload, settings):
+def fetch_import_source(db, app, release_id, settings):
     repo = app.repository
     if not repo or not app.enabled:
         raise AppError(409, "APP_NOT_READY", "App 尚未绑定仓库或已停用")
@@ -260,12 +260,22 @@ def create_entries(db, app, payload, settings):
         repository = api.get_repository(repo["full_name"])
         if str(repository["id"]) != str(repo["repository_id"]):
             raise AppError(409, "SOURCE_CHANGED", "仓库身份已变化，请重新绑定")
-        release = api.get_release(repo["full_name"], payload["release_id"])
+        release = api.get_release(repo["full_name"], release_id)
         if release.get("draft"):
             raise AppError(422, "DRAFT_NOT_DISTRIBUTABLE", "草稿 Release 不可分发")
-        assets = api.list_assets(repo["full_name"], payload["release_id"])
+        assets = api.list_assets(repo["full_name"], release_id)
     finally:
         api.close()
+    return repo, release, assets
+
+
+def create_entries(db, app, payload, settings):
+    repo, release, assets = fetch_import_source(db, app, payload["release_id"], settings)
+    return create_verified_entries(db, app, payload, settings, repo, release, assets)
+
+
+def create_verified_entries(db, app, payload, settings, repo, release, assets):
+    """Commit selection from provider-verified metadata; never accept client-supplied metadata."""
     by_id = {str(a["id"]): a for a in assets}
     selections = payload["assets"]
     if len({s["asset_id"] for s in selections}) != len(selections):
@@ -297,6 +307,16 @@ def create_entries(db, app, payload, settings):
         if asset["size"] <= 0 or asset["size"] > limit:
             raise AppError(422, "FILE_SIZE_EXCEEDED", "文件大小超过当前缓存限制")
         snapshot = source_snapshot(repo, release, asset)
+        expected = payload.get("expected_assets", {}).get(choice["asset_id"])
+        if expected:
+            from app.domains.github.releases import source_key
+
+            if (
+                source_key(snapshot) != source_key(expected["source"])
+                or asset["name"] != expected["file_name"]
+                or release["tag_name"] != expected["tag_name"]
+            ):
+                raise AppError(409, "RELEASE_ASSET_CHANGED", "附件已变化，请重新预览后导入")
         identity = digest(snapshot)
         row = db.scalar(
             select(DebugRecord).where(

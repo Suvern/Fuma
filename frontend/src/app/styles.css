@@ -833,3 +833,30 @@ dd {
 .field > label {
   font-weight: 500;
 }
+.release-rule-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.release-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.release-auto-settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 24px;
+}
+.release-preview,
+.release-sync-status {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--semi-color-border);
+}
+@media (max-width: 640px) {
+  .release-rule-grid { grid-template-columns: 1fr; }
+}

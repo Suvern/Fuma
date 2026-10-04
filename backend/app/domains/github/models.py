@@ -41,3 +41,16 @@ class GithubRepositorySync(Base):
     error_code: Mapped[str | None] = mapped_column(String(100))
     # Replace only after ALL release and asset pages have completed successfully.
     releases: Mapped[list[dict]] = mapped_column(JSON, default=list)
+
+
+class GithubReleasePolicy(Base):
+    __tablename__ = "github_release_policies"
+
+    app_id: Mapped[UUID] = mapped_column(ForeignKey("applications.id"), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    settings: Mapped[dict] = mapped_column(JSON)
+    auto_enabled: Mapped[bool] = mapped_column(default=False)
+    interval_minutes: Mapped[int] = mapped_column(Integer, default=15)
+    next_check_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    last_result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    last_task_id: Mapped[UUID | None] = mapped_column()

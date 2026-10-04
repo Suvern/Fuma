@@ -76,6 +76,18 @@ def execute_task(engine, settings, task_id):
                 else:
                     task.state, task.phase, task.progress = "succeeded", "done", 100
                     task.error_code, task.error_message = None, None
+                    if task.kind in {"release_sync", "release_import"}:
+                        result = task.payload.get("result", {})
+                        if result.get("failed_count"):
+                            task.state = (
+                                "partial_success"
+                                if (result.get("created_count") or result.get("existing_count"))
+                                else "failed"
+                            )
+                            task.error_code = "RELEASE_IMPORT_PARTIAL"
+                            task.error_message = (
+                                f"{result['failed_count']} 个附件导入失败，请查看 Release 同步结果"
+                            )
                     if task.kind == "build_event":
                         event = db.get(EventRecord, UUID(task.resource_id))
                         task.state = {
@@ -109,10 +121,10 @@ def execute_task(engine, settings, task_id):
 
 
 def dispatch(db, settings, task):
-    if task.kind == "release_sync":
-        from app.domains.github.service import sync_releases
+    if task.kind in {"release_sync", "release_import"}:
+        from app.domains.github.releases import execute_release_task
 
-        sync_releases(db, task.app_id, settings)
+        execute_release_task(db, settings, task)
     elif task.kind == "chat_sync":
         from app.domains.distribution.feishu import sync_chats
 

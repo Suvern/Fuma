@@ -103,6 +103,10 @@ def github_client(monkeypatch, tmp_path):
             release_id = int(path.split("/")[-2])
             row = next(row for row in provider["releases"] if row["id"] == release_id)
             return httpx.Response(200, json=row["assets"])
+        if "/releases/" in path:
+            release_id = int(path.rsplit("/", 1)[-1])
+            row = next((r for r in provider["releases"] if r["id"] == release_id), None)
+            return httpx.Response(200, json=row) if row else httpx.Response(404)
         if path.endswith("/actions/runs"):
             return httpx.Response(200, json={"workflow_runs": []})
         return httpx.Response(200, json={"id": 7, "full_name": "owner/private", "private": True})

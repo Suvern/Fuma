@@ -3102,6 +3102,214 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "ReleaseImportFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "error_code": {
+            "type": "string"
+          },
+          "tag_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag_name",
+          "error_code"
+        ],
+        "type": "object"
+      },
+      "ReleaseImportMatch": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "existing": {
+            "type": "boolean"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "android",
+              "ios"
+            ],
+            "type": "string"
+          },
+          "release_id": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tag_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_id",
+          "tag_name",
+          "asset_id",
+          "file_name",
+          "platform",
+          "size_bytes",
+          "existing"
+        ],
+        "type": "object"
+      },
+      "ReleaseImportPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "existing_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseImportMatch"
+            },
+            "type": "array"
+          },
+          "matched_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "new_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "skipped_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "snapshot_token": {
+            "type": "string"
+          },
+          "synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "snapshot_token",
+          "synced_at",
+          "matched_count",
+          "new_count",
+          "existing_count",
+          "skipped_count",
+          "items",
+          "truncated"
+        ],
+        "type": "object"
+      },
+      "ReleaseImportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "rules": {
+            "$ref": "#/components/schemas/ReleaseMatchRules"
+          },
+          "snapshot_token": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rules",
+          "snapshot_token"
+        ],
+        "type": "object"
+      },
+      "ReleaseImportResult": {
+        "additionalProperties": false,
+        "properties": {
+          "checked_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseImportFailure"
+            },
+            "type": "array"
+          },
+          "existing_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "failed_count": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "checked_at",
+          "created_count",
+          "existing_count",
+          "failed_count",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "ReleaseMatchRules": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_patterns": {
+            "items": {
+              "maxLength": 255,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "type": "array"
+          },
+          "exclude_patterns": {
+            "items": {
+              "maxLength": 255,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "prerelease": {
+            "enum": [
+              "all",
+              "only",
+              "exclude"
+            ],
+            "type": "string"
+          },
+          "tag_pattern": {
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_patterns",
+          "exclude_patterns",
+          "tag_pattern",
+          "prerelease"
+        ],
+        "type": "object"
+      },
       "ReleasePage": {
         "additionalProperties": false,
         "properties": {
@@ -3163,6 +3371,101 @@
           "synced_at",
           "sync_state",
           "sync_error_code"
+        ],
+        "type": "object"
+      },
+      "ReleasePolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_enabled": {
+            "type": "boolean"
+          },
+          "interval_minutes": {
+            "maximum": 1440,
+            "minimum": 5,
+            "type": "integer"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReleaseImportResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_task_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_check_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ReleaseMatchRules"
+          },
+          "status": {
+            "enum": [
+              "disabled",
+              "scheduled",
+              "paused",
+              "running",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "rules",
+          "auto_enabled",
+          "interval_minutes",
+          "revision",
+          "next_check_at",
+          "last_task_id",
+          "last_result",
+          "status"
+        ],
+        "type": "object"
+      },
+      "ReleasePolicyUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_enabled": {
+            "type": "boolean"
+          },
+          "interval_minutes": {
+            "maximum": 1440,
+            "minimum": 5,
+            "type": "integer"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ReleaseMatchRules"
+          }
+        },
+        "required": [
+          "rules",
+          "auto_enabled",
+          "interval_minutes"
         ],
         "type": "object"
       },
@@ -3491,6 +3794,7 @@
           "kind": {
             "enum": [
               "release_sync",
+              "release_import",
               "chat_sync",
               "cache_download",
               "build_event",
@@ -5733,6 +6037,525 @@
           }
         ],
         "summary": "list github releases",
+        "tags": [
+          "apps"
+        ],
+        "x-access": "admin"
+      }
+    },
+    "/api/v1/apps/{id}/github/releases/import": {
+      "post": {
+        "description": "Match complete cached Release snapshots. Automatic polling is explicitly opt-in; draft releases are never imported.",
+        "operationId": "import_release_matches",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskAccepted"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed or invalid CSRF"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not available"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "State conflict"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision mismatch"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "import release matches",
+        "tags": [
+          "apps"
+        ],
+        "x-access": "admin"
+      }
+    },
+    "/api/v1/apps/{id}/github/releases/policy": {
+      "get": {
+        "description": "Match complete cached Release snapshots. Automatic polling is explicitly opt-in; draft releases are never imported.",
+        "operationId": "get_release_policy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleasePolicy"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed or invalid CSRF"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not available"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "State conflict"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision mismatch"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "get release policy",
+        "tags": [
+          "apps"
+        ],
+        "x-access": "admin"
+      },
+      "put": {
+        "description": "Match complete cached Release snapshots. Automatic polling is explicitly opt-in; draft releases are never imported.",
+        "operationId": "update_release_policy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleasePolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleasePolicy"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed or invalid CSRF"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not available"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "State conflict"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision mismatch"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "update release policy",
+        "tags": [
+          "apps"
+        ],
+        "x-access": "admin"
+      }
+    },
+    "/api/v1/apps/{id}/github/releases/preview": {
+      "post": {
+        "description": "Match complete cached Release snapshots. Automatic polling is explicitly opt-in; draft releases are never imported.",
+        "operationId": "preview_release_import",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseMatchRules"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseImportPreview"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed or invalid CSRF"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not available"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "State conflict"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision mismatch"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "preview release import",
         "tags": [
           "apps"
         ],

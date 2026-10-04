@@ -296,6 +296,101 @@ class ReleasePage(BaseModel):
     sync_error_code: str | None
 
 
+class AssetPattern(RootModel[str]):
+    root: str = Field(..., max_length=255, min_length=1)
+
+
+class ExcludePattern(RootModel[str]):
+    root: str = Field(..., max_length=255, min_length=1)
+
+
+class ReleaseMatchRules(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    asset_patterns: list[AssetPattern] = Field(..., max_length=20, min_length=1)
+    exclude_patterns: list[ExcludePattern] = Field(..., max_length=20)
+    tag_pattern: str = Field(..., max_length=255, min_length=1)
+    prerelease: Literal["all", "only", "exclude"]
+
+
+class ReleasePolicyUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    rules: ReleaseMatchRules
+    auto_enabled: bool
+    interval_minutes: int = Field(..., ge=5, le=1440)
+
+
+class ReleaseImportFailure(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    tag_name: str
+    error_code: str
+
+
+class ReleaseImportResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    checked_at: AwareDatetime
+    created_count: int = Field(..., ge=0)
+    existing_count: int = Field(..., ge=0)
+    failed_count: int = Field(..., ge=0)
+    errors: list[ReleaseImportFailure]
+
+
+class ReleaseImportMatch(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    release_id: str
+    tag_name: str
+    asset_id: str
+    file_name: str
+    platform: Literal["android", "ios"]
+    size_bytes: int = Field(..., ge=0)
+    existing: bool
+
+
+class ReleaseImportPreview(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    snapshot_token: str
+    synced_at: AwareDatetime | None
+    matched_count: int = Field(..., ge=0)
+    new_count: int = Field(..., ge=0)
+    existing_count: int = Field(..., ge=0)
+    skipped_count: int = Field(..., ge=0)
+    items: list[ReleaseImportMatch]
+    truncated: bool
+
+
+class ReleaseImportRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    rules: ReleaseMatchRules
+    snapshot_token: str = Field(..., pattern="^[a-f0-9]{64}$")
+
+
+class ReleasePolicy(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    rules: ReleaseMatchRules
+    auto_enabled: bool
+    interval_minutes: int = Field(..., ge=5, le=1440)
+    revision: int = Field(..., ge=0)
+    next_check_at: AwareDatetime | None
+    last_task_id: UUID | None
+    last_result: ReleaseImportResult | None
+    status: Literal["disabled", "scheduled", "paused", "running", "failed"]
+
+
 class FeishuConfigUpdate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -604,10 +699,6 @@ class AllowedTag(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1)
 
 
-class AssetPattern(RootModel[str]):
-    root: str = Field(..., max_length=255, min_length=1)
-
-
 class ActionsRuleCreate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -816,6 +907,7 @@ class Task(BaseModel):
     id: UUID
     kind: Literal[
         "release_sync",
+        "release_import",
         "chat_sync",
         "cache_download",
         "build_event",

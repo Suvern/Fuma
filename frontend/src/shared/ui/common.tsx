@@ -59,6 +59,7 @@ export const labels: Record<string, string> = {
   failure: "失败",
   partial_failure: "部分失败",
   release_sync: "Release 同步",
+  release_import: "Release 批量导入",
   chat_sync: "群聊同步",
   cache_download: "缓存下载",
   build_event: "构建事件",

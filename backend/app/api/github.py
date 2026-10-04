@@ -18,7 +18,12 @@ from app.api.contracts import (
     ConnectorUpdate,
     GitHubRelease,
     GitHubRepository,
+    ReleaseImportPreview,
+    ReleaseImportRequest,
+    ReleaseMatchRules,
     ReleasePage,
+    ReleasePolicy,
+    ReleasePolicyUpdate,
     RepositoryBindRequest,
     RepositoryPage,
     TaskAccepted,
@@ -31,7 +36,19 @@ from app.domains.auth.service import AuthContext, utcnow
 from app.domains.distribution.models import DebugRecord, RuleRecord
 from app.domains.distribution.service import enqueue, idem_begin, idem_save, task_accepted
 from app.domains.github.crypto import SecretBox
-from app.domains.github.models import GithubConnector, GithubConnectorCreation, GithubRepositorySync
+from app.domains.github.models import (
+    GithubConnector,
+    GithubConnectorCreation,
+    GithubReleasePolicy,
+    GithubRepositorySync,
+)
+from app.domains.github.releases import (
+    get_policy,
+    match_snapshot,
+    policy_dto,
+    preview_import,
+    validate_rules,
+)
 from app.domains.github.service import (
     connector_dto,
     get_connector,
@@ -307,6 +324,9 @@ def bind_repository(
         snapshot = db.get(GithubRepositorySync, id)
         if snapshot:
             db.delete(snapshot)
+        policy = db.get(GithubReleasePolicy, id)
+        if policy:
+            db.delete(policy)
     app.revision, app.updated_at = app.revision + 1, utcnow()
     audit(db, request, context, "github.repository.bind", id)
     db.commit()
@@ -402,11 +422,122 @@ def refresh_releases(
     )
     if previous:
         return previous.data
+    policy = db.get(GithubReleasePolicy, id)
     task = enqueue(
-        db, "release_sync", resource_id=str(id), app_id=id, dedupe_key=f"release_sync:{id}"
+        db,
+        "release_sync",
+        resource_id=str(id),
+        app_id=id,
+        dedupe_key=f"release_sync:{id}",
+        payload={"policy_revision": policy.revision} if policy and policy.auto_enabled else {},
     )
+    if policy:
+        policy.last_task_id = task.id
     result = task_accepted(task)
     idem_save(db, scope, {}, result)
     audit(db, request, context, "github.releases.refresh", id)
+    db.commit()
+    return result
+
+
+@router.get(
+    "/apps/{id}/github/releases/policy",
+    response_model=ReleasePolicy,
+    operation_id="get_release_policy",
+)
+def release_policy(id: UUID, db: DB, response: Response):
+    result = policy_dto(db, get_app(db, id))
+    response.headers["ETag"] = f'"{result["revision"]}"'
+    return result
+
+
+@router.put(
+    "/apps/{id}/github/releases/policy",
+    response_model=ReleasePolicy,
+    operation_id="update_release_policy",
+    dependencies=[Depends(require_csrf)],
+)
+def update_release_policy(
+    id: UUID,
+    body: ReleasePolicyUpdate,
+    request: Request,
+    response: Response,
+    db: DB,
+    context: Admin,
+    if_match: Annotated[str | None, Header()] = None,
+):
+    app = get_app(db, id)
+    if not app.repository:
+        raise AppError(409, "REPOSITORY_NOT_BOUND", "请先关联 GitHub 仓库")
+    rules = validate_rules(body.rules.model_dump(mode="json"))
+    if body.auto_enabled:
+        if not app.enabled:
+            raise AppError(409, "APP_NOT_READY", "请先启用应用")
+        get_github_client(db, app.repository["connector_id"], request.app.state.settings).close()
+    row = get_policy(db, id)
+    require_revision(if_match, row.revision)
+    row.settings = rules
+    row.auto_enabled = body.auto_enabled
+    row.interval_minutes = body.interval_minutes
+    row.next_check_at = utcnow() if body.auto_enabled else None
+    row.revision += 1
+    audit(db, request, context, "github.release_policy.update", id)
+    db.commit()
+    return release_policy(id, db, response)
+
+
+@router.post(
+    "/apps/{id}/github/releases/preview",
+    response_model=ReleaseImportPreview,
+    operation_id="preview_release_import",
+    dependencies=[Depends(require_csrf)],
+)
+def preview_release_import(id: UUID, body: ReleaseMatchRules, db: DB):
+    result = preview_import(db, get_app(db, id), body.model_dump(mode="json"))
+    db.commit()
+    return result
+
+
+@router.post(
+    "/apps/{id}/github/releases/import",
+    response_model=TaskAccepted,
+    status_code=202,
+    operation_id="import_release_matches",
+    dependencies=[Depends(require_csrf)],
+)
+def import_release_matches(
+    id: UUID,
+    body: ReleaseImportRequest,
+    request: Request,
+    db: DB,
+    context: Admin,
+    idempotency_key: Annotated[UUID, Header()],
+):
+    payload = body.model_dump(mode="json")
+    scope, previous = idem_begin(
+        db, f"release-import:{context.user.id}:{id}", str(idempotency_key), payload
+    )
+    if previous:
+        return previous.data
+    app = get_app(db, id)
+    row = get_policy(db, id)
+    _, matches, _, token = match_snapshot(db, app, payload["rules"])
+    if body.snapshot_token != token:
+        raise AppError(409, "RELEASE_PREVIEW_STALE", "Release 或规则已变化，请重新预览")
+    if not matches:
+        raise AppError(422, "NO_MATCHING_ASSETS", "没有匹配的安装包")
+    get_github_client(db, app.repository["connector_id"], request.app.state.settings).close()
+    task = enqueue(
+        db,
+        "release_import",
+        app_id=id,
+        resource_id=str(id),
+        payload={"matches": matches, "binding": app.repository},
+        dedupe_key=f"release_import:{id}:{token}",
+    )
+    row.last_task_id = task.id
+    result = task_accepted(task)
+    idem_save(db, scope, payload, result)
+    audit(db, request, context, "github.releases.import.enqueue", id)
     db.commit()
     return result

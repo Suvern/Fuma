@@ -36,6 +36,10 @@ def scan(engine, sent):
             )
             maintenance.data = {"next_cleanup": (now + timedelta(minutes=5)).isoformat()}
         db.commit()
+        from app.domains.github.releases import schedule_release_checks
+
+        schedule_release_checks(db, now)
+        db.commit()
         jobs = db.scalars(
             select(TaskRecord).where(
                 or_(

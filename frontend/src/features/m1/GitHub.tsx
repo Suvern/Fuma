@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
+import { ReleaseRules } from "./ReleaseRules";
 import {
   Empty,
   ErrorBox,
@@ -48,15 +49,16 @@ export function ReleasesPage() {
         },
       }),
     refetchInterval: (query) =>
-      query.state.data?.sync_state === "syncing" ? 2500 : false,
+      query.state.data?.sync_state === "syncing" ? 2500 : 30_000,
   });
   const cmd = useCommand();
   return (
     <>
-      <Title description="检索仓库的 Release，选择 APK 或 IPA 作为 Debug 分发条目。">
+      <Title description="按文件名规则批量导入安装包，自动检查后续 Release 更新。">
         Release 安装包
       </Title>
       <PageTabs />
+      <ReleaseRules key={id} appId={id} snapshotReady={Boolean(q.data?.synced_at)} />
       <div className="toolbar">
         {filters.search}
         <label>

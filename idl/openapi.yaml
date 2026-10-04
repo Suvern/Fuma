@@ -5336,6 +5336,320 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/FeishuBindingConfirm'
+  /api/v1/apps/{id}/github/releases/policy:
+    get:
+      operationId: get_release_policy
+      tags:
+      - apps
+      summary: get release policy
+      description: Match complete cached Release snapshots. Automatic polling is explicitly opt-in; draft
+        releases are never imported.
+      security:
+      - SessionCookie: []
+      responses:
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed or invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: State conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Revision mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleasePolicy'
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: update_release_policy
+      tags:
+      - apps
+      summary: update release policy
+      description: Match complete cached Release snapshots. Automatic polling is explicitly opt-in; draft
+        releases are never imported.
+      security:
+      - SessionCookie: []
+      responses:
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed or invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: State conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Revision mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleasePolicy'
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IfMatch'
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleasePolicyUpdate'
+  /api/v1/apps/{id}/github/releases/preview:
+    post:
+      operationId: preview_release_import
+      tags:
+      - apps
+      summary: preview release import
+      description: Match complete cached Release snapshots. Automatic polling is explicitly opt-in; draft
+        releases are never imported.
+      security:
+      - SessionCookie: []
+      responses:
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed or invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: State conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Revision mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseImportPreview'
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseMatchRules'
+  /api/v1/apps/{id}/github/releases/import:
+    post:
+      operationId: import_release_matches
+      tags:
+      - apps
+      summary: import release matches
+      description: Match complete cached Release snapshots. Automatic polling is explicitly opt-in; draft
+        releases are never imported.
+      security:
+      - SessionCookie: []
+      responses:
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed or invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: State conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Revision mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAccepted'
+      x-access: admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseImportRequest'
 components:
   schemas:
     DependencyChecks:
@@ -5980,6 +6294,219 @@ components:
       - synced_at
       - sync_state
       - sync_error_code
+    ReleaseMatchRules:
+      type: object
+      additionalProperties: false
+      properties:
+        asset_patterns:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 255
+          minItems: 1
+          maxItems: 20
+        exclude_patterns:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 255
+          maxItems: 20
+        tag_pattern:
+          type: string
+          minLength: 1
+          maxLength: 255
+        prerelease:
+          type: string
+          enum:
+          - all
+          - only
+          - exclude
+      required:
+      - asset_patterns
+      - exclude_patterns
+      - tag_pattern
+      - prerelease
+    ReleasePolicyUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        rules:
+          $ref: '#/components/schemas/ReleaseMatchRules'
+        auto_enabled:
+          type: boolean
+        interval_minutes:
+          type: integer
+          minimum: 5
+          maximum: 1440
+      required:
+      - rules
+      - auto_enabled
+      - interval_minutes
+    ReleaseImportFailure:
+      type: object
+      additionalProperties: false
+      properties:
+        tag_name:
+          type: string
+        error_code:
+          type: string
+      required:
+      - tag_name
+      - error_code
+    ReleaseImportResult:
+      type: object
+      additionalProperties: false
+      properties:
+        checked_at:
+          type: string
+          format: date-time
+        created_count:
+          type: integer
+          minimum: 0
+        existing_count:
+          type: integer
+          minimum: 0
+        failed_count:
+          type: integer
+          minimum: 0
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseImportFailure'
+      required:
+      - checked_at
+      - created_count
+      - existing_count
+      - failed_count
+      - errors
+    ReleaseImportMatch:
+      type: object
+      additionalProperties: false
+      properties:
+        release_id:
+          type: string
+        tag_name:
+          type: string
+        asset_id:
+          type: string
+        file_name:
+          type: string
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+        size_bytes:
+          type: integer
+          minimum: 0
+        existing:
+          type: boolean
+      required:
+      - release_id
+      - tag_name
+      - asset_id
+      - file_name
+      - platform
+      - size_bytes
+      - existing
+    ReleaseImportPreview:
+      type: object
+      additionalProperties: false
+      properties:
+        snapshot_token:
+          type: string
+        synced_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        matched_count:
+          type: integer
+          minimum: 0
+        new_count:
+          type: integer
+          minimum: 0
+        existing_count:
+          type: integer
+          minimum: 0
+        skipped_count:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseImportMatch'
+        truncated:
+          type: boolean
+      required:
+      - snapshot_token
+      - synced_at
+      - matched_count
+      - new_count
+      - existing_count
+      - skipped_count
+      - items
+      - truncated
+    ReleaseImportRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        rules:
+          $ref: '#/components/schemas/ReleaseMatchRules'
+        snapshot_token:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+      required:
+      - rules
+      - snapshot_token
+    ReleasePolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        rules:
+          $ref: '#/components/schemas/ReleaseMatchRules'
+        auto_enabled:
+          type: boolean
+        interval_minutes:
+          type: integer
+          minimum: 5
+          maximum: 1440
+        revision:
+          type: integer
+          minimum: 0
+        next_check_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        last_task_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        last_result:
+          anyOf:
+          - $ref: '#/components/schemas/ReleaseImportResult'
+          - type: 'null'
+        status:
+          type: string
+          enum:
+          - disabled
+          - scheduled
+          - paused
+          - running
+          - failed
+      required:
+      - rules
+      - auto_enabled
+      - interval_minutes
+      - revision
+      - next_check_at
+      - last_task_id
+      - last_result
+      - status
     FeishuConfigUpdate:
       type: object
       additionalProperties: false
@@ -7084,6 +7611,7 @@ components:
           type: string
           enum:
           - release_sync
+          - release_import
           - chat_sync
           - cache_download
           - build_event
