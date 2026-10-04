@@ -1,4 +1,4 @@
-import { confirmAction } from "../../shared/ui/confirm";
+import { Link } from "react-router";
 import { Button, Panel, Input, Notice } from "../../shared/ui/controls";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -27,7 +27,7 @@ export function ChatPicker({
   selected: string[];
   onChange: (ids: string[]) => void;
 }) {
-  const filters = useFilters();
+  const filters = useFilters("搜索群名称…");
   const q = useQuery({
     queryKey: ["chats", filters.page, filters.q],
     queryFn: () =>
@@ -79,7 +79,11 @@ export function ChatPicker({
         ))}
       </div>
       {q.data && !q.data.items.length && (
-        <Empty>没有符合条件的群，请先将机器人加入群聊并同步。</Empty>
+        <Empty>
+          {filters.q
+            ? "没有匹配的群，请修改搜索条件。"
+            : "暂无群聊，请先将机器人加入群聊并同步。"}
+        </Empty>
       )}
       <Pager data={q.data} {...filters} />
     </div>
@@ -253,8 +257,7 @@ function BotSection() {
     <Panel className="panel">
       <h2>3. 单机器人与通知群</h2>
       <ErrorBox error={q.error} />
-      {cmd.feedback}
-      <TaskNotice task={task} />
+
       {q.data && (
         <>
           <p>
@@ -318,30 +321,33 @@ function BotSection() {
         </>
       )}
       <ChatPicker selected={selected} onChange={setSelected} />
+      {cmd.feedback}
+      <TaskNotice task={task} />
       <Button
         className="primary"
+        loading={cmd.pending}
         disabled={cmd.pending || !selected.length}
-        onClick={async () => {
-          if (
-            await confirmAction(`向所选 ${selected.length} 个群发送测试卡片？`)
+        onClick={() =>
+          void cmd.run(
+            `bot-message-${selected.join(",")}`,
+            (key) =>
+              write(
+                "/api/v1/settings/feishu-bot/test-message",
+                "post",
+                { chat_ids: selected },
+                { key },
+              ),
+            setTask,
+            undefined,
+            `向所选 ${selected.length} 个群发送测试卡片？`,
           )
-            void cmd.run(
-              `bot-message-${selected.join(",")}`,
-              (key) =>
-                write(
-                  "/api/v1/settings/feishu-bot/test-message",
-                  "post",
-                  { chat_ids: selected },
-                  { key },
-                ),
-              setTask,
-            );
-        }}
+        }
       >
         发送测试卡片到所选群
       </Button>
       <p className="muted">
-        发送结果记录在通知中心。群名单仅包含机器人所在群。
+        发送结果记录在 <Link to="/admin/notifications">通知记录</Link>
+        。群名单仅包含机器人所在群。
       </p>
     </Panel>
   );

@@ -1,4 +1,3 @@
-import { confirmAction } from "../../shared/ui/confirm";
 import { RepositorySelect } from "../../shared/ui/RepositorySelect";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import {
@@ -588,22 +587,19 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
           <Button
             className="danger"
             disabled={cmd.pending}
-            onClick={async () => {
-              if (
-                await confirmAction(
-                  `删除 App「${app.name}」？历史记录将保留，下载入口将不可用。`,
-                )
+            onClick={() =>
+              void cmd.run(
+                "app-delete",
+                () =>
+                  write("/api/v1/apps/{id}", "delete", undefined, {
+                    id: app.id,
+                    revision: app.revision,
+                  }),
+                () => navigate("/admin/apps"),
+                undefined,
+                `删除 App「${app.name}」？历史记录将保留，下载入口将不可用。`,
               )
-                void cmd.run(
-                  "app-delete",
-                  () =>
-                    write("/api/v1/apps/{id}", "delete", undefined, {
-                      id: app.id,
-                      revision: app.revision,
-                    }),
-                  () => navigate("/admin/apps"),
-                );
-            }}
+            }
           >
             删除 App
           </Button>

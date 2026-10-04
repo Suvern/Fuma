@@ -4,7 +4,7 @@ import secrets
 import stat
 import threading
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import quote
 from uuid import UUID, uuid4
 
@@ -31,6 +31,7 @@ from app.domains.distribution.packages import (
     ensure_cache,
     entry_dto,
     mark_cache_missing,
+    sort_entries,
     touch_cache,
 )
 from app.domains.distribution.service import (
@@ -68,6 +69,7 @@ def entries(
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     q: str | None = None,
     platform: str | None = None,
+    sort: Literal["source_updated_at", "imported_at"] = "source_updated_at",
 ):
     must_get(db, AppRecord, id)
     rows = db.scalars(
@@ -76,7 +78,7 @@ def entries(
     return page(
         [
             entry_dto(r, request.app.state.settings)
-            for r in rows
+            for r in sort_entries(rows, sort)
             if (
                 not q
                 or q.casefold() in (r.file_name + r.source_tag + (r.version_name or "")).casefold()
@@ -228,6 +230,7 @@ def catalog_entries(
     q: str | None = None,
     app_id: UUID | None = None,
     platform: str | None = None,
+    sort: Literal["source_updated_at", "imported_at"] = "source_updated_at",
 ):
     verify_download_context(db, downloader)
     rows = db.scalars(
@@ -239,7 +242,7 @@ def catalog_entries(
     return page(
         [
             catalog_entry(db, r, request.app.state.settings)
-            for r in rows
+            for r in sort_entries(rows, sort)
             if (not app_id or r.app_id == app_id)
             and (not platform or r.platform == platform)
             and (

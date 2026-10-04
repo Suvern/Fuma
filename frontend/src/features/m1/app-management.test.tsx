@@ -443,7 +443,7 @@ describe("应用管理走查问题回归", () => {
   it("Debug 搜索空结果不再误导用户导入安装包", async () => {
     mount(<DebugListPage />, "/admin/apps/:id/debug", "/admin/apps/app/debug");
     await screen.findByText("暂无 Debug 条目");
-    fireEvent.change(screen.getByLabelText("关键词"), {
+    fireEvent.change(screen.getByLabelText("搜索文件名、Tag 或版本"), {
       target: { value: "no-match" },
     });
     fireEvent.click(screen.getByRole("button", { name: "搜索" }));

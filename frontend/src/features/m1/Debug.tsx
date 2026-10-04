@@ -9,7 +9,7 @@ import {
   Button,
   Disclosure,
 } from "../../shared/ui/controls";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
@@ -29,15 +29,42 @@ import {
   useFilters,
   useSession,
 } from "../../shared/ui/common";
+type EntrySort = "source_updated_at" | "imported_at";
+function EntrySortPicker({
+  value,
+  onChange,
+}: {
+  value: EntrySort;
+  onChange: (value: EntrySort) => void;
+}) {
+  const labelId = useId();
+  return (
+    <label>
+      <span id={labelId}>排序</span>
+      <Select
+        aria-labelledby={labelId}
+        style={{ minWidth: 200 }}
+        value={value}
+        onChange={(next) => onChange(next as EntrySort)}
+      >
+        <Select.Option value="source_updated_at">
+          来源更新时间从新到旧
+        </Select.Option>
+        <Select.Option value="imported_at">导入时间从新到旧</Select.Option>
+      </Select>
+    </label>
+  );
+}
 export function DebugListPage() {
   const { id = "" } = useParams();
-  const filters = useFilters();
+  const filters = useFilters("搜索文件名、Tag 或版本…");
+  const [sort, setSort] = useState<EntrySort>("source_updated_at");
   const q = useQuery({
-    queryKey: ["debug-list", id, filters.page, filters.q],
+    queryKey: ["debug-list", id, filters.page, filters.q, sort],
     queryFn: () =>
       read("/api/v1/apps/{id}/debug-entries", {
         id,
-        query: { page: filters.page, q: filters.q },
+        query: { page: filters.page, q: filters.q, sort },
       }),
   });
   return (
@@ -47,7 +74,19 @@ export function DebugListPage() {
         <Link to={`/admin/apps/${id}`}>应用设置</Link>
         <Link to={`/admin/apps/${id}/releases`}>从 Release 导入</Link>
       </PageTabs>
-      {filters.search}
+      <div className="toolbar">
+        {filters.search}
+        <EntrySortPicker
+          value={sort}
+          onChange={(value) => {
+            setSort(value);
+            filters.setPage(1);
+          }}
+        />
+      </div>
+      <p className="muted">
+        来源更新时间指 GitHub 附件更新时间；缺失时按导入时间排序。
+      </p>
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
       <div className="card-grid">
@@ -67,7 +106,9 @@ export function DebugListPage() {
               </Badge>
             </div>
             <p>
-              {size(entry.size_bytes)} · {date(entry.created_at)}
+              {size(entry.size_bytes)} · 导入：{date(entry.created_at)}
+              <br />
+              来源更新：{date(entry.source.asset_updated_at)}
             </p>
           </CardLink>
         ))}
@@ -188,7 +229,7 @@ export function CatalogPage() {
 }
 function CatalogContent() {
   const session = useSession();
-  const filters = useFilters();
+  const filters = useFilters("搜索应用名称…");
   const q = useQuery({
     queryKey: [
       "catalog-apps",
@@ -249,7 +290,8 @@ export function CatalogAppPage() {
 function CatalogAppContent() {
   const session = useSession();
   const { id = "" } = useParams();
-  const filters = useFilters();
+  const filters = useFilters("搜索文件名、Tag 或版本…");
+  const [sort, setSort] = useState<EntrySort>("source_updated_at");
   const [platform, setPlatform] = useState("");
   const app = useQuery({
     queryKey: ["catalog-app", session.data?.viewer_key, id],
@@ -263,11 +305,13 @@ function CatalogAppContent() {
       filters.q,
       filters.page,
       platform,
+      sort,
     ],
     queryFn: () =>
       read("/api/v1/catalog/debug-entries", {
         query: {
           app_id: id,
+          sort,
           page: filters.page,
           q: filters.q,
           ...(platform ? { platform } : {}),
@@ -284,6 +328,13 @@ function CatalogAppContent() {
       <Link to="/">← 全部应用</Link>
       <div className="toolbar">
         {filters.search}
+        <EntrySortPicker
+          value={sort}
+          onChange={(value) => {
+            setSort(value);
+            filters.setPage(1);
+          }}
+        />
         <label>
           <span id="platform-filter-label">平台</span>
           <Select
@@ -301,6 +352,9 @@ function CatalogAppContent() {
           </Select>
         </label>
       </div>
+      <p className="muted">
+        来源更新时间指 GitHub 附件更新时间；缺失时按导入时间排序。
+      </p>
       {entries.isPending ? (
         <Loading />
       ) : (
@@ -321,7 +375,9 @@ function CatalogAppContent() {
                   {e.build_number && `· Build ${e.build_number}`}
                 </p>
                 <p className="muted">
-                  {size(e.size_bytes)} · {date(e.created_at)}
+                  {size(e.size_bytes)} · 导入：{date(e.created_at)}
+                  <br />
+                  来源更新：{date(e.source_updated_at)}
                 </p>
                 <DownloadControl entry={e} />
               </Panel>

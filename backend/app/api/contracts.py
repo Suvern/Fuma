@@ -672,6 +672,9 @@ class CatalogEntry(BaseModel):
     version_label: str
     version_label_source: Literal["manual", "tag"]
     created_at: AwareDatetime
+    source_updated_at: AwareDatetime | None = Field(
+        None, description="来源附件更新时间；旧记录缺失时为 null，不能当作 Release 发布时间。"
+    )
     cache: CacheStatus
     page_url: AnyUrl
     installation_notice: str | None

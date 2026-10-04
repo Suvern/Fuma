@@ -20,6 +20,7 @@ import { Link } from "react-router";
 import { ApiError, read, ssoUrl, type DTO } from "../api/http";
 import { PageTitle } from "../components/PageTitle";
 import { Icon, type IconName } from "./Icon";
+import { confirmAction } from "./confirm";
 
 export const labels: Record<string, string> = {
   ready: "已就绪",
@@ -313,15 +314,17 @@ export function useCommand() {
     execute: (key: string) => Promise<T>,
     success?: (result: T) => void,
     successMessage = "请求已提交。",
+    confirmation?: string,
   ) {
     if (lock.current) return;
     lock.current = true;
     setPending(true);
     setError(undefined);
     setMessage("");
-    const key = keys.current.get(intent) ?? crypto.randomUUID();
-    keys.current.set(intent, key);
     try {
+      if (confirmation && !(await confirmAction(confirmation))) return;
+      const key = keys.current.get(intent) ?? crypto.randomUUID();
+      keys.current.set(intent, key);
       const result = await execute(key);
       keys.current.delete(intent);
       success?.(result);
@@ -372,14 +375,20 @@ export function Pager({
     </nav>
   );
 }
-export function useFilters() {
+export function useFilters(placeholder = "搜索名称、版本或文件…") {
   const searchId = useId();
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
+  const [draft, setDraft] = useState("");
   return {
     page,
     setPage,
     q,
+    reset: () => {
+      setQ("");
+      setDraft("");
+      setPage(1);
+    },
     search: (
       <form
         role="search"
@@ -391,7 +400,7 @@ export function useFilters() {
         }}
       >
         <label className="sr-only" htmlFor={searchId}>
-          关键词
+          {placeholder.replace(/…$/, "")}
         </label>
         <div className="search-input">
           <Icon name="search" size={17} />
@@ -399,7 +408,9 @@ export function useFilters() {
             type="search"
             id={searchId}
             name="q"
-            placeholder="搜索名称、版本或文件…"
+            placeholder={placeholder}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
           />
         </div>
         <Button>搜索</Button>

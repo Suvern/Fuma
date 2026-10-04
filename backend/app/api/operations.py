@@ -1,7 +1,7 @@
 import os
 import shutil
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, Query, Request, Response
@@ -28,6 +28,25 @@ from app.infrastructure.health import check_dependencies
 
 router = APIRouter(tags=["Operations"])
 
+TaskKind = Literal[
+    "release_sync",
+    "release_import",
+    "chat_sync",
+    "cache_download",
+    "build_event",
+    "notification",
+    "cache_cleanup",
+]
+TASK_NAMES = {
+    "release_sync": "Release 同步",
+    "release_import": "Release 批量导入",
+    "chat_sync": "群聊同步",
+    "cache_download": "缓存下载",
+    "build_event": "构建事件",
+    "notification": "通知发送",
+    "cache_cleanup": "缓存清理",
+}
+
 
 @router.get("/tasks", response_model=dto.TaskPage, operation_id="list_tasks")
 def tasks(
@@ -38,15 +57,26 @@ def tasks(
     q: str | None = None,
     app_id: UUID | None = None,
     state_filter: Annotated[str | None, Query(alias="state")] = None,
+    kind: TaskKind | None = None,
 ):
-    rows = db.scalars(select(TaskRecord).order_by(TaskRecord.created_at.desc())).all()
+    rows = db.scalars(
+        select(TaskRecord).order_by(TaskRecord.created_at.desc(), TaskRecord.id.desc())
+    ).all()
+    keyword = (q or "").strip().casefold()
     return page(
         [
             task_dto(r)
             for r in rows
             if (not app_id or r.app_id == app_id)
             and (not state_filter or r.state == state_filter)
-            and (not q or q.casefold() in (r.kind + (r.resource_id or "")).casefold())
+            and (not kind or r.kind == kind)
+            and (
+                not keyword
+                or any(
+                    keyword in value.casefold()
+                    for value in (r.kind, TASK_NAMES.get(r.kind, ""), r.resource_id or "")
+                )
+            )
         ],
         page_number,
         page_size,

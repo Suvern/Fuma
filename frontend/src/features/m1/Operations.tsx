@@ -1,10 +1,9 @@
 import { Metric } from "../../shared/ui/controls";
-import { confirmAction } from "../../shared/ui/confirm";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import Table from "@douyinfe/semi-ui-19/lib/es/table";
 import Progress from "@douyinfe/semi-ui-19/lib/es/progress";
 import { Panel, Notice, Button } from "../../shared/ui/controls";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
@@ -28,16 +27,18 @@ import {
 } from "../../shared/ui/common";
 export { Component as SystemPage } from "../system/pages/AdminHomePage";
 export function TasksPage() {
-  const filters = useFilters();
+  const filters = useFilters("搜索任务类型或资源标识…");
   const [state, setState] = useState("");
+  const [kind, setKind] = useState<DTO<"Task">["kind"] | "">("");
   const q = useQuery({
-    queryKey: ["tasks", filters.page, filters.q, state],
+    queryKey: ["tasks", filters.page, filters.q, state, kind],
     queryFn: () =>
       read("/api/v1/tasks", {
         query: {
           page: filters.page,
           q: filters.q,
           ...(state ? { state } : {}),
+          ...(kind ? { kind } : {}),
         },
       }),
     refetchInterval: 5000,
@@ -47,6 +48,35 @@ export function TasksPage() {
       <Title>任务中心</Title>
       <div className="toolbar">
         {filters.search}
+        <StateFilter
+          label="任务类型"
+          value={kind}
+          onChange={(value) => {
+            setKind(value as DTO<"Task">["kind"] | "");
+            filters.setPage(1);
+          }}
+          values={[
+            "release_sync",
+            "release_import",
+            "chat_sync",
+            "cache_download",
+            "build_event",
+            "notification",
+            "cache_cleanup",
+          ]}
+        />
+        {(filters.q || state || kind) && (
+          <Button
+            type="button"
+            onClick={() => {
+              filters.reset();
+              setState("");
+              setKind("");
+            }}
+          >
+            清空筛选
+          </Button>
+        )}
         <StateFilter
           value={state}
           onChange={(value) => {
@@ -71,7 +101,19 @@ export function TasksPage() {
         pagination={false}
         dataSource={q.data?.items ?? []}
         loading={q.isPending}
-        empty={<Empty>暂无任务。</Empty>}
+        empty={
+          q.isPending || q.error ? (
+            <span />
+          ) : (
+            <Empty
+              title={filters.q || state || kind ? "没有匹配的任务" : "暂无任务"}
+            >
+              {filters.q || state || kind
+                ? "请修改搜索条件，或清空筛选后重试。"
+                : "执行同步、缓存或通知操作后，可在这里跟踪任务。"}
+            </Empty>
+          )
+        }
         scroll={{ x: 720 }}
         columns={[
           {
@@ -169,16 +211,19 @@ function StateFilter({
   value,
   onChange,
   values,
+  label = "状态",
 }: {
   value: string;
   onChange: (value: string) => void;
   values: string[];
+  label?: string;
 }) {
+  const labelId = useId();
   return (
     <label>
-      <span id="task-state-label">状态</span>
+      <span id={labelId}>{label}</span>
       <Select
-        aria-labelledby="task-state-label"
+        aria-labelledby={labelId}
         style={{ minWidth: 160 }}
         value={value}
         onChange={(value) => onChange(String(value ?? ""))}
@@ -194,7 +239,7 @@ function StateFilter({
   );
 }
 export function NotificationsPage() {
-  const filters = useFilters();
+  const filters = useFilters("搜索接收群名称…");
   const [state, setState] = useState("");
   const q = useQuery({
     queryKey: ["notifications", filters.page, filters.q, state],
@@ -215,6 +260,17 @@ export function NotificationsPage() {
       </Title>
       <div className="toolbar">
         {filters.search}
+        {(filters.q || state) && (
+          <Button
+            type="button"
+            onClick={() => {
+              filters.reset();
+              setState("");
+            }}
+          >
+            清空筛选
+          </Button>
+        )}
         <StateFilter
           value={state}
           onChange={(value) => {
@@ -232,7 +288,17 @@ export function NotificationsPage() {
         pagination={false}
         dataSource={q.data?.items ?? []}
         loading={q.isPending}
-        empty={<Empty>暂无通知。</Empty>}
+        empty={
+          q.isPending || q.error ? (
+            <span />
+          ) : (
+            <Empty title={filters.q || state ? "没有匹配的通知" : "暂无通知"}>
+              {filters.q || state
+                ? "请修改搜索条件，或清空筛选后重试。"
+                : "发送测试卡片或构建通知后，可在这里查看投递结果。"}
+            </Empty>
+          )
+        }
         scroll={{ x: 640 }}
         columns={[
           {
@@ -565,24 +631,21 @@ function CacheEditor({ cache: c }: { cache: DTO<"CacheSettings"> }) {
           <Button
             className="danger"
             disabled={cmd.pending}
-            onClick={async () => {
-              if (
-                await confirmAction(
-                  "清理全部无活动租约的缓存？下一次下载需要重新缓存。",
-                )
+            onClick={() =>
+              void cmd.run(
+                "cleanup-all",
+                (key) =>
+                  write(
+                    "/api/v1/system/cache/cleanup",
+                    "post",
+                    { scope: "all_unleased" },
+                    { key },
+                  ),
+                setTask,
+                undefined,
+                "清理全部无活动租约的缓存？下一次下载需要重新缓存。",
               )
-                void cmd.run(
-                  "cleanup-all",
-                  (key) =>
-                    write(
-                      "/api/v1/system/cache/cleanup",
-                      "post",
-                      { scope: "all_unleased" },
-                      { key },
-                    ),
-                  setTask,
-                );
-            }}
+            }
           >
             清理可释放缓存
           </Button>

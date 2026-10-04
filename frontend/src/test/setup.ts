@@ -47,4 +47,5 @@ if (typeof window !== "undefined") {
     }),
   });
   HTMLElement.prototype.scrollIntoView = () => {};
+  Range.prototype.getBoundingClientRect = () => new DOMRect();
 }

@@ -1,4 +1,3 @@
-import { confirmAction } from "../../shared/ui/confirm";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import Table from "@douyinfe/semi-ui-19/lib/es/table";
 import {
@@ -247,51 +246,60 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
       <div className="toolbar">
         <Button
           disabled={cmd.pending}
-          onClick={async () => {
-            if (await confirmAction("轮换后旧令牌立即失效，继续？"))
-              void cmd.run(
-                "token-rotate",
-                () =>
-                  write(
-                    "/api/v1/actions-rules/{id}/token/rotate",
-                    "post",
-                    undefined,
-                    { id: r.id, revision: r.revision },
-                  ),
-                (result) => setToken(result.token),
-              );
-          }}
+          onClick={() =>
+            void cmd.run(
+              "token-rotate",
+              () =>
+                write(
+                  "/api/v1/actions-rules/{id}/token/rotate",
+                  "post",
+                  undefined,
+                  { id: r.id, revision: r.revision },
+                ),
+              (result) => setToken(result.token),
+              undefined,
+              "轮换后旧令牌立即失效，继续？",
+            )
+          }
         >
           轮换令牌
         </Button>
         <Button
           disabled={cmd.pending || !r.has_token}
-          onClick={async () => {
-            if (await confirmAction("撤销此规则的 CI 令牌？"))
-              void cmd.run("token-revoke", () =>
+          onClick={() =>
+            void cmd.run(
+              "token-revoke",
+              () =>
                 write(
                   "/api/v1/actions-rules/{id}/token/revoke",
                   "post",
                   undefined,
                   { id: r.id, revision: r.revision },
                 ),
-              );
-          }}
+              undefined,
+              undefined,
+              "撤销此规则的 CI 令牌？",
+            )
+          }
         >
           撤销令牌
         </Button>
         <Button
           className="danger"
           disabled={cmd.pending}
-          onClick={async () => {
-            if (await confirmAction("删除此规则并撤销令牌？历史事件保留。"))
-              void cmd.run("rule-delete", () =>
+          onClick={() =>
+            void cmd.run(
+              "rule-delete",
+              () =>
                 write("/api/v1/actions-rules/{id}", "delete", undefined, {
                   id: r.id,
                   revision: r.revision,
                 }),
-              );
-          }}
+              undefined,
+              undefined,
+              "删除此规则并撤销令牌？历史事件保留。",
+            )
+          }
         >
           删除规则
         </Button>

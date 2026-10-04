@@ -1217,7 +1217,7 @@ export interface paths {
         };
         /**
          * list tasks
-         * @description list tasks
+         * @description 按任务中文显示名称、内部类型或资源标识搜索，可组合类型和状态筛选。
          */
         get: operations["list_tasks"];
         put?: never;
@@ -1573,6 +1573,8 @@ export interface components {
             /** @enum {string} */
             platform: "android" | "ios";
             size_bytes: number;
+            /** @description 来源附件更新时间；旧记录缺失时为 null，不能当作 Release 发布时间。 */
+            source_updated_at?: string | null;
             version_label: string;
             /** @enum {string} */
             version_label_source: "manual" | "tag";
@@ -3399,6 +3401,8 @@ export interface operations {
                 page_size?: components["parameters"]["PageSize"];
                 q?: components["parameters"]["Query"];
                 platform?: "android" | "ios";
+                /** @description 按来源附件更新时间或导入时间倒序，来源时间缺失时回退到导入时间，同时间按条目 ID 倒序。 */
+                sort?: "source_updated_at" | "imported_at";
             };
             header?: never;
             path: {
@@ -5538,6 +5542,8 @@ export interface operations {
                 q?: components["parameters"]["Query"];
                 app_id?: string;
                 platform?: "android" | "ios";
+                /** @description 按来源附件更新时间或导入时间倒序，来源时间缺失时回退到导入时间，同时间按条目 ID 倒序。 */
+                sort?: "source_updated_at" | "imported_at";
             };
             header?: never;
             path?: never;
@@ -9198,6 +9204,7 @@ export interface operations {
                 q?: components["parameters"]["Query"];
                 state?: "queued" | "running" | "succeeded" | "partial_success" | "failed" | "unknown";
                 app_id?: string;
+                kind?: "release_sync" | "release_import" | "chat_sync" | "cache_download" | "build_event" | "notification" | "cache_cleanup";
             };
             header?: never;
             path?: never;

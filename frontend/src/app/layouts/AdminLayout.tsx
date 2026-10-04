@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { read } from "../../shared/api/http";
 import Avatar from "@douyinfe/semi-ui-19/lib/es/avatar";
 import Breadcrumb from "@douyinfe/semi-ui-19/lib/es/breadcrumb";
 import Button from "@douyinfe/semi-ui-19/lib/es/button";
@@ -7,7 +9,7 @@ import Nav from "@douyinfe/semi-ui-19/lib/es/navigation";
 import SideSheet from "@douyinfe/semi-ui-19/lib/es/sideSheet";
 import Space from "@douyinfe/semi-ui-19/lib/es/space";
 import Typography from "@douyinfe/semi-ui-19/lib/es/typography";
-import { Link, Outlet, useLocation } from "react-router";
+import { Link, Outlet, useLocation, useMatch } from "react-router";
 import { AdminGuard, LogoutButton } from "../../features/m1/Auth";
 import { BrandMark, Icon, type IconName } from "../../shared/ui/Icon";
 
@@ -42,6 +44,19 @@ const groups: {
 ];
 function AdminShell() {
   const { pathname } = useLocation();
+  const appMatch = useMatch("/admin/apps/:appId/*");
+  const appId = appMatch?.params.appId;
+  const app = useQuery({
+    queryKey: ["app", appId],
+    queryFn: () => read("/api/v1/apps/{id}", { id: appId! }),
+    enabled: Boolean(appId),
+  });
+  const appSection = {
+    releases: "GitHub Releases",
+    debug: "Debug 包",
+    actions: "Actions 规则",
+    events: "构建事件",
+  }[appMatch?.params["*"] ?? ""];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const current = groups
@@ -132,12 +147,30 @@ function AdminShell() {
           >
             {navigation()}
           </Layout.Sider>
-          <Layout.Content className="admin-content">
+          <Layout.Content className="admin-content" tagName="div">
             <Breadcrumb className="workspace-breadcrumb">
               <Breadcrumb.Item>
                 <Link to="/admin">控制台</Link>
               </Breadcrumb.Item>
-              <Breadcrumb.Item>{current?.title ?? "应用详情"}</Breadcrumb.Item>
+              {appId ? (
+                [
+                  <Breadcrumb.Item key="apps">
+                    <Link to="/admin/apps">应用管理</Link>
+                  </Breadcrumb.Item>,
+                  <Breadcrumb.Item key="app">
+                    <Link to={`/admin/apps/${appId}`}>
+                      {app.data?.name ?? "应用详情"}
+                    </Link>
+                  </Breadcrumb.Item>,
+                  <Breadcrumb.Item key="section">
+                    {appSection ?? "应用设置"}
+                  </Breadcrumb.Item>,
+                ]
+              ) : (
+                <Breadcrumb.Item>
+                  {current?.title ?? "应用详情"}
+                </Breadcrumb.Item>
+              )}
             </Breadcrumb>
             <main id="main" tabIndex={-1}>
               <Outlet />

@@ -3,7 +3,7 @@ import os
 import re
 import shutil
 import zipfile
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -181,6 +181,30 @@ def cache_status(row):
     }
 
 
+def source_updated_at(row):
+    value = row.source.get("asset_updated_at")
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+        return parsed.astimezone(UTC) if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+    except (TypeError, ValueError):
+        return None
+
+
+def sort_entries(rows, sort="source_updated_at"):
+    """Source chronology must not depend on the order of a historical bulk import."""
+
+    def key(row):
+        imported = row.created_at
+        if not imported.tzinfo:
+            imported = imported.replace(tzinfo=UTC)
+        timestamp = source_updated_at(row) if sort == "source_updated_at" else None
+        return timestamp or imported, str(row.id)
+
+    return sorted(rows, key=key, reverse=True)
+
+
 def entry_dto(row, settings):
     names = (
         "id",
@@ -231,6 +255,7 @@ def catalog_entry(db, row, settings):
         "version_label": row.version_name or f"Tag: {row.source_tag}",
         "version_label_source": "manual" if row.version_name else "tag",
         "created_at": row.created_at,
+        "source_updated_at": source_updated_at(row),
         "cache": cache_status(row),
         "page_url": settings.site_url + f"/debug/{row.id}",
         "installation_notice": "IPA 下载不等于可以直接安装，请使用符合签名及设备要求的安装方式。"

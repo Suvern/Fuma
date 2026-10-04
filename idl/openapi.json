@@ -1597,6 +1597,18 @@
             "minimum": 0,
             "type": "integer"
           },
+          "source_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "来源附件更新时间；旧记录缺失时为 null，不能当作 Release 发布时间。"
+          },
           "version_label": {
             "type": "string"
           },
@@ -5728,6 +5740,19 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "description": "按来源附件更新时间或导入时间倒序，来源时间缺失时回退到导入时间，同时间按条目 ID 倒序。",
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "default": "source_updated_at",
+              "enum": [
+                "source_updated_at",
+                "imported_at"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8475,6 +8500,19 @@
               "enum": [
                 "android",
                 "ios"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "按来源附件更新时间或导入时间倒序，来源时间缺失时回退到导入时间，同时间按条目 ID 倒序。",
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "default": "source_updated_at",
+              "enum": [
+                "source_updated_at",
+                "imported_at"
               ],
               "type": "string"
             }
@@ -13140,7 +13178,7 @@
     },
     "/api/v1/tasks": {
       "get": {
-        "description": "list tasks",
+        "description": "按任务中文显示名称、内部类型或资源标识搜索，可组合类型和状态筛选。",
         "operationId": "list_tasks",
         "parameters": [
           {
@@ -13172,6 +13210,22 @@
             "name": "app_id",
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "enum": [
+                "release_sync",
+                "release_import",
+                "chat_sync",
+                "cache_download",
+                "build_event",
+                "notification",
+                "cache_cleanup"
+              ],
               "type": "string"
             }
           }
