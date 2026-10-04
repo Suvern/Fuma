@@ -1,3 +1,4 @@
+import { TaskOverview } from "../components/TaskOverview";
 import { Metric } from "../../../shared/ui/controls";
 import Banner from "@douyinfe/semi-ui-19/lib/es/banner";
 import Button from "@douyinfe/semi-ui-19/lib/es/button";
@@ -16,7 +17,6 @@ import {
   Status,
   Title,
   date,
-  labels,
   size,
   useSession,
 } from "../../../shared/ui/common";
@@ -46,11 +46,6 @@ function MaintainerDashboard() {
     queryKey: ["maintainer-apps"],
     queryFn: () => read("/api/v1/apps", { query: { page: 1, page_size: 8 } }),
   });
-  const tasks = useQuery({
-    queryKey: ["maintainer-tasks"],
-    queryFn: () => read("/api/v1/tasks", { query: { page: 1, page_size: 8 } }),
-    refetchInterval: 10000,
-  });
   return (
     <>
       <Title description="管理获授权应用的安装包、版本发布和任务。全局连接、存储及成员授权由管理员维护。">
@@ -72,7 +67,7 @@ function MaintainerDashboard() {
             >
               <strong>{app.name}</strong>
               <span>
-                {app.package_count ?? 0} 个正式包 · {app.publication_count ?? 0}{" "}
+                {app.package_count ?? 0} 个安装包 · {app.publication_count ?? 0}{" "}
                 个发布
               </span>
             </Link>
@@ -81,25 +76,7 @@ function MaintainerDashboard() {
             <Empty>尚未获得应用授权，请联系管理员分配。</Empty>
           )}
         </Card>
-        <Card
-          className="panel"
-          title="应用最近任务"
-          headerExtraContent={<Link to="/admin/tasks">查看全部</Link>}
-        >
-          <ErrorBox error={tasks.error} />
-          {tasks.isPending && <Loading />}
-          {tasks.data?.items.map((task) => (
-            <Link
-              className="dashboard-row"
-              key={task.id}
-              to={`/admin/tasks/${task.id}`}
-            >
-              <strong>{labels[task.kind] ?? task.kind}</strong>
-              <Status value={task.state} />
-            </Link>
-          ))}
-          {tasks.data?.total === 0 && <Empty>获授权应用暂无任务。</Empty>}
-        </Card>
+        <TaskOverview />
       </div>
     </>
   );
@@ -114,11 +91,6 @@ function AdminDashboard() {
   const apps = useQuery({
     queryKey: ["dashboard-apps"],
     queryFn: () => read("/api/v1/apps", { query: { page: 1, page_size: 4 } }),
-  });
-  const tasks = useQuery({
-    queryKey: ["dashboard-tasks"],
-    queryFn: () => read("/api/v1/tasks", { query: { page: 1, page_size: 4 } }),
-    refetchInterval: 10000,
   });
   const connectors = useQuery({
     queryKey: ["dashboard-connectors"],
@@ -172,6 +144,53 @@ function AdminDashboard() {
       >
         工作台
       </Title>
+      <div className="dashboard-columns">
+        <Card
+          className="panel"
+          title="我的应用"
+          headerExtraContent={
+            <Link aria-label="查看全部应用" to="/admin/apps">
+              查看全部
+            </Link>
+          }
+        >
+          <ErrorBox error={apps.error} />
+          {apps.isPending && <Loading />}
+          {apps.data?.total === 0 && (
+            <Empty
+              title="尚未添加应用"
+              action={
+                <Link className="button primary" to="/admin/apps?new=1">
+                  新建应用
+                </Link>
+              }
+            >
+              添加应用并关联仓库，开始分发安装包。
+            </Empty>
+          )}
+          {apps.data?.items.map((app) => (
+            <Link
+              className="dashboard-row"
+              to={`/admin/apps/${app.id}`}
+              key={app.id}
+            >
+              <span className="app-monogram">{app.name[0]}</span>
+              <span className="row-copy">
+                <strong>{app.name}</strong>
+                <small>
+                  {app.repository?.full_name ?? "待绑定 GitHub 仓库"}
+                </small>
+              </span>
+              <Typography.Text type="tertiary">
+                包库 {app.package_count ?? 0} · 发布{" "}
+                {app.publication_count ?? 0}
+              </Typography.Text>
+              <Icon name="chevron" size={14} />
+            </Link>
+          ))}
+        </Card>
+        <TaskOverview />
+      </div>
       <div className="stat-grid">
         <Card>
           <Metric
@@ -272,80 +291,6 @@ function AdminDashboard() {
           </Steps>
         </Card>
       )}
-      <div className="dashboard-columns">
-        <Card
-          className="panel"
-          title="我的应用"
-          headerExtraContent={
-            <Link aria-label="查看全部应用" to="/admin/apps">
-              查看全部
-            </Link>
-          }
-        >
-          <ErrorBox error={apps.error} />
-          {apps.isPending && <Loading />}
-          {apps.data?.total === 0 && (
-            <Empty
-              title="尚未添加应用"
-              action={
-                <Link className="button primary" to="/admin/apps?new=1">
-                  新建应用
-                </Link>
-              }
-            >
-              添加应用并关联仓库，开始分发安装包。
-            </Empty>
-          )}
-          {apps.data?.items.map((app) => (
-            <Link
-              className="dashboard-row"
-              to={`/admin/apps/${app.id}`}
-              key={app.id}
-            >
-              <span className="app-monogram">{app.name[0]}</span>
-              <span className="row-copy">
-                <strong>{app.name}</strong>
-                <small>
-                  {app.repository?.full_name ?? "待绑定 GitHub 仓库"}
-                </small>
-              </span>
-              <Typography.Text type="tertiary">
-                {app.debug_entry_count} 个包
-              </Typography.Text>
-              <Icon name="chevron" size={14} />
-            </Link>
-          ))}
-        </Card>
-        <Card
-          className="panel"
-          title="最近任务"
-          headerExtraContent={
-            <Link aria-label="查看全部任务" to="/admin/tasks">
-              查看全部
-            </Link>
-          }
-        >
-          <ErrorBox error={tasks.error} />
-          {tasks.isPending && <Loading />}
-          {tasks.data?.total === 0 && (
-            <Empty icon="tasks">任务执行后，进度与结果会显示在这里。</Empty>
-          )}
-          {tasks.data?.items.map((task) => (
-            <Link
-              className="dashboard-row"
-              key={task.id}
-              to={`/admin/tasks/${task.id}`}
-            >
-              <Icon name="tasks" size={20} />
-              <span className="row-copy">
-                <strong>{labels[task.kind] ?? task.kind}</strong>
-                <small>{date(task.created_at)}</small>
-              </span>
-              <Status value={task.state} />
-            </Link>
-          ))}
-        </Card>
-      </div>
       <Card
         className="panel"
         title="运行环境"

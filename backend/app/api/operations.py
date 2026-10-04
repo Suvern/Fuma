@@ -24,8 +24,9 @@ from app.domains.distribution.service import (
     page,
     state,
     task_accepted,
-    task_dto,
 )
+from app.domains.distribution.task_presentation import category as task_category
+from app.domains.distribution.task_presentation import present_task
 from app.infrastructure.health import check_dependencies
 
 router = APIRouter(tags=["Operations"])
@@ -68,6 +69,7 @@ def tasks(
     app_id: UUID | None = None,
     state_filter: Annotated[str | None, Query(alias="state")] = None,
     kind: TaskKind | None = None,
+    category: Literal["all", "business", "system"] = "all",
 ):
     stmt = select(TaskRecord).order_by(TaskRecord.created_at.desc(), TaskRecord.id.desc())
     ids = manageable_app_ids(db, admin)
@@ -75,29 +77,31 @@ def tasks(
         stmt = stmt.where(TaskRecord.app_id.in_(ids))
     rows = db.scalars(stmt).all()
     keyword = (q or "").strip().casefold()
-    return page(
-        [
-            task_dto(r)
-            for r in rows
-            if (not app_id or r.app_id == app_id)
-            and (not state_filter or r.state == state_filter)
-            and (not kind or r.kind == kind)
-            and (
-                not keyword
-                or any(
-                    keyword in value.casefold()
-                    for value in (r.kind, TASK_NAMES.get(r.kind, ""), r.resource_id or "")
-                )
-            )
-        ],
-        page_number,
-        page_size,
-    )
+    items = []
+    for row in rows:
+        if (
+            (app_id and row.app_id != app_id)
+            or (state_filter and row.state != state_filter)
+            or (kind and row.kind != kind)
+            or (category != "all" and task_category(row) != category)
+        ):
+            continue
+        item = present_task(db, row)
+        haystack = (
+            row.kind,
+            TASK_NAMES.get(row.kind, ""),
+            row.resource_id or "",
+            item["app_name"] or "",
+            item["resource_name"] or "",
+        )
+        if not keyword or any(keyword in value.casefold() for value in haystack):
+            items.append(item)
+    return page(items, page_number, page_size)
 
 
 @router.get("/tasks/{id}", response_model=dto.Task, operation_id="get_task")
 def task(id: UUID, db: DB, admin: ScopedManager):
-    return task_dto(must_get(db, TaskRecord, id))
+    return present_task(db, must_get(db, TaskRecord, id))
 
 
 @router.post(

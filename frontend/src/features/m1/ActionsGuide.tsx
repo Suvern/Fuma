@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import example from "./github-actions-example.yml?raw";
 import type { DTO } from "../../shared/api/http";
 import { Button, Disclosure, Input, Panel } from "../../shared/ui/controls";
+import { ErrorBox, Loading, Title } from "../../shared/ui/common";
 
-function Copy({ value, label }: { value: string; label: string }) {
+export function Copy({ value, label }: { value: string; label: string }) {
   const [status, setStatus] = useState("");
   return (
     <>
@@ -26,10 +28,31 @@ function Copy({ value, label }: { value: string; label: string }) {
   );
 }
 
-export function ActionsGuide({ appId }: { appId: string }) {
+export function ActionsGuide({
+  appId,
+  compact = false,
+}: {
+  appId: string;
+  compact?: boolean;
+}) {
+  if (compact)
+    return (
+      <Panel>
+        <h2>接入 GitHub Actions</h2>
+        <p>先创建规则，再把该规则的接入文档交给 Agent 修改源仓库 workflow。</p>
+        <Link to="/docs/github-actions">打开独立接入文档</Link>
+        <Disclosure title="查看接入步骤与 YAML 示例">
+          <ActionsGuide appId={appId} />
+        </Disclosure>
+      </Panel>
+    );
   return (
     <Panel aria-labelledby="actions-setup-title">
       <h2 id="actions-setup-title">接入 GitHub Actions</h2>
+      <p>
+        <Link to="/docs/github-actions">打开独立接入文档</Link> ·{" "}
+        <a href="/api/v1/docs/github-actions">Agent 可读的 Markdown</a>
+      </p>
       <p>
         仅保存令牌不会触发通知。需要在源应用仓库完成：构建安装包 → 上传 GitHub
         Release 附件 → 回调 Fuma。
@@ -110,51 +133,160 @@ export function ActionsGuide({ appId }: { appId: string }) {
 }
 
 export function RuleConnection({ rule }: { rule: DTO<"ActionsRule"> }) {
+  const markdownPath = `/api/v1/docs/github-actions?rule_id=${encodeURIComponent(rule.id)}`;
+  const markdownUrl = new URL(markdownPath, window.location.origin).href;
+  const agentInstructions = `请按以下文档修改源仓库的 GitHub Actions workflow。\n\n接入文档：${markdownUrl}\n仓库：${rule.repository_full_name}\nWorkflow：${rule.workflow_path}\n可信分支：${rule.allowed_branches.join(", ") || "未配置"}\n可信 Tag：${rule.allowed_tags.join(", ") || "未配置"}\n文件匹配：${rule.asset_patterns.join(", ")}\nFUMA_CALLBACK_URL：${rule.callback_url}\nFUMA_CI_TOKEN：由管理员填入 GitHub Actions Secret，不写入代码或日志。\n\n保留现有构建环境，在 Release 附件上传后回调；202 后结束该步骤，等待整个 workflow 成功再核对 Fuma 构建事件。`;
   return (
-    <Disclosure title="接入信息：回调 URL 与规则要求">
-      <p>
-        将此地址保存为源仓库 Actions Variable <code>FUMA_CALLBACK_URL</code>
-        。对应令牌保存为 Secret <code>FUMA_CI_TOKEN</code>。
-      </p>
-      <label>
-        回调 URL
-        <Input value={rule.callback_url} readOnly />
-      </label>
-      <Copy value={rule.callback_url} label="复制回调 URL" />
-      <dl>
-        <dt>仓库</dt>
-        <dd>{rule.repository_full_name}</dd>
-        <dt>Workflow 路径</dt>
-        <dd>
-          <code>{rule.workflow_path}</code>
-        </dd>
-        <dt>可信分支</dt>
-        <dd>{rule.allowed_branches.join(", ") || "未配置"}</dd>
-        <dt>可信 Tag</dt>
-        <dd>{rule.allowed_tags.join(", ") || "未配置"}</dd>
-        <dt>文件匹配</dt>
-        <dd>{rule.asset_patterns.join(", ")}</dd>
-      </dl>
-      <p>
-        回调使用 Bearer CI 令牌；字段由 GitHub 上下文和 Release
-        上传结果生成，不接受任意下载 URL 或群 ID。
-      </p>
-      <pre tabIndex={0} aria-label="回调请求格式">
-        <code>
-          {JSON.stringify(
-            {
-              repository_id: rule.repository_id,
-              run_id: "GitHub run ID",
-              run_attempt: 1,
-              head_sha: "40 位提交 SHA",
-              release_id: "Release ID",
-              asset_ids: ["Asset ID"],
-            },
-            null,
-            2,
-          )}
-        </code>
-      </pre>
-    </Disclosure>
+    <>
+      <div className="toolbar">
+        <Link
+          to={`/docs/github-actions?rule_id=${encodeURIComponent(rule.id)}`}
+        >
+          打开此规则接入文档
+        </Link>
+        <Copy value={markdownUrl} label="复制文档链接给 Agent" />
+        <Copy value={agentInstructions} label="复制完整接入说明" />
+      </div>
+      <Disclosure title="接入信息：回调 URL 与规则要求">
+        <p>
+          将此地址保存为源仓库 Actions Variable <code>FUMA_CALLBACK_URL</code>
+          。对应令牌保存为 Secret <code>FUMA_CI_TOKEN</code>。
+        </p>
+        <label>
+          回调 URL
+          <Input value={rule.callback_url} readOnly />
+        </label>
+        <Copy value={rule.callback_url} label="复制回调 URL" />
+        <dl>
+          <dt>仓库</dt>
+          <dd>{rule.repository_full_name}</dd>
+          <dt>Workflow 路径</dt>
+          <dd>
+            <code>{rule.workflow_path}</code>
+          </dd>
+          <dt>可信分支</dt>
+          <dd>{rule.allowed_branches.join(", ") || "未配置"}</dd>
+          <dt>可信 Tag</dt>
+          <dd>{rule.allowed_tags.join(", ") || "未配置"}</dd>
+          <dt>文件匹配</dt>
+          <dd>{rule.asset_patterns.join(", ")}</dd>
+        </dl>
+        <p>
+          回调使用 Bearer CI 令牌；字段由 GitHub 上下文和 Release
+          上传结果生成，不接受任意下载 URL 或群 ID。
+        </p>
+        <pre tabIndex={0} aria-label="回调请求格式">
+          <code>
+            {JSON.stringify(
+              {
+                repository_id: rule.repository_id,
+                run_id: "GitHub run ID",
+                run_attempt: 1,
+                head_sha: "40 位提交 SHA",
+                release_id: "Release ID",
+                asset_ids: ["Asset ID"],
+              },
+              null,
+              2,
+            )}
+          </code>
+        </pre>
+      </Disclosure>
+    </>
+  );
+}
+
+export function ActionsDocumentationPage() {
+  const [params] = useSearchParams();
+  const ruleId = params.get("rule_id");
+  const path = `/api/v1/docs/github-actions${ruleId ? `?rule_id=${encodeURIComponent(ruleId)}` : ""}`;
+  const document = useQuery({
+    queryKey: ["actions-documentation", ruleId],
+    queryFn: async ({ signal }) => {
+      const response = await fetch(path, { signal });
+      if (!response.ok)
+        throw new Error("接入文档暂时无法读取，请检查规则 ID 或稍后重试。");
+      return response.text();
+    },
+    retry: false,
+  });
+  return (
+    <>
+      <Title description="可直接交给修改源仓库的 Agent；无需后台登录，不包含 CI Token。">
+        GitHub Actions 接入文档
+      </Title>
+      <div className="toolbar">
+        <a href={path}>打开 Markdown 原文</a>
+        <Copy
+          value={new URL(path, window.location.origin).href}
+          label="复制 Agent 文档链接"
+        />
+        {document.data && <Copy value={document.data} label="复制完整文档" />}
+      </div>
+      <ErrorBox error={document.error} />
+      {document.isPending && <Loading />}
+      {document.error && (
+        <Button type="button" onClick={() => void document.refetch()}>
+          重新加载
+        </Button>
+      )}
+      {document.data && (
+        <Panel>
+          <DocumentationArticle text={document.data} />
+        </Panel>
+      )}
+    </>
+  );
+}
+
+// Render only the small, maintained Markdown subset; never interpret raw HTML.
+function DocumentationArticle({ text }: { text: string }) {
+  const blocks = text.split(/(```[^\n]*\n[\s\S]*?```)/g).filter(Boolean);
+  return (
+    <article
+      className="integration-article"
+      aria-label="GitHub Actions 接入说明"
+    >
+      {blocks.map((block, i) => {
+        if (block.startsWith("```"))
+          return (
+            <pre tabIndex={0} key={i}>
+              <code>
+                {block.replace(/^```[^\n]*\n/, "").replace(/```$/, "")}
+              </code>
+            </pre>
+          );
+        return (
+          <div key={i}>
+            {block
+              .trim()
+              .split(/\n\n+/)
+              .filter(Boolean)
+              .map((paragraph, j) => {
+                if (paragraph.startsWith("# ")) return null;
+                if (paragraph.startsWith("## "))
+                  return <h2 key={j}>{paragraph.slice(3)}</h2>;
+                if (paragraph.startsWith("- "))
+                  return (
+                    <ul key={j}>
+                      {paragraph.split("\n").map((line, k) => (
+                        <li key={k}>{line.replace(/^- /, "")}</li>
+                      ))}
+                    </ul>
+                  );
+                if (/^1\. /.test(paragraph))
+                  return (
+                    <ol key={j}>
+                      {paragraph.split("\n").map((line, k) => (
+                        <li key={k}>{line.replace(/^\d+\. /, "")}</li>
+                      ))}
+                    </ol>
+                  );
+                return <p key={j}>{paragraph}</p>;
+              })}
+          </div>
+        );
+      })}
+    </article>
   );
 }

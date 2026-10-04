@@ -5,6 +5,7 @@ import {
   Children,
   isValidElement,
   useId,
+  useState,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type InputHTMLAttributes,
@@ -13,7 +14,6 @@ import {
 import Banner from "@douyinfe/semi-ui-19/lib/es/banner";
 import SemiButton from "@douyinfe/semi-ui-19/lib/es/button";
 import Card from "@douyinfe/semi-ui-19/lib/es/card";
-import Collapse from "@douyinfe/semi-ui-19/lib/es/collapse";
 import SemiInput from "@douyinfe/semi-ui-19/lib/es/input";
 import Tabs from "@douyinfe/semi-ui-19/lib/es/tabs";
 import Tag from "@douyinfe/semi-ui-19/lib/es/tag";
@@ -150,12 +150,32 @@ export function Disclosure({
   className?: string;
 }) {
   const id = useId();
+  const [open, setOpen] = useState(false);
   return (
-    <Collapse className={className} keepDOM>
-      <Collapse.Panel header={title} itemKey={id}>
+    <div className={`disclosure ${className ?? ""}`}>
+      <SemiButton
+        id={`${id}-trigger`}
+        htmlType="button"
+        type="tertiary"
+        theme="borderless"
+        className="disclosure-trigger"
+        aria-expanded={open}
+        aria-controls={`${id}-content`}
+        onClick={() => setOpen(!open)}
+      >
+        <span>{title}</span>
+        <span aria-hidden>{open ? "−" : "+"}</span>
+      </SemiButton>
+      <div
+        id={`${id}-content`}
+        hidden={!open}
+        role="region"
+        aria-labelledby={`${id}-trigger`}
+        className="disclosure-content"
+      >
         {children}
-      </Collapse.Panel>
-    </Collapse>
+      </div>
+    </div>
   );
 }
 

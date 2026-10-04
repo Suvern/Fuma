@@ -1,3 +1,4 @@
+import { Select, DateInput, TextArea } from "../../shared/ui/FormControls";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
@@ -101,14 +102,28 @@ export function PackagesPage() {
         安装包
       </Title>
       <PageTabs />
-      <Uploader appId={id} uploads={uploads.data?.items ?? []} />
+      <Uploader
+        appId={id}
+        uploads={uploads.data?.items ?? []}
+        loading={uploads.isPending}
+        failed={uploads.isError}
+      />
       <Pager data={uploads.data} page={uploadPage} setPage={setUploadPage} />
       <ErrorBox error={uploads.error} />
+      {uploads.isError && (
+        <Button
+          type="button"
+          disabled={uploads.isFetching}
+          onClick={() => void uploads.refetch()}
+        >
+          重试加载上传记录
+        </Button>
+      )}
       {filters.search}
-      <div className="toolbar">
-        <label>
-          平台
-          <select
+      <div className="toolbar package-filters">
+        <div className="field">
+          <Select
+            label="平台"
             value={platformFilter}
             onChange={(e) => {
               setPlatformFilter(e.target.value);
@@ -118,11 +133,11 @@ export function PackagesPage() {
             <option value="">全部平台</option>
             <option value="android">Android</option>
             <option value="ios">iOS</option>
-          </select>
-        </label>
-        <label>
-          模式
-          <select
+          </Select>
+        </div>
+        <div className="field">
+          <Select
+            label="模式"
             value={modeFilter}
             onChange={(e) => {
               setModeFilter(e.target.value);
@@ -132,11 +147,11 @@ export function PackagesPage() {
             <option value="">全部模式</option>
             <option value="debug">Debug</option>
             <option value="release">Release</option>
-          </select>
-        </label>
-        <label>
-          状态
-          <select
+          </Select>
+        </div>
+        <div className="field">
+          <Select
+            label="状态"
             value={stateFilter}
             onChange={(e) => {
               setStateFilter(e.target.value);
@@ -148,11 +163,11 @@ export function PackagesPage() {
             <option value="ready">已入库</option>
             <option value="deleting">清理中</option>
             <option value="deleted">已删除</option>
-          </select>
-        </label>
-        <label>
-          来源
-          <select
+          </Select>
+        </div>
+        <div className="field">
+          <Select
+            label="来源"
             value={sourceFilter}
             onChange={(e) => {
               setSourceFilter(e.target.value);
@@ -162,11 +177,11 @@ export function PackagesPage() {
             <option value="">全部来源</option>
             <option value="upload">手工上传</option>
             <option value="github">GitHub</option>
-          </select>
-        </label>
-        <label>
-          入库起始时间（本地时间，含）
-          <input
+          </Select>
+        </div>
+        <div className="field date-filter">
+          <DateInput
+            label="入库起始时间（本地时间，含）"
             type="datetime-local"
             value={createdFrom}
             onChange={(e) => {
@@ -174,10 +189,10 @@ export function PackagesPage() {
               filters.setPage(1);
             }}
           />
-        </label>
-        <label>
-          入库结束时间（本地时间，不含）
-          <input
+        </div>
+        <div className="field date-filter">
+          <DateInput
+            label="入库结束时间（本地时间，不含）"
             type="datetime-local"
             value={createdBefore}
             min={createdFrom || undefined}
@@ -186,7 +201,7 @@ export function PackagesPage() {
               filters.setPage(1);
             }}
           />
-        </label>
+        </div>
         <Button
           type="button"
           onClick={() => {
@@ -204,9 +219,28 @@ export function PackagesPage() {
       </div>
       {invalidRange && <p role="alert">入库起始时间必须早于结束时间。</p>}
       <ErrorBox error={packages.error} />
+      {packages.isError && (
+        <Button
+          type="button"
+          disabled={packages.isFetching || invalidRange}
+          onClick={() => void packages.refetch()}
+        >
+          重试加载安装包
+        </Button>
+      )}
       {packages.isPending && !invalidRange && <Loading />}
       {packages.data && !packages.data.items.length && (
-        <Empty>暂无已入库安装包。上传后请等待解析任务完成。</Empty>
+        <Empty>
+          {filters.q ||
+          platformFilter ||
+          modeFilter ||
+          stateFilter ||
+          sourceFilter ||
+          createdFrom ||
+          createdBefore
+            ? "没有匹配的安装包，请调整条件或清空筛选。"
+            : "暂无已入库安装包。点击上传安装包开始，完成后请等待解析任务。"}
+        </Empty>
       )}
       <div className="card-grid">
         {packages.data?.items.map((p) => (
@@ -312,11 +346,17 @@ function PackageReferences({ id }: { id: string }) {
 function Uploader({
   appId,
   uploads,
+  loading,
+  failed,
 }: {
   appId: string;
   uploads: DTO<"UploadSession">[];
+  loading: boolean;
+  failed: boolean;
 }) {
   const [file, setFile] = useState<File>();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const [platform, setPlatform] = useState<"android" | "ios">("android");
   const [mode, setMode] = useState<"debug" | "release">("debug");
   const [storage, setStorage] = useState("default");
@@ -462,91 +502,123 @@ function Uploader({
   }
   return (
     <Panel>
-      <h2>上传安装包</h2>
-      <p>
-        单文件最多 4 GiB，16 MiB
-        分片。刷新后重新选择原文件可续传；必须先在应用设置配置对应平台和模式的包标识。
-      </p>
-      <fieldset disabled={busy} style={{ border: 0, padding: 0, minWidth: 0 }}>
-        <label>
-          平台
-          <select
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value as "android" | "ios")}
-            disabled={!!resume}
-          >
-            <option value="android">Android APK</option>
-            <option value="ios">iOS IPA</option>
-          </select>
-        </label>
-        <label>
-          模式
-          <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as "debug" | "release")}
-            disabled={!!resume}
-          >
-            <option value="debug">Debug</option>
-            <option value="release">Release</option>
-          </select>
-        </label>
-        <label>
-          选择安装包
-          <input
-            type="file"
-            accept={platform === "android" ? ".apk" : ".ipa"}
-            onChange={(e) => setFile(e.target.files?.[0])}
-          />
-        </label>
-        <StorageChoice
-          appId={appId}
-          mode="private"
-          value={storage}
-          onChange={setStorage}
-          disabled={!!resume}
-        />
-      </fieldset>
-      {resume && (
-        <p>
-          续传会话：{resume.file_name} · {resume.id}
-        </p>
-      )}
-      {failure && <p role="alert">{failure}</p>}
-      {message && <Notice>{message}</Notice>}
-      {busy && (
-        <>
-          <progress max={100} value={progress} aria-label="上传进度" />
-          <p>{progress}%</p>
-        </>
-      )}
-      <div className="toolbar">
+      <div className="section-heading">
+        <h2>上传与处理记录</h2>
         <Button
           type="button"
-          className="primary"
-          disabled={busy || !file}
-          onClick={() => void upload()}
+          className={expanded ? "" : "primary"}
+          disabled={busy}
+          aria-expanded={expanded}
+          aria-controls="package-upload-form"
+          onClick={() => setExpanded(!expanded)}
         >
-          {resume ? "继续上传" : "开始上传"}
+          {expanded ? "收起上传表单" : "上传安装包"}
         </Button>
-        {busy && (
-          <Button type="button" onClick={() => abort.current?.abort()}>
-            暂停上传
-          </Button>
-        )}
-        {resume && !busy && (
-          <Button
-            type="button"
-            onClick={() => {
-              setResume(undefined);
-              setFile(undefined);
-            }}
-          >
-            新建上传
-          </Button>
-        )}
       </div>
+      {expanded && (
+        <div id="package-upload-form">
+          <p>
+            单文件最多 4 GiB，16 MiB
+            分片。刷新后重新选择原文件可续传；必须先在应用设置配置对应平台和模式的包标识。
+          </p>
+          <fieldset
+            disabled={busy}
+            style={{ border: 0, padding: 0, minWidth: 0 }}
+          >
+            <div className="field">
+              <Select
+                label="平台"
+                value={platform}
+                onChange={(e) =>
+                  setPlatform(e.target.value as "android" | "ios")
+                }
+                disabled={!!resume}
+              >
+                <option value="android">Android APK</option>
+                <option value="ios">iOS IPA</option>
+              </Select>
+            </div>
+            <div className="field">
+              <Select
+                label="模式"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as "debug" | "release")}
+                disabled={!!resume}
+              >
+                <option value="debug">Debug</option>
+                <option value="release">Release</option>
+              </Select>
+            </div>
+            <label>
+              选择安装包
+              <input
+                ref={fileInput}
+                className="form-control-proxy"
+                aria-label="选择安装包"
+                type="file"
+                accept={platform === "android" ? ".apk" : ".ipa"}
+                onChange={(e) => setFile(e.target.files?.[0])}
+              />
+              <Button type="button" onClick={() => fileInput.current?.click()}>
+                选择 {platform === "android" ? "APK" : "IPA"} 文件
+              </Button>
+              <span>{file?.name ?? "尚未选择文件"}</span>
+            </label>
+            <StorageChoice
+              appId={appId}
+              mode="private"
+              value={storage}
+              onChange={setStorage}
+              disabled={!!resume}
+            />
+          </fieldset>
+          {resume && (
+            <p>
+              续传会话：{resume.file_name} · {resume.id}
+            </p>
+          )}
+          {failure && <p role="alert">{failure}</p>}
+          {message && <Notice>{message}</Notice>}
+          {busy && (
+            <>
+              <progress max={100} value={progress} aria-label="上传进度" />
+              <p>{progress}%</p>
+            </>
+          )}
+          <div className="toolbar">
+            <Button
+              type="button"
+              className="primary"
+              disabled={busy || !file}
+              onClick={() => void upload()}
+            >
+              {resume ? "继续上传" : "开始上传"}
+            </Button>
+            {busy && (
+              <Button type="button" onClick={() => abort.current?.abort()}>
+                暂停上传
+              </Button>
+            )}
+            {resume && !busy && (
+              <Button
+                type="button"
+                onClick={() => {
+                  setResume(undefined);
+                  setFile(undefined);
+                }}
+              >
+                新建上传
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
       {cmd.feedback}
       <h3>最近上传</h3>
+      {loading && <Loading />}
+      {!loading && !failed && !uploads.length && (
+        <p className="muted">暂无上传记录。</p>
+      )}
       {uploads.map((u) => (
         <div key={u.id} className="panel">
           <p>
@@ -562,6 +634,7 @@ function Uploader({
               type="button"
               disabled={busy}
               onClick={() => {
+                setExpanded(true);
                 setResume(u);
                 setPlatform(u.platform);
                 setMode(u.mode);
@@ -619,6 +692,7 @@ function Uploader({
 export function VersionsPage() {
   const { id = "" } = useParams();
   const cmd = useCommand();
+  const [creating, setCreating] = useState(false);
   const filters = useFilters("搜索版本名称…");
   const versions = useQuery({
     queryKey: ["versions", id, filters.page, filters.q],
@@ -635,51 +709,79 @@ export function VersionsPage() {
       </Title>
       <PageTabs />
       {cmd.feedback}
-      <Panel>
-        <h2>新建版本</h2>
-        <Form
-          submit={(f) =>
-            void cmd.run(
-              `create-version-${id}-${JSON.stringify(Object.fromEntries(f))}`,
-              (key) =>
-                write(
-                  "/api/v1/apps/{id}/versions",
-                  "post",
-                  {
-                    display_name: text(f, "display_name"),
-                    mode: text(f, "mode") as "debug" | "release",
-                    release_notes: text(f, "release_notes"),
-                  },
-                  { id, key },
-                ),
-            )
-          }
-        >
-          <Field
-            name="display_name"
-            label="版本名称"
-            required
-            maxLength={100}
-          />
-          <label>
-            模式
-            <select name="mode">
-              <option value="debug">Debug</option>
-              <option value="release">Release</option>
-            </select>
-          </label>
-          <label>
-            发布说明
-            <textarea name="release_notes" maxLength={10000} />
-          </label>
-          <Button disabled={cmd.pending}>创建版本草稿</Button>
-        </Form>
-      </Panel>
+      <Button
+        type="button"
+        className="primary"
+        aria-expanded={creating}
+        aria-controls="version-create-form"
+        onClick={() => setCreating(!creating)}
+        disabled={cmd.pending}
+      >
+        {creating ? "取消新建版本" : "新建版本"}
+      </Button>
+      {creating && (
+        <Panel id="version-create-form">
+          <h2>新建版本</h2>
+          <Form
+            submit={(f) =>
+              void cmd.run(
+                `create-version-${id}-${JSON.stringify(Object.fromEntries(f))}`,
+                (key) =>
+                  write(
+                    "/api/v1/apps/{id}/versions",
+                    "post",
+                    {
+                      display_name: text(f, "display_name"),
+                      mode: text(f, "mode") as "debug" | "release",
+                      release_notes: text(f, "release_notes"),
+                    },
+                    { id, key },
+                  ),
+                () => setCreating(false),
+                "版本草稿已创建，请在列表中打开并选择安装包发布。",
+              )
+            }
+          >
+            <Field
+              name="display_name"
+              label="版本名称"
+              required
+              maxLength={100}
+            />
+            <div className="field">
+              <Select label="模式" name="mode">
+                <option value="debug">Debug</option>
+                <option value="release">Release</option>
+              </Select>
+            </div>
+            <label>
+              发布说明
+              <TextArea name="release_notes" maxLength={10000} />
+            </label>
+            <Button className="primary" disabled={cmd.pending}>
+              创建版本草稿
+            </Button>
+          </Form>
+        </Panel>
+      )}
       {filters.search}
       <ErrorBox error={versions.error} />
+      {versions.isError && (
+        <Button
+          type="button"
+          disabled={versions.isFetching}
+          onClick={() => void versions.refetch()}
+        >
+          重试加载版本
+        </Button>
+      )}
       {versions.isPending && <Loading />}
       {versions.data && !versions.data.items.length && (
-        <Empty>暂无版本。</Empty>
+        <Empty>
+          {filters.q
+            ? "没有匹配的版本，请调整搜索条件。"
+            : "暂无版本，点击新建版本组织已入库安装包。"}
+        </Empty>
       )}
       {versions.data?.items.map((v) => (
         <Panel key={v.id}>
@@ -776,7 +878,7 @@ function VersionEditor({ version: v }: { version: DTO<"VersionInfo"> }) {
           />
           <label>
             发布说明
-            <textarea
+            <TextArea
               name="release_notes"
               defaultValue={v.release_notes}
               maxLength={10000}
@@ -791,9 +893,9 @@ function VersionEditor({ version: v }: { version: DTO<"VersionInfo"> }) {
           发布后文件集合永久冻结。替换安装包请创建新修订。Debug
           始终受限，Release 可明确选择公开副本。
         </p>
-        <label>
-          目标平台
-          <select
+        <div className="field">
+          <Select
+            label="目标平台"
             value={platform}
             onChange={(e) => {
               setPlatform(e.target.value as "android" | "ios");
@@ -802,8 +904,8 @@ function VersionEditor({ version: v }: { version: DTO<"VersionInfo"> }) {
           >
             <option value="android">Android</option>
             <option value="ios">iOS</option>
-          </select>
-        </label>
+          </Select>
+        </div>
         {v.mode === "release" && (
           <StorageChoice
             appId={v.app_id}
@@ -1028,9 +1130,9 @@ export function PublishedReleasesPage() {
       <p>
         <Link to="/login?return_to=%2Freleases">登录飞书查看受限版本</Link>
       </p>
-      <label>
-        平台
-        <select
+      <div className="field">
+        <Select
+          label="平台"
           value={platform}
           onChange={(e) => {
             setPlatform(e.target.value);
@@ -1040,8 +1142,8 @@ export function PublishedReleasesPage() {
           <option value="">全部平台</option>
           <option value="android">Android</option>
           <option value="ios">iOS</option>
-        </select>
-      </label>
+        </Select>
+      </div>
       <Form
         submit={() => {
           setNames(nameDraft);

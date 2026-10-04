@@ -1,11 +1,14 @@
+import { DateInput } from "../../shared/ui/FormControls";
 import { Metric } from "../../shared/ui/controls";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import Table from "@douyinfe/semi-ui-19/lib/es/table";
 import Progress from "@douyinfe/semi-ui-19/lib/es/progress";
+import Typography from "@douyinfe/semi-ui-19/lib/es/typography";
 import { Panel, Notice, Button } from "../../shared/ui/controls";
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useParams, useSearchParams } from "react-router";
+import "./operations.css";
 import { read, write, type DTO } from "../../shared/api/http";
 import {
   Check,
@@ -27,16 +30,42 @@ import {
 } from "../../shared/ui/common";
 export { Component as SystemPage } from "../system/pages/AdminHomePage";
 export function TasksPage() {
-  const filters = useFilters("搜索任务类型或资源标识…");
-  const [state, setState] = useState("");
-  const [kind, setKind] = useState<DTO<"Task">["kind"] | "">("");
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const page = Math.max(1, Number(params.get("page")) || 1);
+  const query = params.get("q") ?? "";
+  const [draft, setDraft] = useState(query);
+  const state = params.get("state") ?? "";
+  const kind = params.get("kind") ?? "";
+  const category = ["business", "system", "all"].includes(
+    params.get("category") ?? "",
+  )
+    ? params.get("category")!
+    : "business";
+  function update(values: Record<string, string>) {
+    setParams((old) => {
+      const next = new URLSearchParams(old);
+      next.delete("page");
+      for (const [key, value] of Object.entries(values)) {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      return next;
+    });
+  }
+  const filtered = Boolean(query || state || kind);
+  const filters = {
+    page,
+    setPage: (value: number) => update({ page: String(value) }),
+  };
   const q = useQuery({
-    queryKey: ["tasks", filters.page, filters.q, state, kind],
+    queryKey: ["tasks", page, query, state, kind, category],
     queryFn: () =>
       read("/api/v1/tasks", {
         query: {
-          page: filters.page,
-          q: filters.q,
+          page,
+          q: query,
+          category,
           ...(state ? { state } : {}),
           ...(kind ? { kind } : {}),
         },
@@ -45,15 +74,50 @@ export function TasksPage() {
   });
   return (
     <>
-      <Title>任务中心</Title>
+      <Title description="默认查看上传、构建、分发等业务任务；例行同步与清理保留在系统维护中。">
+        任务中心
+      </Title>
+      <div className="task-categories" role="group" aria-label="任务分组">
+        {(
+          [
+            ["business", "业务任务"],
+            ["system", "系统维护"],
+            ["all", "全部任务"],
+          ] as const
+        ).map(([value, label]) => (
+          <Button
+            key={value}
+            type="button"
+            aria-pressed={category === value}
+            onClick={() => update({ category: value })}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
       <div className="toolbar">
-        {filters.search}
+        <form
+          role="search"
+          className="search task-search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            update({ q: draft });
+          }}
+        >
+          <Field
+            label="搜索应用、任务类型或资源标识"
+            name="q"
+            type="search"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <Button>搜索</Button>
+        </form>
         <StateFilter
           label="任务类型"
           value={kind}
           onChange={(value) => {
-            setKind(value as DTO<"Task">["kind"] | "");
-            filters.setPage(1);
+            update({ kind: value });
           }}
           values={[
             "release_sync",
@@ -69,13 +133,12 @@ export function TasksPage() {
             "publication_access",
           ]}
         />
-        {(filters.q || state || kind) && (
+        {filtered && (
           <Button
             type="button"
             onClick={() => {
-              filters.reset();
-              setState("");
-              setKind("");
+              setDraft("");
+              update({ q: "", state: "", kind: "" });
             }}
           >
             清空筛选
@@ -84,8 +147,7 @@ export function TasksPage() {
         <StateFilter
           value={state}
           onChange={(value) => {
-            setState(value);
-            filters.setPage(1);
+            update({ state: value });
           }}
           values={[
             "queued",
@@ -100,7 +162,7 @@ export function TasksPage() {
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
       <Table
-        className="data-table"
+        className="data-table task-table"
         rowKey="id"
         pagination={false}
         dataSource={q.data?.items ?? []}
@@ -109,10 +171,8 @@ export function TasksPage() {
           q.isPending || q.error ? (
             <span />
           ) : (
-            <Empty
-              title={filters.q || state || kind ? "没有匹配的任务" : "暂无任务"}
-            >
-              {filters.q || state || kind
+            <Empty title={filtered ? "没有匹配的任务" : "暂无任务"}>
+              {filtered
                 ? "请修改搜索条件，或清空筛选后重试。"
                 : "执行同步、缓存或通知操作后，可在这里跟踪任务。"}
             </Empty>
@@ -123,15 +183,25 @@ export function TasksPage() {
           {
             title: "任务",
             render: (_, task) => (
-              <Link to={`/admin/tasks/${task.id}`}>
-                {labels[task.kind] ?? task.kind}
-              </Link>
+              <div className="task-copy">
+                <Link
+                  to={`/admin/tasks/${task.id}`}
+                  state={{ returnTo: location.pathname + location.search }}
+                >
+                  {labels[task.kind] ?? task.kind}
+                </Link>
+                <small>
+                  {task.app_name ??
+                    (task.category === "system" ? "系统维护" : "全局任务")}
+                  {task.resource_name ? ` · ${task.resource_name}` : ""}
+                </small>
+              </div>
             ),
           },
           {
-            title: "执行阶段",
-            dataIndex: "phase",
-            render: (value) => labels[value] ?? value,
+            title: "进展 / 结果",
+            render: (_, task) =>
+              task.result_summary ?? labels[task.phase] ?? task.phase,
           },
           {
             title: "状态",
@@ -154,6 +224,13 @@ export function TasksPage() {
 }
 export function TaskPage() {
   const { id = "" } = useParams();
+  const location = useLocation();
+  const proposedReturn = (location.state as { returnTo?: string } | null)
+    ?.returnTo;
+  const returnTo =
+    proposedReturn && /^\/admin\/tasks(?:\?|$)/.test(proposedReturn)
+      ? proposedReturn
+      : "/admin/tasks";
   const q = useQuery({
     queryKey: ["task", id],
     queryFn: () => read("/api/v1/tasks/{id}", { id }),
@@ -169,36 +246,26 @@ export function TaskPage() {
   return (
     <>
       <Title>{`任务：${labels[t.kind] ?? t.kind}`}</Title>
-      <Link to="/admin/tasks">← 所有任务</Link>
-      {t.kind === "package_ingest" && t.app_id && (
-        <p>
-          <Link to={`/admin/apps/${t.app_id}/packages`}>
-            返回安装包页查看结果或重试入库
-          </Link>
-        </p>
-      )}
-      {t.kind === "storage_probe" && (
-        <p>
-          <Link to="/admin/settings/storage">返回对象存储页重试连接测试</Link>
-        </p>
-      )}
-      {t.kind === "publication_access" && t.app_id && (
-        <p>
-          <Link to={`/admin/apps/${t.app_id}/versions`}>
-            返回版本页处理发布或访问收回
-          </Link>
-        </p>
-      )}
+      <Link to={returnTo}>← 返回任务列表</Link>
+      <nav className="task-links" aria-label="任务关联对象">
+        {t.app_id && t.app_name && (
+          <Link to={`/admin/apps/${t.app_id}`}>{t.app_name}</Link>
+        )}
+        {t.resource_url && (
+          <Link to={t.resource_url}>查看{t.resource_name ?? "业务结果"}</Link>
+        )}
+      </nav>
       {cmd.feedback}
       <Panel className="panel">
         <Status value={t.state} />
-        <h2>{labels[t.phase] ?? (t.phase || "等待执行")}</h2>
+        <h2>{t.result_summary ? "处理结果" : "执行进展"}</h2>
+        <p>{t.result_summary ?? labels[t.phase] ?? (t.phase || "等待执行")}</p>
         {t.progress !== null && (
           <Progress aria-label="任务进度" percent={t.progress} showInfo />
         )}
         <dl>
-          <dt>任务 ID</dt>
-          <dd className="mono">{t.id}</dd>
+          <dt>创建时间</dt>
+          <dd>{date(t.created_at)}</dd>
           <dt>尝试次数</dt>
           <dd>{t.attempts}</dd>
           <dt>最近更新</dt>
@@ -206,6 +273,23 @@ export function TaskPage() {
           <dt>下次检查</dt>
           <dd>{date(t.next_check_at)}</dd>
         </dl>
+        <details className="task-technical">
+          <summary>技术信息</summary>
+          <dl>
+            <dt>任务 ID</dt>
+            <dd className="mono">
+              <Typography.Text copyable>{t.id}</Typography.Text>
+            </dd>
+            {t.resource_id && (
+              <>
+                <dt>对象 ID</dt>
+                <dd className="mono">
+                  <Typography.Text copyable>{t.resource_id}</Typography.Text>
+                </dd>
+              </>
+            )}
+          </dl>
+        </details>
         {t.error_message && (
           <Notice className="notice error">
             {t.error_code}：{t.error_message}
@@ -306,7 +390,7 @@ export function NotificationsPage() {
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
       <Table
-        className="data-table"
+        className="data-table operations-table"
         rowKey="id"
         pagination={false}
         dataSource={q.data?.items ?? []}
@@ -421,14 +505,26 @@ export function NotificationPage() {
           <p className="eyebrow">通知卡片内容</p>
           <h2>{d.card.title}</h2>
           <p>{d.card.summary}</p>
-          <p>
-            {d.card.app_name} · Debug · {d.card.version_label}
-          </p>
-          <ul>
-            {d.card.file_names.map((name, i) => (
-              <li key={`${name}-${i}`}>{name}</li>
-            ))}
-          </ul>
+          {d.kind === "test" ? (
+            <p>连接测试通知</p>
+          ) : (
+            <>
+              {(d.card.app_name || d.card.version_label) && (
+                <p>
+                  {[d.card.app_name, "Debug", d.card.version_label]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+              {d.card.file_names.length > 0 && (
+                <ul>
+                  {d.card.file_names.map((name, i) => (
+                    <li key={`${name}-${i}`}>{name}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
           <Status value={d.card.result} />
           {d.card.page_url && (
             <p>
@@ -474,7 +570,7 @@ export function AuditPage() {
             filters.setPage(1);
           }}
         />
-        <Field
+        <DateInput
           label="开始时间"
           name="since"
           type="datetime-local"
@@ -484,7 +580,7 @@ export function AuditPage() {
             filters.setPage(1);
           }}
         />
-        <Field
+        <DateInput
           label="结束时间"
           name="until"
           type="datetime-local"

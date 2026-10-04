@@ -1090,6 +1090,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/docs/github-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public GitHub Actions integration Markdown */
+        get: operations["get_github_actions_document"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/downloads/{opaque_token}": {
         parameters: {
             query?: never;
@@ -1810,7 +1827,7 @@ export interface paths {
         };
         /**
          * list tasks
-         * @description 按任务中文显示名称、内部类型或资源标识搜索，可组合类型和状态筛选。
+         * @description 按应用名、任务中文名称、目标名称或资源标识搜索；应用授权过滤先于搜索与计数。category默认all兼容既有客户端。
          */
         get: operations["list_tasks"];
         put?: never;
@@ -3113,8 +3130,15 @@ export interface components {
         /** @description Worker retry_wait and waiting_external map to queued plus next_check_at; recovering maps to queued until reclaimed. phase describes waiting_run/recovery explicitly; queued is not active execution. */
         Task: {
             app_id: string | null;
+            /** @default null */
+            app_name: string | null;
             attempts: number;
             can_retry: boolean;
+            /**
+             * @default business
+             * @enum {string}
+             */
+            category: "business" | "system";
             /** Format: date-time */
             created_at: string;
             error_code: string | null;
@@ -3127,6 +3151,18 @@ export interface components {
             phase: string;
             progress: number | null;
             resource_id: string | null;
+            /** @default null */
+            resource_name: string | null;
+            /**
+             * @description Server-generated relative management link, only for the task's own scope.
+             * @default null
+             */
+            resource_url: string | null;
+            /**
+             * @description Safe result text built from whitelisted counters; raw task payload is never exposed.
+             * @default null
+             */
+            result_summary: string | null;
             /** @enum {string} */
             state: "queued" | "running" | "succeeded" | "partial_success" | "failed" | "unknown";
             /** Format: date-time */
@@ -9190,6 +9226,37 @@ export interface operations {
             };
         };
     };
+    get_github_actions_document: {
+        parameters: {
+            query?: {
+                rule_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Generic integration instructions with an optional caller-supplied callback UUID */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": string;
+                };
+            };
+            /** @description Invalid UUID */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_download: {
         parameters: {
             query?: never;
@@ -12531,12 +12598,13 @@ export interface operations {
     list_tasks: {
         parameters: {
             query?: {
+                category?: "all" | "business" | "system";
                 page?: components["parameters"]["Page"];
                 page_size?: components["parameters"]["PageSize"];
                 q?: components["parameters"]["Query"];
                 state?: "queued" | "running" | "succeeded" | "partial_success" | "failed" | "unknown";
                 app_id?: string;
-                kind?: "release_sync" | "release_import" | "chat_sync" | "cache_download" | "build_event" | "notification" | "cache_cleanup";
+                kind?: "release_sync" | "release_import" | "chat_sync" | "cache_download" | "build_event" | "notification" | "cache_cleanup" | "package_ingest" | "package_delete" | "storage_probe" | "publication_access";
             };
             header?: never;
             path?: never;

@@ -8,6 +8,27 @@ info:
 servers:
 - url: /
 paths:
+  /api/v1/docs/github-actions:
+    get:
+      operationId: get_github_actions_document
+      summary: Public GitHub Actions integration Markdown
+      x-access: public
+      parameters:
+      - name: rule_id
+        in: query
+        required: false
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Generic integration instructions with an optional caller-supplied callback UUID
+          content:
+            text/markdown:
+              schema: {type: string}
+        '422':
+          description: Invalid UUID
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
   /api/v1/apps/{id}/available-storage:
     get:
       operationId: list_available_storage
@@ -4577,7 +4598,7 @@ paths:
       tags:
       - tasks
       summary: list tasks
-      description: 按任务中文显示名称、内部类型或资源标识搜索，可组合类型和状态筛选。
+      description: 按应用名、任务中文名称、目标名称或资源标识搜索；应用授权过滤先于搜索与计数。category默认all兼容既有客户端。
       security:
       - SessionCookie: []
       responses:
@@ -4637,6 +4658,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       x-access: app-manager
       parameters:
+      - name: category
+        in: query
+        schema:
+          type: string
+          enum: [all, business, system]
+          default: all
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
       - $ref: '#/components/parameters/Query'
@@ -4658,7 +4685,7 @@ paths:
         in: query
         schema:
           type: string
-          enum: [release_sync, release_import, chat_sync, cache_download, build_event, notification, cache_cleanup]
+          enum: [release_sync, release_import, chat_sync, cache_download, build_event, notification, cache_cleanup, package_ingest, package_delete, storage_probe, publication_access]
   /api/v1/tasks/{id}:
     get:
       operationId: get_task
@@ -10444,6 +10471,24 @@ components:
       type: object
       additionalProperties: false
       properties:
+        category:
+          type: string
+          enum: [business, system]
+          default: business
+        app_name:
+          anyOf: [{type: string}, {type: 'null'}]
+          default: null
+        resource_name:
+          anyOf: [{type: string}, {type: 'null'}]
+          default: null
+        resource_url:
+          description: Server-generated relative management link, only for the task's own scope.
+          anyOf: [{type: string}, {type: 'null'}]
+          default: null
+        result_summary:
+          description: Safe result text built from whitelisted counters; raw task payload is never exposed.
+          anyOf: [{type: string, maxLength: 500}, {type: 'null'}]
+          default: null
         id:
           type: string
           format: uuid

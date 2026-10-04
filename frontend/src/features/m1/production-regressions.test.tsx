@@ -160,13 +160,13 @@ it("distinguishes no data from no matches and resets both the query and search f
   mount(<TasksPage />);
   expect(await screen.findByText("暂无任务")).toBeTruthy();
   const search = screen.getByRole("searchbox", {
-    name: "搜索任务类型或资源标识",
+    name: "搜索应用、任务类型或资源标识",
   });
   fireEvent.change(search, { target: { value: "缓存清理" } });
   fireEvent.click(screen.getByRole("button", { name: "搜索" }));
   expect(await screen.findByText("没有匹配的任务")).toBeTruthy();
   expect(read).toHaveBeenCalledWith("/api/v1/tasks", {
-    query: { page: 1, q: "缓存清理" },
+    query: { page: 1, q: "缓存清理", category: "business" },
   });
   fireEvent.click(screen.getByRole("button", { name: "清空筛选" }));
   expect(await screen.findByText("暂无任务")).toBeTruthy();

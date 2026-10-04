@@ -1,3 +1,4 @@
+import { TextArea } from "../../shared/ui/FormControls";
 import {
   Disclosure,
   Badge,
@@ -759,7 +760,7 @@ function GitHubAppSetup({ connector }: { connector?: DTO<"Connector"> }) {
           )}
           <label>
             RSA 私钥 PEM
-            <textarea
+            <TextArea
               name="private_key"
               autoComplete="off"
               spellCheck={false}

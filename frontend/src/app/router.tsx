@@ -10,6 +10,13 @@ export const router = createBrowserRouter([
     HydrateFallback: RouteLoading,
     children: [
       {
+        path: "docs/github-actions",
+        lazy: async () => ({
+          Component: (await import("../features/m1/ActionsGuide"))
+            .ActionsDocumentationPage,
+        }),
+      },
+      {
         index: true,
         lazy: async () => ({
           Component: (await import("../features/m1/Debug")).CatalogPage,

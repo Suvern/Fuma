@@ -255,6 +255,15 @@ def sync_releases(db: Session, app_id: UUID | str, settings: Settings) -> None:
         get_github_client(db, binding["connector_id"], settings).close()
         state.releases = snapshot
         state.state, state.error_code, state.synced_at = "ready", None, utcnow()
+        task = db.info.get("active_task")
+        if task is not None and task.kind == "release_sync" and task.app_id == app.id:
+            task.payload = {
+                **task.payload,
+                "result": {
+                    "release_count": len(snapshot),
+                    "asset_count": sum(len(release["assets"]) for release in snapshot),
+                },
+            }
         db.commit()
     except AppError as exc:
         db.rollback()

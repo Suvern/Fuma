@@ -49,6 +49,8 @@ it("retains an upload intent key after an ambiguous create failure", async () =>
     "/admin/apps/:id/packages",
   );
   const file = new File(["fixture"], "test.apk");
+  expect(screen.queryByRole("button", { name: "开始上传" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "上传安装包" }));
   fireEvent.change(screen.getByLabelText("选择安装包"), {
     target: { files: [file] },
   });
@@ -150,7 +152,9 @@ it("refreshes the package list when a polled upload becomes ready", async () => 
     "/admin/apps/app/packages",
     "/admin/apps/:id/packages",
   );
-  await screen.findByText("暂无已入库安装包。上传后请等待解析任务完成。");
+  await screen.findByText(
+    "暂无已入库安装包。点击上传安装包开始，完成后请等待解析任务。",
+  );
   ready = true;
   await act(async () => {
     client.setQueryData(["library-uploads", "app", 1], {

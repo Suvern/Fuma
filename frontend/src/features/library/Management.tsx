@@ -1,3 +1,4 @@
+import { TextArea } from "../../shared/ui/FormControls";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
@@ -37,7 +38,7 @@ export function PackageManagement({
       >
         <label>
           内部备注（下载页不可见）
-          <textarea
+          <TextArea
             name="internal_notes"
             defaultValue={p.internal_notes}
             maxLength={2000}

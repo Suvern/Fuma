@@ -462,6 +462,128 @@ fieldset > small {
 .data-table .semi-table {
   font-size: 14px;
 }
+.data-table table {
+  min-width: 100%;
+}
+.filter-field {
+  display: grid;
+  gap: 8px;
+}
+.package-filters {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: end;
+}
+.package-filters > .field { grid-column: span 3; min-width: 0; }
+.package-filters > .date-filter { grid-column: span 5; }
+.package-filters > button { grid-column: span 2; }
+@media (max-width: 1100px) {
+  .package-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .package-filters > .field { grid-column: span 1; }
+  .package-filters > .date-filter { grid-column: span 2; }
+}
+.file-control-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.disclosure {
+  margin-block: 16px;
+  border-bottom: 1px solid var(--semi-color-border);
+}
+.disclosure-trigger.semi-button {
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  padding: 12px 16px;
+}
+.disclosure-trigger .semi-button-content {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  white-space: normal;
+  text-align: start;
+}
+.disclosure-content {
+  padding: 16px;
+}
+.disclosure-content[hidden] {
+  display: none;
+}
+.workspace-dialog.semi-modal,
+.workspace-dialog .semi-modal {
+  margin: 24px auto;
+  top: 0;
+}
+.workspace-dialog .semi-modal-content {
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+.workspace-dialog .semi-modal-body {
+  overflow-y: auto;
+  min-height: 0;
+}
+.workspace-dialog .form-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--semi-color-bg-2);
+  padding-block: 16px;
+  z-index: 2;
+  border-top: 1px solid var(--semi-color-border);
+}
+.build-timeline {
+  list-style: none;
+  margin: 24px 0;
+  padding-inline-start: 24px;
+  border-inline-start: 2px solid var(--semi-color-border);
+}
+.build-timeline .stage {
+  position: relative;
+}
+.build-timeline .stage::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -31px;
+  top: 25px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--semi-color-text-2);
+}
+.build-timeline .stage-running::before {
+  background: var(--semi-color-primary);
+}
+.build-timeline .stage-succeeded::before {
+  background: var(--semi-color-success);
+}
+.build-timeline .stage-failed::before {
+  background: var(--semi-color-danger);
+}
+.build-timeline .stage h3 {
+  margin-block: 0;
+}
+.integration-document {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.integration-article {
+  max-width: 900px;
+  margin-inline: auto;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.integration-article pre {
+  overflow-x: auto;
+  white-space: pre;
+}
+.danger-zone {
+  border-inline-start: 3px solid var(--semi-color-danger);
+}
 .data-table small {
   display: block;
   margin-top: 4px;
@@ -867,7 +989,9 @@ dd {
   border-top: 1px solid var(--semi-color-border);
 }
 @media (max-width: 640px) {
-  .release-rule-grid { grid-template-columns: 1fr; }
+  .release-rule-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Native file and form controls retain browser keyboard/validation behavior. */

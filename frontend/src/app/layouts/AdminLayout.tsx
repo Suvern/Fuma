@@ -59,7 +59,39 @@ function AdminShell() {
     .filter((group) => group.items.length > 0);
   const { pathname } = useLocation();
   const appMatch = useMatch("/admin/apps/:appId/*");
-  const appId = appMatch?.params.appId;
+  const debugMatch = useMatch("/admin/debug/:id");
+  const eventMatch = useMatch("/admin/events/:id");
+  const versionMatch = useMatch("/admin/versions/:id");
+  const debug = useQuery({
+    queryKey: ["debug", debugMatch?.params.id],
+    queryFn: () =>
+      read("/api/v1/debug-entries/{id}", { id: debugMatch!.params.id! }),
+    enabled: Boolean(debugMatch),
+  });
+  const event = useQuery({
+    queryKey: ["build-event", eventMatch?.params.id],
+    queryFn: () =>
+      read("/api/v1/build-events/{id}", { id: eventMatch!.params.id! }),
+    enabled: Boolean(eventMatch),
+  });
+  const version = useQuery({
+    queryKey: ["version", versionMatch?.params.id],
+    queryFn: () =>
+      read("/api/v1/versions/{id}", { id: versionMatch!.params.id! }),
+    enabled: Boolean(versionMatch),
+  });
+  const appId =
+    appMatch?.params.appId ??
+    debug.data?.app_id ??
+    event.data?.app_id ??
+    version.data?.app_id;
+  const detailSection = debugMatch
+    ? { path: "debug", title: "Debug 包", detail: "安装包详情" }
+    : eventMatch
+      ? { path: "events", title: "构建事件", detail: "事件详情" }
+      : versionMatch
+        ? { path: "versions", title: "版本发布", detail: "版本详情" }
+        : undefined;
   const app = useQuery({
     queryKey: ["app", appId],
     queryFn: () => read("/api/v1/apps/{id}", { id: appId! }),
@@ -80,7 +112,8 @@ function AdminShell() {
     .find((item) =>
       item.to === "/admin"
         ? pathname === item.to
-        : pathname.startsWith(item.to),
+        : pathname.startsWith(item.to) ||
+          (item.to === "/admin/apps" && !!detailSection),
     );
   const navigation = (mobile = false) => (
     <Nav
@@ -179,8 +212,21 @@ function AdminShell() {
                     </Link>
                   </Breadcrumb.Item>,
                   <Breadcrumb.Item key="section">
-                    {appSection ?? "应用设置"}
+                    {detailSection ? (
+                      <Link to={`/admin/apps/${appId}/${detailSection.path}`}>
+                        {detailSection.title}
+                      </Link>
+                    ) : (
+                      (appSection ?? "应用设置")
+                    )}
                   </Breadcrumb.Item>,
+                  ...(detailSection
+                    ? [
+                        <Breadcrumb.Item key="detail">
+                          {detailSection.detail}
+                        </Breadcrumb.Item>,
+                      ]
+                    : []),
                 ]
               ) : (
                 <Breadcrumb.Item>

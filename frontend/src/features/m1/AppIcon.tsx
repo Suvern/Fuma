@@ -39,12 +39,19 @@ export function AppIconField({
       <input
         ref={input}
         id={id}
+        className="file-control-input"
+        tabIndex={-1}
+        aria-hidden="true"
         type="file"
         name="icon_file"
         accept="image/png,image/jpeg,image/webp"
         disabled={disabled}
         aria-describedby={`${id}-help`}
         aria-invalid={!!error}
+        onInvalid={(event) => {
+          event.preventDefault();
+          document.getElementById(`${id}-choose`)?.focus();
+        }}
         onChange={(event) => {
           const field = event.currentTarget;
           const file = field.files?.[0];
@@ -77,6 +84,15 @@ export function AppIconField({
           reader.readAsDataURL(file);
         }}
       />
+      <Button
+        id={`${id}-choose`}
+        type="button"
+        disabled={disabled}
+        aria-describedby={`${id}-help`}
+        onClick={() => input.current?.click()}
+      >
+        {value ? "更换图标" : "选择图标"}
+      </Button>
       <p id={`${id}-help`} className="muted">
         PNG、JPEG 或 WebP，最大 64 KiB。未设置时显示应用名称首字。
       </p>

@@ -28,6 +28,8 @@ export function Dialog({
       onCancel={onClose}
       footer={null}
       width={560}
+      className="workspace-dialog"
+      closeIcon={<span aria-label="关闭">×</span>}
       style={{ maxWidth: "calc(100vw - 32px)" }}
       closeOnEsc={!busy}
       maskClosable={!busy}

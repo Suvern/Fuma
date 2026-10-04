@@ -1088,6 +1088,14 @@ class TaskAccepted(BaseModel):
     status_url: str
 
 
+class ResultSummary(RootModel[str]):
+    root: str = Field(
+        None,
+        description="Safe result text built from whitelisted counters; raw task payload is never exposed.",
+        max_length=500,
+    )
+
+
 class Progress(RootModel[int]):
     root: int = Field(..., ge=0, le=100)
 
@@ -1095,6 +1103,17 @@ class Progress(RootModel[int]):
 class Task(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
+    )
+    category: Literal["business", "system"] = "business"
+    app_name: str | None = None
+    resource_name: str | None = None
+    resource_url: str | None = Field(
+        None,
+        description="Server-generated relative management link, only for the task's own scope.",
+    )
+    result_summary: ResultSummary | None = Field(
+        None,
+        description="Safe result text built from whitelisted counters; raw task payload is never exposed.",
     )
     id: UUID
     kind: Literal[

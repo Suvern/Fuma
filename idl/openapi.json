@@ -5424,12 +5424,31 @@
               }
             ]
           },
+          "app_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "attempts": {
             "minimum": 0,
             "type": "integer"
           },
           "can_retry": {
             "type": "boolean"
+          },
+          "category": {
+            "default": "business",
+            "enum": [
+              "business",
+              "system"
+            ],
+            "type": "string"
           },
           "created_at": {
             "format": "date-time",
@@ -5511,6 +5530,42 @@
                 "type": "null"
               }
             ]
+          },
+          "resource_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "resource_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Server-generated relative management link, only for the task's own scope."
+          },
+          "result_summary": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Safe result text built from whitelisted counters; raw task payload is never exposed."
           },
           "state": {
             "enum": [
@@ -13909,6 +13964,46 @@
         "x-access": "app-manager"
       }
     },
+    "/api/v1/docs/github-actions": {
+      "get": {
+        "operationId": "get_github_actions_document",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "rule_id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Generic integration instructions with an optional caller-supplied callback UUID"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid UUID"
+          }
+        },
+        "summary": "Public GitHub Actions integration Markdown",
+        "x-access": "public"
+      }
+    },
     "/api/v1/downloads/{opaque_token}": {
       "get": {
         "description": "Opaque grant bearer access; token hash and deadline checked on every new request. Single byte range only. Existing transfer may finish after expiry. Redact token from all logs; never serve arbitrary paths.",
@@ -18298,9 +18393,22 @@
     },
     "/api/v1/tasks": {
       "get": {
-        "description": "按任务中文显示名称、内部类型或资源标识搜索，可组合类型和状态筛选。",
+        "description": "按应用名、任务中文名称、目标名称或资源标识搜索；应用授权过滤先于搜索与计数。category默认all兼容既有客户端。",
         "operationId": "list_tasks",
         "parameters": [
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "default": "all",
+              "enum": [
+                "all",
+                "business",
+                "system"
+              ],
+              "type": "string"
+            }
+          },
           {
             "$ref": "#/components/parameters/Page"
           },
@@ -18344,7 +18452,11 @@
                 "cache_download",
                 "build_event",
                 "notification",
-                "cache_cleanup"
+                "cache_cleanup",
+                "package_ingest",
+                "package_delete",
+                "storage_probe",
+                "publication_access"
               ],
               "type": "string"
             }

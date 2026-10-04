@@ -1,3 +1,10 @@
+import { BuildResult } from "./BuildStatus";
+import {
+  buildStates,
+  buildPhases,
+  currentBuildPhase,
+  buildGuidance,
+} from "./build-status";
 import { ActionsGuide, RuleConnection } from "./ActionsGuide";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import Table from "@douyinfe/semi-ui-19/lib/es/table";
@@ -38,7 +45,7 @@ import {
 export function ActionsPage() {
   const session = useSession();
   const { id = "" } = useParams();
-  const filters = useFilters();
+  const filters = useFilters("搜索规则名称…");
   const q = useQuery({
     queryKey: ["rules", id, filters.page, filters.q],
     queryFn: () =>
@@ -56,7 +63,7 @@ export function ActionsPage() {
         <Link to={`/admin/apps/${id}`}>应用设置</Link>
         <Link to={`/admin/apps/${id}/events`}>查看构建事件</Link>
       </PageTabs>
-      <ActionsGuide appId={id} />
+      <ActionsGuide appId={id} compact />
       {isGlobalAdmin(session.data?.user) ? (
         <Disclosure title={<>＋ 新建分发规则</>} className="panel">
           <RuleForm appId={id} />
@@ -67,13 +74,31 @@ export function ActionsPage() {
           规则和选择通知群需管理员操作；你可以维护已绑定此应用的规则。
         </p>
       )}
-      {filters.search}
+      <div className="toolbar">
+        {filters.search}
+        {filters.q && (
+          <Button type="button" onClick={filters.reset}>
+            清空筛选
+          </Button>
+        )}
+      </div>
       <ErrorBox error={q.error} />
+      {q.error && (
+        <Button type="button" onClick={() => void q.refetch()}>
+          重新加载
+        </Button>
+      )}
       {q.isPending && <Loading />}
       {q.data?.items.map((rule) => (
         <RuleCard key={rule.id} rule={rule} />
       ))}
-      {q.data && !q.data.items.length && <Empty>尚未配置 Actions 规则。</Empty>}
+      {q.data && !q.data.items.length && (
+        <Empty title={filters.q ? "没有匹配的规则" : "尚未配置 Actions 规则"}>
+          {filters.q
+            ? "请修改规则名称或清空筛选。"
+            : "创建规则后，按接入文档修改源仓库 workflow。"}
+        </Empty>
+      )}
       <Pager data={q.data} {...filters} />
     </>
   );
@@ -301,7 +326,7 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
 }
 export function BuildEventsPage() {
   const { id = "" } = useParams();
-  const filters = useFilters();
+  const filters = useFilters("搜索 Run ID 或 Commit SHA…");
   const [state, setState] = useState("");
   const q = useQuery({
     queryKey: ["build-events", id, filters.page, filters.q, state],
@@ -323,7 +348,7 @@ export function BuildEventsPage() {
       <div className="toolbar">
         {filters.search}
         <label>
-          <span id="build-state-label">状态</span>
+          <span id="build-state-label">分发结果 / 阶段</span>
           <Select
             aria-labelledby="build-state-label"
             style={{ minWidth: 160 }}
@@ -346,22 +371,71 @@ export function BuildEventsPage() {
               "unknown",
             ].map((s) => (
               <Select.Option key={s} value={s}>
-                {labels[s] ?? s}
+                {s === "received"
+                  ? "待处理"
+                  : [
+                        "succeeded",
+                        "partial_success",
+                        "failed",
+                        "unknown",
+                      ].includes(s)
+                    ? buildStates[s]
+                    : `处理中 · ${labels[s] ?? s}`}
               </Select.Option>
             ))}
           </Select>
         </label>
+        {(filters.q || state) && (
+          <Button
+            type="button"
+            onClick={() => {
+              filters.reset();
+              setState("");
+            }}
+          >
+            清空筛选
+          </Button>
+        )}
       </div>
+      <p className="muted">
+        这里跟踪 Fuma 分发进度；回调已接收不等于 GitHub 构建成功或通知已送达。
+      </p>
       <ErrorBox error={q.error} />
-      {q.isPending && <Loading />}
+      {q.error && (
+        <Button type="button" onClick={() => void q.refetch()}>
+          重新加载
+        </Button>
+      )}
       <Table
         className="data-table"
         rowKey="id"
         pagination={false}
         dataSource={q.data?.items ?? []}
         loading={q.isPending}
-        empty={<Empty>尚未收到构建回调。</Empty>}
-        scroll={{ x: 640 }}
+        empty={
+          q.isPending || q.error ? (
+            <span />
+          ) : (
+            <Empty
+              title={
+                filters.q || state ? "没有匹配的构建事件" : "尚未收到构建回调"
+              }
+            >
+              {filters.q || state ? (
+                "请修改条件，或清空筛选后重试。"
+              ) : (
+                <>
+                  <p>完成源仓库接入并运行 workflow 后，可在这里追踪分发。</p>
+                  <Link to={`/admin/apps/${id}/actions`}>
+                    配置 Actions 规则
+                  </Link>{" "}
+                  · <Link to="/docs/github-actions">查看接入文档</Link>
+                </>
+              )}
+            </Empty>
+          )
+        }
+        scroll={{ x: "100%" }}
         columns={[
           {
             title: "构建",
@@ -369,13 +443,14 @@ export function BuildEventsPage() {
               <Link to={`/admin/events/${event.id}`}>Run #{event.run_id}</Link>
             ),
           },
-          { title: "尝试次数", dataIndex: "run_attempt" },
+          { title: "构建轮次", dataIndex: "run_attempt" },
+          { title: "当前阶段", render: (_, event) => currentBuildPhase(event) },
           {
-            title: "状态",
+            title: "分发结果",
             dataIndex: "state",
-            render: (value) => <Status value={value} />,
+            render: (value) => <BuildResult state={value} />,
           },
-          { title: "创建时间", dataIndex: "created_at", render: date },
+          { title: "最近更新", dataIndex: "updated_at", render: date },
         ]}
       />
       <Pager data={q.data} {...filters} />
@@ -401,50 +476,76 @@ export function BuildEventPage() {
       {cmd.feedback}
       <TaskNotice task={task} />
       <Panel className="panel">
-        <Status value={e.state} />
+        <BuildResult state={e.state} />
+        <p>{buildGuidance(e)}</p>
+        <p className="muted">
+          {e.stages.find((s) => s.name === "wait_run")?.state === "succeeded"
+            ? "GitHub 构建：已核验通过"
+            : "GitHub 构建：请查看等待构建阶段的核验结果"}
+        </p>
         <dl>
-          <dt>Attempt</dt>
+          <dt>构建轮次</dt>
           <dd>{e.run_attempt}</dd>
-          <dt>Commit</dt>
+          <dt>提交 SHA</dt>
           <dd className="mono">{e.head_sha}</dd>
-          <dt>Release</dt>
+          <dt>Release ID</dt>
           <dd>{e.release_id}</dd>
         </dl>
-        <h2>执行阶段</h2>
-        {e.stages.map((s) => (
-          <div key={s.name} className="stage">
-            <h3>
-              <Status value={s.name} />
-            </h3>
-            <Status value={s.state} />
-            {s.error_message && (
-              <p>
-                {s.error_code}：{s.error_message}
+        <h2>执行轨迹</h2>
+        <ol className="build-timeline">
+          {e.stages.map((s) => (
+            <li
+              key={s.name}
+              className={`stage stage-${s.state}`}
+              aria-current={s.state === "running" ? "step" : undefined}
+            >
+              <div className="section-heading">
+                <h3>{buildPhases[s.name]}</h3>
+                <Status value={s.state} />
+              </div>
+              <p className="muted">
+                {s.started_at ? `开始：${date(s.started_at)}` : "尚未开始"}
+                {s.finished_at
+                  ? ` · 结束：${date(s.finished_at)}`
+                  : s.state === "running"
+                    ? " · 正在处理"
+                    : ""}
               </p>
-            )}
-            {e.retryable_stages.includes(s.name) && (
-              <Button
-                disabled={cmd.pending}
-                onClick={() =>
-                  void cmd.run(
-                    `retry-${s.name}`,
-                    (key) =>
-                      write(
-                        "/api/v1/build-events/{id}/retry",
-                        "post",
-                        { stage: s.name },
-                        { id, key },
-                      ),
-                    setTask,
-                  )
-                }
-              >
-                重试此阶段
-              </Button>
-            )}
-          </div>
-        ))}
-        <h2>安装包结果</h2>
+              {s.error_message && (
+                <p>
+                  {s.error_code}：{s.error_message}
+                </p>
+              )}
+              {e.retryable_stages.includes(s.name) && (
+                <Button
+                  disabled={cmd.pending}
+                  onClick={() =>
+                    void cmd.run(
+                      `retry-${s.name}`,
+                      (key) =>
+                        write(
+                          "/api/v1/build-events/{id}/retry",
+                          "post",
+                          { stage: s.name },
+                          { id, key },
+                        ),
+                      setTask,
+                    )
+                  }
+                >
+                  重试此阶段
+                </Button>
+              )}
+            </li>
+          ))}
+        </ol>
+        <h2>
+          安装包结果（{e.assets.filter((a) => a.state === "ready").length}/
+          {e.assets.length} 就绪）
+        </h2>
+        {!e.assets.length && (
+          <p className="muted">尚无安装包处理结果，来源核验后会更新。</p>
+        )}
         {e.assets.map((a) => (
           <div className="prose" key={a.asset_id}>
             {a.file_name ?? a.asset_id} <Status value={a.state} />{" "}
@@ -454,7 +555,13 @@ export function BuildEventPage() {
             )}
           </div>
         ))}
-        <h2>通知结果</h2>
+        <h2>
+          通知结果（{e.deliveries.filter((d) => d.state === "succeeded").length}
+          /{e.deliveries.length} 成功）
+        </h2>
+        {!e.deliveries.length && (
+          <p className="muted">尚未生成通知记录；请先检查构建与安装包阶段。</p>
+        )}
         {e.deliveries.map((d) => (
           <div className="prose" key={d.id}>
             <Link to={`/admin/notifications/${d.id}`}>{d.chat_name}</Link>{" "}

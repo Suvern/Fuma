@@ -16,6 +16,7 @@ from app.api.distribution_statistics import router as distribution_statistics_ro
 from app.api.feishu import router as feishu_router
 from app.api.github import router as github_router
 from app.api.health import router as health_router
+from app.api.integration_docs import router as integration_docs_router
 from app.api.library import router as library_router
 from app.api.library_imports import router as library_imports_router
 from app.api.library_management import router as library_management_router
@@ -93,6 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     install_error_handlers(app)
     app.include_router(health_router, prefix="/api/v1")
+    app.include_router(integration_docs_router, prefix="/api/v1")
     app.include_router(storage_router, prefix="/api/v1")
     app.include_router(library_imports_router, prefix="/api/v1")
     app.include_router(library_management_router, prefix="/api/v1")

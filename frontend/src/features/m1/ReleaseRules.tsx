@@ -99,7 +99,8 @@ export function ReleaseRules({
         <div>
           <h2>按规则导入安装包</h2>
           <p className="muted">
-            配置一次文件名规则，批量导入所有匹配的 Release 产物。
+            规则批量导入到旧版 Debug
+            分发，按需缓存且不解析包标识；不会加入安装包库、创建版本发布或发送通知。需要持久原件时，请在下方选择附件并导入安装包库。
           </p>
         </div>
         <Badge>

@@ -82,7 +82,7 @@ function PackageIdentifiers({
       <legend>允许的包标识</legend>
       <p className="muted">
         按平台分别配置 Debug 和 Release；多个标识用英文逗号分隔。
-        可留空，待正式包导入前补齐。现有 GitHub Debug 下载不受此配置影响。
+        可留空，待安装包解析入库前补齐。现有 GitHub Debug 下载不受此配置影响。
       </p>
       {platforms.map((platform) =>
         modes.map((mode) => {
@@ -297,30 +297,36 @@ export function AppsPage() {
           />
           <Button>搜索</Button>
         </form>
-        <Select
-          aria-label="平台筛选"
-          value={platform ?? ""}
-          onChange={(value) => filter("platform", String(value ?? ""))}
-          optionList={[
-            { value: "", label: "全部平台" },
-            { value: "android", label: "Android" },
-            { value: "ios", label: "iOS" },
-          ]}
-        />
-        <Select
-          aria-label="状态筛选"
-          value={
-            enabledValue === "true" || enabledValue === "false"
-              ? enabledValue
-              : ""
-          }
-          onChange={(value) => filter("enabled", String(value ?? ""))}
-          optionList={[
-            { value: "", label: "全部状态" },
-            { value: "true", label: "已启用" },
-            { value: "false", label: "已停用" },
-          ]}
-        />
+        <div className="filter-field">
+          <span id="apps-平台筛选">平台筛选</span>
+          <Select
+            aria-labelledby="apps-平台筛选"
+            value={platform ?? ""}
+            onChange={(value) => filter("platform", String(value ?? ""))}
+            optionList={[
+              { value: "", label: "全部平台" },
+              { value: "android", label: "Android" },
+              { value: "ios", label: "iOS" },
+            ]}
+          />
+        </div>
+        <div className="filter-field">
+          <span id="apps-状态筛选">状态筛选</span>
+          <Select
+            aria-labelledby="apps-状态筛选"
+            value={
+              enabledValue === "true" || enabledValue === "false"
+                ? enabledValue
+                : ""
+            }
+            onChange={(value) => filter("enabled", String(value ?? ""))}
+            optionList={[
+              { value: "", label: "全部状态" },
+              { value: "true", label: "已启用" },
+              { value: "false", label: "已停用" },
+            ]}
+          />
+        </div>
         {hasFilters && (
           <Button
             onClick={() =>
@@ -341,16 +347,19 @@ export function AppsPage() {
             清空筛选
           </Button>
         )}
-        <Select
-          aria-label="归档筛选"
-          value={archived === undefined ? "" : String(archived)}
-          onChange={(value) => filter("archived", String(value ?? ""))}
-          optionList={[
-            { value: "", label: "全部归档状态" },
-            { value: "false", label: "未归档" },
-            { value: "true", label: "已归档" },
-          ]}
-        />
+        <div className="filter-field">
+          <span id="apps-归档筛选">归档筛选</span>
+          <Select
+            aria-labelledby="apps-归档筛选"
+            value={archived === undefined ? "" : String(archived)}
+            onChange={(value) => filter("archived", String(value ?? ""))}
+            optionList={[
+              { value: "", label: "全部归档状态" },
+              { value: "false", label: "未归档" },
+              { value: "true", label: "已归档" },
+            ]}
+          />
+        </div>
       </div>
       <ErrorBox error={query.error} />
       {query.isPending ? (
@@ -383,9 +392,9 @@ export function AppsPage() {
                   </Badge>
                 </div>
                 <p className="muted">
-                  {app.package_count ?? 0} 个正式包 ·{" "}
+                  {app.package_count ?? 0} 个安装包 ·{" "}
                   {app.publication_count ?? 0} 个发布 · {app.debug_entry_count}{" "}
-                  个历史 Debug 包 · {app.repository?.full_name ?? "未绑定仓库"}
+                  个旧版 Debug 包 · {app.repository?.full_name ?? "未绑定仓库"}
                 </p>
                 <p className="muted">更新于 {date(app.updated_at)}</p>
               </CardLink>
@@ -493,12 +502,14 @@ function CreateAppForm({
           disabled={cmd.pending}
         />
         <Platforms selected={platforms} onChange={setPlatforms} />
-        <PackageIdentifiers
-          platforms={platforms}
-          values={identifiers}
-          onChange={setIdentifiers}
-          disabled={cmd.pending}
-        />
+        <Disclosure title="包标识配置（可稍后补齐）">
+          <PackageIdentifiers
+            platforms={platforms}
+            values={identifiers}
+            onChange={setIdentifiers}
+            disabled={cmd.pending}
+          />
+        </Disclosure>
         <div className="form-actions">
           <Button type="button" disabled={cmd.pending} onClick={onClose}>
             取消
@@ -573,13 +584,11 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
       <div className="inline">
         <AppIcon name={app.name} value={app.icon_data} />
         <p>
-          {app.package_count ?? 0} 个正式包 · {app.publication_count ?? 0}{" "}
-          个发布 · {app.debug_entry_count} 个历史 Debug 包
+          {app.package_count ?? 0} 个安装包 · {app.publication_count ?? 0}{" "}
+          个发布 · {app.debug_entry_count} 个旧版 Debug 包
         </p>
       </div>
       {cmd.feedback}
-      <AppLifecycle app={app} />
-      <Statistics appId={app.id} />
       <div className="two-columns">
         <Panel className="panel">
           <h2>基本信息</h2>
@@ -698,27 +707,6 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
                 保存
               </Button>
             </Form>
-            {globalAdmin && (
-              <Button
-                className="danger"
-                disabled={cmd.pending}
-                onClick={() =>
-                  void cmd.run(
-                    "app-delete",
-                    () =>
-                      write("/api/v1/apps/{id}", "delete", undefined, {
-                        id: app.id,
-                        revision: app.revision,
-                      }),
-                    () => navigate("/admin/apps"),
-                    undefined,
-                    `删除 App「${app.name}」？历史记录将保留，下载入口将不可用。`,
-                  )
-                }
-              >
-                删除 App
-              </Button>
-            )}
           </fieldset>
         </Panel>
         {!app.archived_at &&
@@ -735,6 +723,37 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
             </Panel>
           ))}
       </div>
+      <Disclosure title="分发统计">
+        <Statistics appId={app.id} />
+      </Disclosure>
+      <AppLifecycle app={app} />
+      {globalAdmin && (
+        <Panel className="danger-zone">
+          <h2>删除应用</h2>
+          <p className="muted">删除后下载入口将不可用，历史记录保留。</p>{" "}
+          {globalAdmin && (
+            <Button
+              className="danger"
+              disabled={cmd.pending}
+              onClick={() =>
+                void cmd.run(
+                  "app-delete",
+                  () =>
+                    write("/api/v1/apps/{id}", "delete", undefined, {
+                      id: app.id,
+                      revision: app.revision,
+                    }),
+                  () => navigate("/admin/apps"),
+                  undefined,
+                  `删除 App「${app.name}」？历史记录将保留，下载入口将不可用。`,
+                )
+              }
+            >
+              删除 App
+            </Button>
+          )}
+        </Panel>
+      )}
     </>
   );
 }

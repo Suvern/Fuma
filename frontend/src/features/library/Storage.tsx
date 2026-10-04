@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { Select } from "../../shared/ui/FormControls";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
@@ -74,16 +75,16 @@ export function StoragePage() {
             }
           >
             <Field name="name" label="配置名称" required maxLength={100} />
-            <label>
-              云厂商
-              <select
+            <div className="field">
+              <Select
+                label="云厂商"
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as "cos" | "oss")}
               >
                 <option value="cos">腾讯云 COS</option>
                 <option value="oss">阿里云 OSS</option>
-              </select>
-            </label>
+              </Select>
+            </div>
             <Field
               name="region"
               label="地域标识"
@@ -101,13 +102,12 @@ export function StoragePage() {
               defaultValue="fuma"
               required
             />
-            <label>
-              读取模式
-              <select name="read_mode">
+            <div className="field">
+              <Select label="读取模式" name="read_mode">
                 <option value="private">私有原件（受限分发）</option>
                 <option value="public">公开副本（仅 Release）</option>
-              </select>
-            </label>
+              </Select>
+            </div>
             <Field
               name="access_key_id"
               label={provider === "cos" ? "SecretId" : "AccessKey ID"}
@@ -293,28 +293,43 @@ export function StorageChoice({
   value,
   onChange,
   disabled,
+  cloudOnly = false,
+  onAvailability,
 }: {
   appId: string;
   mode: "private" | "public";
   value: string;
   onChange: (id: string) => void;
   disabled?: boolean;
+  cloudOnly?: boolean;
+  onAvailability?: (ids: string[]) => void;
 }) {
   const session = useSession();
   const query = useQuery({
     queryKey: ["storage-choice", appId, session.data?.viewer_key],
     queryFn: () => read("/api/v1/apps/{id}/available-storage", { id: appId }),
   });
+  useEffect(() => {
+    onAvailability?.(
+      query.data?.items
+        .filter((row) => row.read_mode === mode)
+        .map((row) => row.id) ?? [],
+    );
+  }, [query.data, mode, onAvailability]);
   return (
     <div>
-      <label>
-        {mode === "private" ? "原件存储位置" : "发布访问方式"}
-        <select
+      <div className="field">
+        <Select
+          label={mode === "private" ? "原件存储位置" : "发布访问方式"}
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
         >
-          {mode === "private" ? (
+          {cloudOnly ? (
+            <option value="" disabled>
+              请选择可用私有云存储
+            </option>
+          ) : mode === "private" ? (
             <>
               <option value="default">使用系统默认（未设置时存入本机）</option>
               <option value="">本机私有存储</option>
@@ -332,9 +347,29 @@ export function StorageChoice({
                   : row.provider.toUpperCase()}
               </option>
             ))}
-        </select>
-      </label>
+        </Select>
+      </div>
       <ErrorBox error={query.error} />
+      {cloudOnly && query.isPending && (
+        <p role="status">正在检查可用私有云存储…</p>
+      )}
+      {cloudOnly &&
+        query.data &&
+        !query.data.items.some((row) => row.read_mode === "private") && (
+          <p role="status">
+            尚无可用私有云存储。请先配置私有 COS /
+            OSS，并通过连接测试；本机存储不支持旧版条目迁移。
+          </p>
+        )}
+      {cloudOnly && (
+        <Button
+          type="button"
+          disabled={query.isFetching}
+          onClick={() => void query.refetch()}
+        >
+          重新检查存储
+        </Button>
+      )}
       {isGlobalAdmin(session.data?.user) ? (
         <Link to="/admin/settings/storage">配置或测试云存储</Link>
       ) : (

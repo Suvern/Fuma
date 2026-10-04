@@ -257,6 +257,9 @@ describe("后台角色与自身会话", () => {
   });
   it("存储选择器只读当前应用可用摘要", async () => {
     mount("/admin/storage-choice");
+    fireEvent.click(
+      await screen.findByRole("combobox", { name: "原件存储位置" }),
+    );
     await screen.findByRole("option", { name: /可用私有存储/ });
     expect(read).toHaveBeenCalledWith("/api/v1/apps/{id}/available-storage", {
       id: appId,
@@ -300,9 +303,8 @@ describe("后台角色与自身会话", () => {
     );
     mount("/admin/settings/members", "admin");
     fireEvent.click(await screen.findByRole("button", { name: "编辑授权" }));
-    fireEvent.change(screen.getByLabelText("授予角色"), {
-      target: { value: "admin" },
-    });
+    fireEvent.click(screen.getByRole("combobox", { name: "授予角色" }));
+    fireEvent.click(await screen.findByRole("option", { name: /管理员/ }));
     fireEvent.click(screen.getByRole("button", { name: "确认授权" }));
     await screen.findByRole("button", { name: "确认继续" });
     expect(
@@ -317,9 +319,9 @@ describe("后台角色与自身会话", () => {
       { role: "admin", managed_app_ids: [], active: true },
       { id: memberId, revision: 4 },
     );
-    expect((screen.getByLabelText("授予角色") as HTMLSelectElement).value).toBe(
-      "admin",
-    );
+    expect(
+      screen.getByRole("combobox", { name: "授予角色" }).textContent,
+    ).toContain("管理员");
     await waitFor(() =>
       expect(
         (
@@ -332,14 +334,12 @@ describe("后台角色与自身会话", () => {
   });
   it("成员按应用名称筛选，授权范围显示名称", async () => {
     mount("/admin/settings/members", "admin");
-    await screen.findByRole("option", { name: "已授权应用" });
     expect(
       await screen.findByRole("link", { name: "已授权应用" }),
     ).toBeTruthy();
     expect(screen.queryByLabelText("授权 App ID（选填）")).toBeNull();
-    fireEvent.change(screen.getByLabelText("授权应用"), {
-      target: { value: appId },
-    });
+    fireEvent.click(screen.getByRole("combobox", { name: "授权应用" }));
+    fireEvent.click(await screen.findByRole("option", { name: /已授权应用/ }));
     fireEvent.click(screen.getByRole("button", { name: "筛选" }));
     await waitFor(() =>
       expect(read).toHaveBeenCalledWith(

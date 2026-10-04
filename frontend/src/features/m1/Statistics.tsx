@@ -1,15 +1,9 @@
+import { DateInput } from "../../shared/ui/FormControls";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { read } from "../../shared/api/http";
 import { Button, Panel } from "../../shared/ui/controls";
-import {
-  ErrorBox,
-  Field,
-  Form,
-  Loading,
-  size,
-  text,
-} from "../../shared/ui/common";
+import { ErrorBox, Form, Loading, size, text } from "../../shared/ui/common";
 
 export function Statistics({ appId }: { appId: string }) {
   const today = new Date().toISOString().slice(0, 10);
@@ -27,7 +21,7 @@ export function Statistics({ appId }: { appId: string }) {
   });
   return (
     <Panel className="panel">
-      <h2>正式包分发统计</h2>
+      <h2>安装包分发统计</h2>
       <p className="muted">
         按 UTC
         日期汇总，仅累计升级后记录。授权签发包含云直链，本机请求与字节不包含云直链传输和历史
@@ -43,22 +37,26 @@ export function Statistics({ appId }: { appId: string }) {
         }
       >
         <div className="inline">
-          <Field
-            name="start_date"
-            type="date"
-            label="统计开始日期"
-            required
-            defaultValue={range.start_date}
-            max={today}
-          />
-          <Field
-            name="end_date"
-            type="date"
-            label="统计结束日期"
-            required
-            defaultValue={range.end_date}
-            max={today}
-          />
+          <div className="field">
+            <DateInput
+              name="start_date"
+              type="date"
+              label="统计开始日期"
+              required
+              defaultValue={range.start_date}
+              max={today}
+            />
+          </div>
+          <div className="field">
+            <DateInput
+              name="end_date"
+              type="date"
+              label="统计结束日期"
+              required
+              defaultValue={range.end_date}
+              max={today}
+            />
+          </div>
           <Button disabled={query.isFetching}>查询</Button>
         </div>
         <p className="muted">单次最多查询 90 天。</p>

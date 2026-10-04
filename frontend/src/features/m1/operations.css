@@ -1,0 +1,41 @@
+.task-categories,
+.task-links {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-block: 1rem;
+}
+.task-categories button[aria-pressed="true"] {
+  color: var(--semi-color-primary);
+  background: var(--semi-color-primary-light-default);
+}
+.task-copy {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 10rem;
+}
+.task-copy small {
+  color: var(--semi-color-text-2);
+  overflow-wrap: anywhere;
+}
+.task-search {
+  align-items: end;
+}
+.task-technical {
+  margin-block: 1rem;
+}
+.task-technical summary {
+  cursor: pointer;
+}
+.task-table,
+.operations-table {
+  width: 100%;
+}
+.task-table .semi-table-table,
+.operations-table .semi-table-table {
+  min-width: 100%;
+}
+.task-links a,
+.task-technical dd {
+  overflow-wrap: anywhere;
+}

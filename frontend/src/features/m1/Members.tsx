@@ -1,3 +1,4 @@
+import { Select } from "../../shared/ui/FormControls";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
@@ -87,25 +88,27 @@ function Members() {
             maxLength={200}
             defaultValue={filters.q}
           />
-          <label>
-            后台角色
-            <select name="role" defaultValue={filters.role}>
+          <div className="field">
+            <Select label="后台角色" name="role" defaultValue={filters.role}>
               <option value="">全部角色</option>
               {Object.entries(roleNames).map(([key, label]) => (
                 <option key={key} value={key}>
                   {label}
                 </option>
               ))}
-            </select>
-          </label>
-          <label>
-            账号状态
-            <select name="active" defaultValue={filters.active}>
+            </Select>
+          </div>
+          <div className="field">
+            <Select
+              label="账号状态"
+              name="active"
+              defaultValue={filters.active}
+            >
               <option value="">全部状态</option>
               <option value="true">可用</option>
               <option value="false">停用</option>
-            </select>
-          </label>
+            </Select>
+          </div>
           <AppFilter />
           <Button>筛选</Button>
         </div>
@@ -212,9 +215,9 @@ function AppFilter() {
         placeholder="输入应用名称"
         maxLength={200}
       />
-      <label>
-        授权应用
-        <select
+      <div className="field">
+        <Select
+          label="授权应用"
           name="app_id"
           value={selected.id}
           onChange={(event) => {
@@ -234,8 +237,8 @@ function AppFilter() {
               {app.name}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </div>
       <ErrorBox error={query.error} />
       {query.isPending && <p role="status">正在搜索应用…</p>}
       {query.data && !query.data.items.length && (
@@ -298,9 +301,9 @@ function RoleEditor({
       )}
       {cmd.feedback}
       <Form submit={() => save()}>
-        <label>
-          授予角色
-          <select
+        <div className="field">
+          <Select
+            label="授予角色"
             value={role}
             disabled={cmd.pending}
             onChange={(e) =>
@@ -316,8 +319,8 @@ function RoleEditor({
                 {label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </div>
         <Check
           label="账号可用"
           checked={active}
