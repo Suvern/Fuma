@@ -39,3 +39,175 @@
 .task-technical dd {
   overflow-wrap: anywhere;
 }
+
+.tasks-page {
+  container: tasks / inline-size;
+}
+.tasks-page .page-heading {
+  align-items: center;
+}
+.tasks-page .page-heading p {
+  margin-top: 4px;
+}
+.tasks-filter-panel,
+.tasks-results {
+  background: var(--semi-color-bg-0);
+  border: 1px solid var(--semi-color-border);
+  border-radius: var(--semi-border-radius-medium);
+}
+.tasks-filter-panel {
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.tasks-page .task-categories {
+  gap: 8px;
+  margin: 0 0 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--semi-color-border);
+}
+.tasks-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px 160px;
+  align-items: end;
+  gap: 16px;
+}
+.tasks-filters > label,
+.tasks-filters .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.tasks-filters label {
+  color: var(--semi-color-text-1);
+  font-size: 12px;
+  font-weight: 400;
+}
+.tasks-filters .search > .field {
+  flex: 1;
+}
+.tasks-filters .search .semi-input-wrapper,
+.tasks-filters .semi-select {
+  width: 100%;
+}
+.tasks-filters .semi-button {
+  flex-shrink: 0;
+}
+.tasks-page .page-actions .semi-button,
+.tasks-filter-panel :is(.semi-button, .semi-input-wrapper, .semi-select) {
+  height: 36px;
+}
+.tasks-results-heading,
+.tasks-results-heading h2,
+.tasks-results-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tasks-results-heading {
+  justify-content: space-between;
+  min-height: 32px;
+  margin-bottom: 12px;
+}
+.tasks-results-heading h2 {
+  font-size: 14px;
+  line-height: 22px;
+}
+.tasks-results-actions {
+  gap: 12px;
+  font-size: 12px;
+}
+.tasks-table-region {
+  overflow-x: auto;
+  border-radius: var(--semi-border-radius-medium);
+}
+.tasks-page .task-table {
+  margin: 0;
+}
+.tasks-page .task-table .semi-table-body {
+  overflow: visible;
+}
+.tasks-page .task-table table {
+  min-width: 760px;
+  table-layout: fixed;
+}
+.tasks-page .task-table .semi-table-row-cell,
+.tasks-page .task-table .semi-table-row-head {
+  padding: 14px 16px;
+  vertical-align: middle;
+}
+.tasks-page .task-table .semi-table-row-head {
+  padding-block: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--semi-color-text-2);
+  background: var(--semi-color-fill-0);
+}
+.tasks-page .task-copy {
+  gap: 4px;
+  min-width: 0;
+}
+.tasks-page .task-copy > a {
+  font-weight: 500;
+}
+.tasks-page .task-copy small {
+  margin: 0;
+  line-height: 1.6;
+}
+.task-result-copy {
+  margin: 0;
+  color: var(--semi-color-text-1);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.task-state-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.task-state-progress .semi-progress {
+  width: 100%;
+}
+.task-state-progress .semi-progress-line-text {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.task-created-at {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tasks-results > .pager {
+  margin: 0;
+  padding: 16px;
+}
+@container tasks (max-width: 740px) {
+  .tasks-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .tasks-filters .search {
+    grid-column: 1 / -1;
+  }
+}
+@container tasks (max-width: 440px) {
+  .tasks-filters {
+    grid-template-columns: 1fr;
+  }
+  .tasks-filter-panel :is(.semi-button, .semi-input-wrapper, .semi-select),
+  .tasks-page .page-actions .semi-button {
+    height: 44px;
+  }
+  .tasks-page .task-categories {
+    gap: 8px;
+  }
+  .tasks-page .task-categories > .semi-button {
+    flex: 1;
+  }
+}

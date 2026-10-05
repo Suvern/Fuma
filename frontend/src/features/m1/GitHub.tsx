@@ -55,7 +55,7 @@ export function ReleasesPage() {
   });
   const cmd = useCommand();
   return (
-    <>
+    <div className="app-tab-page github-releases-page">
       <Title description="按文件名规则批量导入安装包，自动检查后续 Release 更新。">
         Release 安装包
       </Title>
@@ -65,7 +65,7 @@ export function ReleasesPage() {
         appId={id}
         snapshotReady={Boolean(q.data?.synced_at)}
       />
-      <div className="toolbar">
+      <div className="app-tab-filters release-filters">
         {filters.search}
         <div className="field">
           <span id="release-filter-label">预发布</span>
@@ -83,7 +83,7 @@ export function ReleasesPage() {
             <Select.Option value="exclude">排除预发布</Select.Option>
           </Select>
         </div>
-        <label>
+        <label className="field">
           文件名筛选
           <Input
             value={assetName}
@@ -130,7 +130,7 @@ export function ReleasesPage() {
         <Empty>未找到 Release，请检查搜索条件或发起同步。</Empty>
       )}
       <Pager data={q.data} {...filters} />
-    </>
+    </div>
   );
 }
 function ReleaseCard({
@@ -148,7 +148,7 @@ function ReleaseCard({
     (id) => !r.assets.find((asset) => asset.id === id)?.debug_entry_id,
   );
   return (
-    <Panel className="panel">
+    <Panel className="panel release-card">
       <div className="section-heading">
         <h2>{r.name || r.tag_name}</h2>
         <div className="inline">
@@ -168,7 +168,7 @@ function ReleaseCard({
         pagination={false}
         dataSource={r.assets}
         empty={<Empty>此 Release 暂无附件。</Empty>}
-        scroll={{ x: 620 }}
+        scroll={{ x: 760 }}
         rowSelection={{
           selectedRowKeys: selected,
           onChange: (keys) => setSelected((keys ?? []).map(String)),
@@ -178,16 +178,25 @@ function ReleaseCard({
           }),
         }}
         columns={[
-          { title: "安装包", dataIndex: "name", width: 280 },
+          {
+            title: "安装包",
+            dataIndex: "name",
+            width: 280,
+            render: (name: string) => (
+              <span className="wrap-token">{name}</span>
+            ),
+          },
           {
             title: "平台",
             dataIndex: "platform",
+            width: 90,
             render: (platform) =>
               platform ? <Status value={platform} /> : "不支持",
           },
-          { title: "大小", dataIndex: "size_bytes", render: size },
+          { title: "大小", dataIndex: "size_bytes", width: 100, render: size },
           {
             title: "状态",
+            width: 200,
             render: (_, asset) =>
               asset.debug_entry_id ? (
                 <Link to={`/admin/debug/${asset.debug_entry_id}`}>
@@ -202,17 +211,19 @@ function ReleaseCard({
       <Button
         type="button"
         className="primary"
-        disabled={!selected.length || r.draft}
+        disabled={!importOpen && (!selected.length || r.draft)}
         aria-expanded={importOpen}
         aria-controls={`release-import-${r.id}`}
         onClick={() => setImportOpen(!importOpen)}
       >
         {importOpen
           ? "收起导入设置"
-          : `导入所选 ${selected.length || ""} 个附件`}
+          : selected.length
+            ? `导入所选 ${selected.length} 个附件`
+            : "请先选择附件"}
       </Button>
       {importOpen && (
-        <div id={`release-import-${r.id}`}>
+        <div id={`release-import-${r.id}`} className="release-import-settings">
           <div className="field">
             <FormSelect
               label="导入目标"

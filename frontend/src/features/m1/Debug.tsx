@@ -1,5 +1,6 @@
 import { LegacyPersistence } from "../library/GitHubImport";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
+import List from "@douyinfe/semi-ui-19/lib/es/list";
 import Progress from "@douyinfe/semi-ui-19/lib/es/progress";
 import {
   PageTabs,
@@ -10,13 +11,14 @@ import {
   Button,
   Disclosure,
 } from "../../shared/ui/controls";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
 import { DownloadGuard } from "./Auth";
 import { SharePage } from "../../shared/ui/SharePage";
 import {
+  Check,
   Empty,
   ErrorBox,
   Loading,
@@ -34,16 +36,19 @@ type EntrySort = "source_updated_at" | "imported_at";
 function EntrySortPicker({
   value,
   onChange,
+  disabled,
 }: {
   value: EntrySort;
   onChange: (value: EntrySort) => void;
+  disabled?: boolean;
 }) {
   const labelId = useId();
   return (
-    <label>
+    <label className="filter-field">
       <span id={labelId}>排序</span>
       <Select
         aria-labelledby={labelId}
+        disabled={disabled}
         style={{ minWidth: 200 }}
         value={value}
         onChange={(next) => onChange(next as EntrySort)}
@@ -56,10 +61,45 @@ function EntrySortPicker({
     </label>
   );
 }
+type BatchAction = "cache" | "enable" | "disable";
+type BatchItemResult = {
+  id: string;
+  name: string;
+  state: "success" | "skipped" | "failed";
+  task?: DTO<"TaskAccepted">;
+  error?: unknown;
+  reason?: string;
+};
+const cachingStates = ["queued", "downloading", "verifying"];
+const batchLabels = {
+  cache: "批量缓存",
+  enable: "批量启用",
+  disable: "批量停用",
+};
+
 export function DebugListPage() {
   const { id = "" } = useParams();
   const filters = useFilters("搜索文件名、Tag 或版本…");
   const [sort, setSort] = useState<EntrySort>("source_updated_at");
+  const cmd = useCommand();
+  const scope = JSON.stringify([id, filters.page, filters.q, sort]);
+  const [selection, setSelection] = useState<{ scope: string; ids: string[] }>({
+    scope,
+    ids: [],
+  });
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [report, setReport] = useState<{
+    scope: string;
+    action: BatchAction;
+    items: BatchItemResult[];
+  }>();
+  const cacheKeys = useRef(new Map<string, string>());
+  const selectAllRef = useRef<HTMLSpanElement>(null);
+  if (selection.scope !== scope) {
+    setSelection({ scope, ids: [] });
+    setReport(undefined);
+  }
+
   const q = useQuery({
     queryKey: ["debug-list", id, filters.page, filters.q, sort],
     queryFn: () =>
@@ -67,62 +107,360 @@ export function DebugListPage() {
         id,
         query: { page: filters.page, q: filters.q, sort },
       }),
+    refetchInterval: (query) =>
+      query.state.data?.items.some((entry) =>
+        cachingStates.includes(entry.cache.state),
+      )
+        ? 2500
+        : false,
   });
+  const entries = q.data?.items ?? [];
+  const selected = entries.filter(
+    (entry) => selection.scope === scope && selection.ids.includes(entry.id),
+  );
+  const selectedIds = new Set(selected.map((entry) => entry.id));
+  const allSelected = entries.length > 0 && selected.length === entries.length;
+  const partlySelected = selected.length > 0 && !allSelected;
+  useEffect(() => {
+    // Semi renders the mixed icon but does not expose the native mixed state.
+    const input = selectAllRef.current?.querySelector("input");
+    if (input) {
+      input.indeterminate = partlySelected;
+      input.setAttribute(
+        "aria-checked",
+        partlySelected ? "mixed" : String(allSelected),
+      );
+    }
+  }, [allSelected, partlySelected]);
+  const currentReport = report?.scope === scope ? report : undefined;
+  function select(ids: string[]) {
+    if (!cmd.pending) setSelection({ scope, ids });
+  }
+  function runBatch(action: BatchAction) {
+    if (!selected.length || cmd.pending) return;
+    const targets = [...selected];
+    setProgress({ done: 0, total: 0 });
+    void cmd.run(
+      `debug-batch-${action}`,
+      async () => {
+        setReport(undefined);
+        setProgress({ done: 0, total: targets.length });
+        const results: BatchItemResult[] = new Array(targets.length);
+        let next = 0;
+        async function worker() {
+          while (next < targets.length) {
+            const index = next++;
+            const entry = targets[index];
+            if (!entry) return;
+            const result: BatchItemResult = {
+              id: entry.id,
+              name: entry.file_name,
+              state: "success",
+            };
+            try {
+              if (action === "cache") {
+                if (
+                  entry.cache.state === "ready" ||
+                  cachingStates.includes(entry.cache.state)
+                ) {
+                  result.state = "skipped";
+                  result.reason =
+                    entry.cache.state === "ready"
+                      ? "缓存已就绪"
+                      : "已有缓存任务处理中";
+                } else {
+                  const key =
+                    cacheKeys.current.get(entry.id) ?? crypto.randomUUID();
+                  cacheKeys.current.set(entry.id, key);
+                  result.task = await write(
+                    "/api/v1/debug-entries/{id}/precache",
+                    "post",
+                    undefined,
+                    { id: entry.id, key },
+                  );
+                  cacheKeys.current.delete(entry.id);
+                }
+              } else if (entry.enabled === (action === "enable")) {
+                result.state = "skipped";
+                result.reason = entry.enabled ? "已经启用" : "已经停用";
+              } else {
+                await write(
+                  "/api/v1/debug-entries/{id}",
+                  "patch",
+                  { enabled: action === "enable" },
+                  { id: entry.id, revision: entry.revision },
+                );
+              }
+            } catch (error) {
+              result.state = "failed";
+              result.error = error;
+            }
+            results[index] = result;
+            setProgress((value) => ({ ...value, done: value.done + 1 }));
+          }
+        }
+        await Promise.all(
+          Array.from({ length: Math.min(3, targets.length) }, worker),
+        );
+        return results;
+      },
+      (items) => {
+        setReport({ scope, action, items });
+        setSelection({
+          scope,
+          ids: items
+            .filter((item) => item.state === "failed")
+            .map((item) => item.id),
+        });
+      },
+      "",
+      action === "disable"
+        ? `停用所选 ${targets.length} 个 Debug 包的分发？停用后将不再签发新的下载授权，已签发的短期链接仍可能有效。`
+        : undefined,
+    );
+  }
   return (
-    <>
-      <Title>Debug 包管理</Title>
+    <div className="app-tab-page debug-list-page">
+      <Title description="查看旧版 Debug 分发包、缓存状态与来源更新。">
+        Debug 包管理
+      </Title>
       <PageTabs className="tabs">
         <Link to={`/admin/apps/${id}`}>应用设置</Link>
         <Link to={`/admin/apps/${id}/releases`}>从 Release 导入</Link>
       </PageTabs>
-      <div className="toolbar">
+      <fieldset className="app-tab-filters" disabled={cmd.pending}>
         {filters.search}
         <EntrySortPicker
           value={sort}
+          disabled={cmd.pending}
           onChange={(value) => {
             setSort(value);
             filters.setPage(1);
           }}
         />
-      </div>
+        {filters.q && (
+          <Button type="button" onClick={filters.reset}>
+            清空筛选
+          </Button>
+        )}
+      </fieldset>
       <p className="muted">
         来源更新时间指 GitHub 附件更新时间；缺失时按导入时间排序。
       </p>
+      {cmd.feedback}
+      {cmd.pending && progress.total > 0 && (
+        <div className="debug-batch-progress" role="status">
+          <span>
+            正在提交批量操作：{progress.done} / {progress.total}
+          </span>
+          <Progress
+            aria-label="批量操作提交进度"
+            percent={Math.round((progress.done / progress.total) * 100)}
+          />
+        </div>
+      )}
+      {currentReport && (
+        <section className="debug-batch-report" aria-label="批量操作结果">
+          <div className="section-heading">
+            <p role="status">
+              {batchLabels[currentReport.action]}：
+              {currentReport.action === "cache" ? "已提交" : "成功"}{" "}
+              {
+                currentReport.items.filter((item) => item.state === "success")
+                  .length
+              }{" "}
+              个，跳过{" "}
+              {
+                currentReport.items.filter((item) => item.state === "skipped")
+                  .length
+              }{" "}
+              个，失败{" "}
+              {
+                currentReport.items.filter((item) => item.state === "failed")
+                  .length
+              }{" "}
+              个。
+            </p>
+            <Button
+              type="button"
+              disabled={cmd.pending}
+              onClick={() => setReport(undefined)}
+            >
+              关闭结果
+            </Button>
+          </div>
+          <p className="muted">
+            {currentReport.action === "cache"
+              ? "缓存任务在后台运行，提交成功不代表缓存已完成。"
+              : "已完成的条目已取消勾选。"}
+            失败项保留勾选，可重试。
+          </p>
+          <Disclosure title="查看逐项结果">
+            <ul className="debug-batch-results">
+              {currentReport.items.map((item) => (
+                <li key={item.id}>
+                  <span className="debug-batch-result-name">{item.name}</span>
+                  {item.state === "failed" ? (
+                    <ErrorBox error={item.error} />
+                  ) : item.reason ? (
+                    <span>{item.reason}</span>
+                  ) : item.task ? (
+                    <Link to={`/admin/tasks/${item.task.task_id}`}>
+                      查看缓存任务
+                    </Link>
+                  ) : (
+                    <span>操作成功</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Disclosure>
+        </section>
+      )}
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
-      <div className="card-grid">
-        {q.data?.items.map((entry) => (
-          <CardLink
-            key={entry.id}
-            className="panel app-card"
-            to={`/admin/debug/${entry.id}`}
-          >
-            <h2>{entry.file_name}</h2>
-            <p>{entry.version_name ?? `Tag ${entry.source_tag}`}</p>
-            <div className="inline">
-              <Status value={entry.platform} />
-              <Status value={entry.cache.state} />
-              <Badge className="badge">
-                {entry.enabled ? "已启用" : "已停用"}
-              </Badge>
-            </div>
-            <p>
-              {size(entry.size_bytes)} · 导入：{date(entry.created_at)}
-              <br />
-              来源更新：{date(entry.source.asset_updated_at)}
-            </p>
-          </CardLink>
-        ))}
-      </div>
-      {q.data && !q.data.items.length && (
-        <Empty title={filters.q ? "没有匹配的 Debug 包" : "暂无 Debug 条目"}>
-          {filters.q
-            ? "请修改或清空搜索条件后重试。"
-            : "请从 Release 选择安装包。"}
-        </Empty>
+      {q.error && (
+        <Button type="button" onClick={() => void q.refetch()}>
+          重新加载
+        </Button>
       )}
-      <Pager data={q.data} {...filters} />
-    </>
+      {q.data && (
+        <List
+          className="debug-package-list"
+          bordered
+          size="small"
+          dataSource={q.data.items}
+          header={
+            <div className="debug-batch-header">
+              <div className="section-heading">
+                <div className="inline">
+                  <span ref={selectAllRef}>
+                    <Check
+                      label="全选当前页"
+                      checked={allSelected}
+                      indeterminate={partlySelected}
+                      disabled={cmd.pending || !entries.length}
+                      onChange={(event) =>
+                        select(
+                          event.target.checked
+                            ? entries.map((entry) => entry.id)
+                            : [],
+                        )
+                      }
+                    />
+                  </span>
+                  <span className="muted">
+                    共 {q.data.total} 个 · 已选 {selected.length} 个
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  disabled={cmd.pending || !selected.length}
+                  onClick={() => select([])}
+                >
+                  取消选择
+                </Button>
+              </div>
+              <div className="debug-batch-actions">
+                <Button
+                  type="button"
+                  className="primary"
+                  disabled={cmd.pending || !selected.length}
+                  onClick={() => runBatch("cache")}
+                >
+                  批量缓存 / 重试
+                </Button>
+                <Button
+                  type="button"
+                  disabled={cmd.pending || !selected.length}
+                  onClick={() => runBatch("enable")}
+                >
+                  批量启用
+                </Button>
+                <Button
+                  type="button"
+                  disabled={cmd.pending || !selected.length}
+                  onClick={() => runBatch("disable")}
+                >
+                  批量停用
+                </Button>
+              </div>
+              <p className="muted">
+                仅操作当前页已选项；切换分页、搜索或排序会清空选择。缓存时自动跳过已就绪或处理中的条目。
+              </p>
+            </div>
+          }
+          emptyContent={
+            <Empty
+              title={filters.q ? "没有匹配的 Debug 包" : "暂无 Debug 条目"}
+            >
+              {filters.q
+                ? "请修改或清空搜索条件后重试。"
+                : "请从 Release 选择安装包。"}
+            </Empty>
+          }
+          renderItem={(entry) => (
+            <List.Item
+              key={entry.id}
+              className={
+                selectedIds.has(entry.id) ? "debug-package-selected" : undefined
+              }
+            >
+              <Check
+                className="debug-package-select"
+                label=""
+                aria-label={`选择 ${entry.file_name}`}
+                checked={selectedIds.has(entry.id)}
+                disabled={cmd.pending}
+                onChange={(event) =>
+                  select(
+                    event.target.checked
+                      ? [...selectedIds, entry.id]
+                      : [...selectedIds].filter((value) => value !== entry.id),
+                  )
+                }
+              />
+              <div className="debug-package-row">
+                <div className="debug-package-main">
+                  <Link
+                    className="debug-package-name"
+                    title={entry.file_name}
+                    to={`/admin/debug/${entry.id}`}
+                  >
+                    {entry.file_name}
+                  </Link>
+                  <div className="debug-package-meta">
+                    <span title={entry.version_name ?? entry.source_tag}>
+                      {entry.version_name
+                        ? `版本 ${entry.version_name}`
+                        : `Tag ${entry.source_tag}`}
+                    </span>
+                    <span>{size(entry.size_bytes)}</span>
+                  </div>
+                  <div className="inline debug-package-status">
+                    <Status value={entry.platform} />
+                    <Status value={entry.cache.state} />
+                    <Badge>{entry.enabled ? "已启用" : "已停用"}</Badge>
+                  </div>
+                </div>
+                <div className="debug-package-dates">
+                  <span>来源更新：{date(entry.source.asset_updated_at)}</span>
+                  <span>导入时间：{date(entry.created_at)}</span>
+                </div>
+                <Link
+                  className="button"
+                  aria-label={`查看 ${entry.file_name} 详情`}
+                  to={`/admin/debug/${entry.id}`}
+                >
+                  详情
+                </Link>
+              </div>
+            </List.Item>
+          )}
+        />
+      )}
+      <Pager data={q.data} {...filters} disabled={cmd.pending} />
+    </div>
   );
 }
 export function DebugAdminPage() {

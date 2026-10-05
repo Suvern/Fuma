@@ -23,9 +23,11 @@ import {
 export function ChatPicker({
   selected,
   onChange,
+  disabled = false,
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
+  disabled?: boolean;
 }) {
   const filters = useFilters("搜索群名称…");
   const q = useQuery({
@@ -44,7 +46,7 @@ export function ChatPicker({
       <p className="muted">
         已选择 {selected.length} 个群；跨搜索与分页保留选择。
         {selected.length > 0 && (
-          <Button type="button" onClick={() => onChange([])}>
+          <Button type="button" disabled={disabled} onClick={() => onChange([])}>
             清空选择
           </Button>
         )}
@@ -64,7 +66,7 @@ export function ChatPicker({
             <Check
               label={chat.name}
               checked={selected.includes(chat.chat_id)}
-              disabled={chat.membership !== "joined"}
+              disabled={disabled || chat.membership !== "joined"}
               onChange={(e) =>
                 onChange(
                   e.target.checked

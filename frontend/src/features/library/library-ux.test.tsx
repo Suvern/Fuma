@@ -199,6 +199,17 @@ it("Release 从一个入口选择目标，旧版已导入附件只能查看而�
       name: /导入.*个到旧版 Debug 分发/,
     }).disabled,
   ).toBe(true);
+  fireEvent.click(screen.getByRole("checkbox", { name: "选择 demo.apk" }));
+  const collapse = screen.getByRole<HTMLButtonElement>("button", {
+    name: "收起导入设置",
+  });
+  expect(collapse.disabled).toBe(false);
+  fireEvent.click(collapse);
+  expect(screen.queryByRole("combobox", { name: "导入目标" })).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "请先选择附件" })
+      .disabled,
+  ).toBe(true);
   expect(write).not.toHaveBeenCalled();
 });
 

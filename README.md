@@ -49,7 +49,7 @@ uv run --env-file ../.env python -m app.workers.scheduler
 第四个终端在项目根目录启动前端：
 
 ```sh
-pnpm --dir frontend dev
+pnpm --dir frontend dev:local
 ```
 
 在 API 首次启动日志中查看 `admin` 的随机初始密码，访问 `http://127.0.0.1:5173/login` 登录并修改密码。重启不会重置或再次输出密码。按照“飞书设置 → GitHub Connector → App / 仓库 → Release 附件 → Debug 下载 → Actions 规则”的顺序配置。GitHub PAT、飞书 App Secret 在管理页面输入，不放到前端配置。

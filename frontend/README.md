@@ -6,14 +6,24 @@ React + TypeScript + Vite，React Router 提供前后台路由，TanStack Query 
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm dev
+npm run dev
 pnpm lint
 pnpm test
 pnpm build
 pnpm check:api
 ```
 
-开发服务仅监听 `127.0.0.1:5173`，`/api` 代理到本机 8000 端口。后端及原生 PostgreSQL / Redis 启动顺序见[开发文档](../docs/development.md)。Vite 不读取 `.env`，凭据只配置在服务端。`pnpm preview` 仅预览静态构建，没有 API 代理；前后端联调使用开发服务或同域反向代理。
+在 `frontend/` 运行 `npm run dev`（也可用 `pnpm dev`），访问 `http://127.0.0.1:5173`，即可热更新调试本地前端，无需启动本地后端、数据库或 Redis。`/api` 默认代理到 `https://fuma.joice.tech`，页面上的修改会写入该远程服务。
+
+可通过进程环境变量切换远程服务（填写站点地址，不包含 `/api`）：
+
+```sh
+FUMA_API_PROXY_TARGET=https://your-fuma.example.com npm run dev
+```
+
+代理保留 `/api` 路径，适配远程 Host、同源请求的 Origin，以及生产会话 Cookie，使本地 HTTP 页面可以登录并提交表单。请在本地登录页重新登录，远程域名的登录态不会自动共享。飞书 OAuth 仍使用远程服务登记的回调地址，该流程及依赖远程绝对地址的下载需在远程站点验证。
+
+需要连接本机 `127.0.0.1:8000` 时运行 `npm run dev:local`（或 `pnpm dev:local`）；后端及原生 PostgreSQL / Redis 启动顺序见[开发文档](../docs/development.md)。开发服务仅监听回环地址 `127.0.0.1:5173`。Vite 不读取 `.env`，凭据只配置在服务端。代理配置参考 [Vite server.proxy](https://vite.dev/config/server-options#server-proxy)。
 
 生产 [Dockerfile](Dockerfile) 将 `pnpm build` 结果交给 Caddy，使用同一域名提供 SPA 与 `/api` 反向代理；缓存文件不复制到静态目录。镜像构建及部署尚未验证，步骤见[部署文档](../docs/deployment.md)。
 

@@ -1,5 +1,6 @@
 import { DateInput } from "../../shared/ui/FormControls";
-import { Metric } from "../../shared/ui/controls";
+import { Badge, Metric } from "../../shared/ui/controls";
+import { Icon } from "../../shared/ui/Icon";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import Table from "@douyinfe/semi-ui-19/lib/es/table";
 import Progress from "@douyinfe/semi-ui-19/lib/es/progress";
@@ -73,153 +74,218 @@ export function TasksPage() {
     refetchInterval: 5000,
   });
   return (
-    <>
-      <Title description="默认查看上传、构建、分发等业务任务；例行同步与清理保留在系统维护中。">
+    <div className="tasks-page">
+      <Title
+        description="跟踪业务任务的执行进度与结果，查看例行同步和系统维护记录。"
+        actions={
+          <Button
+            type="button"
+            loading={q.isFetching}
+            onClick={() => void q.refetch()}
+          >
+            <Icon name="refresh" size={16} />
+            刷新任务
+          </Button>
+        }
+      >
         任务中心
       </Title>
-      <div className="task-categories" role="group" aria-label="任务分组">
-        {(
-          [
-            ["business", "业务任务"],
-            ["system", "系统维护"],
-            ["all", "全部任务"],
-          ] as const
-        ).map(([value, label]) => (
-          <Button
-            key={value}
-            type="button"
-            aria-pressed={category === value}
-            onClick={() => update({ category: value })}
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-      <div className="toolbar">
-        <form
-          role="search"
-          className="search task-search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            update({ q: draft });
-          }}
-        >
-          <Field
-            label="搜索应用、任务类型或资源标识"
-            name="q"
-            type="search"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <Button>搜索</Button>
-        </form>
-        <StateFilter
-          label="任务类型"
-          value={kind}
-          onChange={(value) => {
-            update({ kind: value });
-          }}
-          values={[
-            "release_sync",
-            "release_import",
-            "chat_sync",
-            "cache_download",
-            "build_event",
-            "notification",
-            "cache_cleanup",
-            "package_ingest",
-            "package_delete",
-            "storage_probe",
-            "publication_access",
-          ]}
-        />
-        {filtered && (
-          <Button
-            type="button"
-            onClick={() => {
-              setDraft("");
-              update({ q: "", state: "", kind: "" });
+      <div className="tasks-filter-panel">
+        <div className="task-categories" role="group" aria-label="任务分组">
+          {(
+            [
+              ["business", "业务任务"],
+              ["system", "系统维护"],
+              ["all", "全部任务"],
+            ] as const
+          ).map(([value, label]) => (
+            <Button
+              key={value}
+              type="button"
+              aria-pressed={category === value}
+              onClick={() => update({ category: value })}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+        <div className="tasks-filters">
+          <form
+            role="search"
+            className="search task-search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              update({ q: draft });
             }}
           >
-            清空筛选
-          </Button>
-        )}
-        <StateFilter
-          value={state}
-          onChange={(value) => {
-            update({ state: value });
-          }}
-          values={[
-            "queued",
-            "running",
-            "succeeded",
-            "partial_success",
-            "failed",
-            "unknown",
-          ]}
-        />
+            <Field
+              label="搜索应用、任务类型或资源标识"
+              name="q"
+              type="search"
+              placeholder="输入应用名称、任务类型或资源标识"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+            <Button>搜索</Button>
+          </form>
+          <StateFilter
+            label="任务类型"
+            value={kind}
+            onChange={(value) => {
+              update({ kind: value });
+            }}
+            values={[
+              "release_sync",
+              "release_import",
+              "chat_sync",
+              "cache_download",
+              "build_event",
+              "notification",
+              "cache_cleanup",
+              "package_ingest",
+              "package_delete",
+              "storage_probe",
+              "publication_access",
+            ]}
+          />
+          <StateFilter
+            value={state}
+            onChange={(value) => {
+              update({ state: value });
+            }}
+            values={[
+              "queued",
+              "running",
+              "succeeded",
+              "partial_success",
+              "failed",
+              "unknown",
+            ]}
+          />
+        </div>
+      </div>
+      <div className="tasks-results-heading">
+        <h2>
+          {filtered ? "筛选结果" : "任务列表"}
+          {q.data && <Badge>{q.data.total}</Badge>}
+        </h2>
+        <div className="tasks-results-actions">
+          <span className="muted">每 5 秒自动刷新</span>
+          {filtered && (
+            <Button
+              type="button"
+              onClick={() => {
+                setDraft("");
+                update({ q: "", state: "", kind: "" });
+              }}
+            >
+              清空筛选
+            </Button>
+          )}
+        </div>
       </div>
       <ErrorBox error={q.error} />
-      {q.isPending && <Loading />}
-      <Table
-        className="data-table task-table"
-        rowKey="id"
-        pagination={false}
-        dataSource={q.data?.items ?? []}
-        loading={q.isPending}
-        empty={
-          q.isPending || q.error ? (
-            <span />
-          ) : (
-            <Empty title={filtered ? "没有匹配的任务" : "暂无任务"}>
-              {filtered
-                ? "请修改搜索条件，或清空筛选后重试。"
-                : "执行同步、缓存或通知操作后，可在这里跟踪任务。"}
-            </Empty>
-          )
-        }
-        scroll={{ x: 720 }}
-        columns={[
-          {
-            title: "任务",
-            render: (_, task) => (
-              <div className="task-copy">
-                <Link
-                  to={`/admin/tasks/${task.id}`}
-                  state={{ returnTo: location.pathname + location.search }}
-                >
-                  {labels[task.kind] ?? task.kind}
-                </Link>
-                <small>
-                  {task.app_name ??
-                    (task.category === "system" ? "系统维护" : "全局任务")}
-                  {task.resource_name ? ` · ${task.resource_name}` : ""}
-                </small>
-              </div>
-            ),
-          },
-          {
-            title: "进展 / 结果",
-            render: (_, task) =>
-              task.result_summary ?? labels[task.phase] ?? task.phase,
-          },
-          {
-            title: "状态",
-            dataIndex: "state",
-            render: (value) => <Status value={value} />,
-          },
-          {
-            title: "进度",
-            dataIndex: "progress",
-            width: 160,
-            render: (value) =>
-              value === null ? "—" : <Progress percent={value} showInfo />,
-          },
-          { title: "创建时间", dataIndex: "created_at", render: date },
-        ]}
-      />
-      <Pager data={q.data} {...filters} />
-    </>
+      <div className="tasks-results">
+        <div
+          className="tasks-table-region"
+          role="region"
+          aria-label="任务列表，可横向滚动查看更多列"
+          tabIndex={0}
+        >
+          <Table
+            className="data-table task-table"
+            rowKey="id"
+            pagination={false}
+            dataSource={q.data?.items ?? []}
+            loading={q.isPending}
+            empty={
+              q.isPending || q.error ? (
+                <span />
+              ) : (
+                <Empty title={filtered ? "没有匹配的任务" : "暂无任务"}>
+                  {filtered
+                    ? "请修改搜索条件，或清空筛选后重试。"
+                    : "执行同步、缓存或通知操作后，可在这里跟踪任务。"}
+                </Empty>
+              )
+            }
+            columns={[
+              {
+                title: "任务",
+                width: "34%",
+                render: (_, task) => (
+                  <div className="task-copy">
+                    <Link
+                      to={`/admin/tasks/${task.id}`}
+                      state={{ returnTo: location.pathname + location.search }}
+                    >
+                      {labels[task.kind] ?? task.kind}
+                    </Link>
+                    <small>
+                      {task.app_name ??
+                        (task.category === "system" ? "系统维护" : "全局任务")}
+                      {task.resource_name ? ` · ${task.resource_name}` : ""}
+                    </small>
+                  </div>
+                ),
+              },
+              {
+                title: "进展 / 结果",
+                render: (_, task) => (
+                  <p className="task-result-copy">
+                    {task.result_summary ?? labels[task.phase] ?? task.phase}
+                  </p>
+                ),
+              },
+              {
+                title: "状态 / 进度",
+                width: 128,
+                render: (_, task) => (
+                  <div className="task-state-progress">
+                    <Status value={task.state} />
+                    {task.progress !== null && (
+                      <Progress
+                        aria-label={`${labels[task.kind] ?? task.kind}进度`}
+                        percent={task.progress}
+                        size="small"
+                        stroke={
+                          task.state === "failed"
+                            ? "var(--semi-color-danger)"
+                            : task.state === "succeeded"
+                              ? "var(--semi-color-success)"
+                              : "var(--semi-color-primary)"
+                        }
+                        showInfo
+                      />
+                    )}
+                  </div>
+                ),
+              },
+              {
+                title: "创建时间",
+                dataIndex: "created_at",
+                width: 128,
+                render: (value: string) => (
+                  <time
+                    className="task-created-at"
+                    dateTime={value}
+                    title={date(value)}
+                  >
+                    <span>{new Date(value).toLocaleDateString("zh-CN")}</span>
+                    <small>
+                      {new Date(value).toLocaleTimeString("zh-CN", {
+                        hour12: false,
+                      })}
+                    </small>
+                  </time>
+                ),
+              },
+            ]}
+          />
+        </div>
+        <Pager data={q.data} {...filters} />
+      </div>
+    </div>
   );
 }
 export function TaskPage() {

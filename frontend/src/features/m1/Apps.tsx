@@ -248,7 +248,7 @@ export function AppsPage() {
       }),
   });
   return (
-    <>
+    <div className="apps-page">
       <Title
         description="连接应用与仓库，让每个版本都有归处。"
         actions={
@@ -273,11 +273,7 @@ export function AppsPage() {
           onPendingChange={setSaving}
         />
       </Dialog>
-      <div className="collection-toolbar app-filters">
-        <span className="collection-label">
-          全部应用{" "}
-          {query.data && <Badge className="count">{query.data.total}</Badge>}
-        </span>
+      <div className="app-filters">
         <form
           role="search"
           className="search"
@@ -327,6 +323,25 @@ export function AppsPage() {
             ]}
           />
         </div>
+        <div className="filter-field">
+          <span id="apps-归档筛选">归档筛选</span>
+          <Select
+            aria-labelledby="apps-归档筛选"
+            value={archived === undefined ? "" : String(archived)}
+            onChange={(value) => filter("archived", String(value ?? ""))}
+            optionList={[
+              { value: "", label: "全部归档状态" },
+              { value: "false", label: "未归档" },
+              { value: "true", label: "已归档" },
+            ]}
+          />
+        </div>
+      </div>
+      <div className="apps-results-heading">
+        <h2 className="collection-label">
+          {hasFilters ? "筛选结果" : "全部应用"}
+          {query.data && <Badge className="count">{query.data.total}</Badge>}
+        </h2>
         {hasFilters && (
           <Button
             onClick={() =>
@@ -347,43 +362,30 @@ export function AppsPage() {
             清空筛选
           </Button>
         )}
-        <div className="filter-field">
-          <span id="apps-归档筛选">归档筛选</span>
-          <Select
-            aria-labelledby="apps-归档筛选"
-            value={archived === undefined ? "" : String(archived)}
-            onChange={(value) => filter("archived", String(value ?? ""))}
-            optionList={[
-              { value: "", label: "全部归档状态" },
-              { value: "false", label: "未归档" },
-              { value: "true", label: "已归档" },
-            ]}
-          />
-        </div>
       </div>
       <ErrorBox error={query.error} />
       {query.isPending ? (
         <Loading />
       ) : (
         <>
-          <div className="card-grid">
+          <div className="card-grid apps-grid">
             {query.data?.items.map((app) => (
               <CardLink
-                className="app-card panel"
+                className="app-card apps-list-card"
                 key={app.id}
                 to={`/admin/apps/${app.id}`}
               >
-                <AppIcon name={app.name} value={app.icon_data} />
-                <h2>{app.name}</h2>
-                <p>{app.description || "暂无描述"}</p>
-                <div className="inline">
-                  {app.platforms.map((p) => (
-                    <span key={p}>
-                      <Status value={p} />
-                      {app.disabled_platforms?.includes(p) && "（已停用）"}
-                    </span>
-                  ))}
-                  <Badge className="badge">
+                <div className="apps-card-heading">
+                  <AppIcon name={app.name} value={app.icon_data} />
+                  <div className="apps-card-identity">
+                    <h3>{app.name}</h3>
+                    <p>{app.description || "暂无描述"}</p>
+                  </div>
+                  <Badge
+                    className={
+                      !app.archived_at && app.enabled ? "pass" : "badge"
+                    }
+                  >
                     {app.archived_at
                       ? "已归档"
                       : app.enabled
@@ -391,12 +393,35 @@ export function AppsPage() {
                         : "已停用"}
                   </Badge>
                 </div>
-                <p className="muted">
-                  {app.package_count ?? 0} 个安装包 ·{" "}
-                  {app.publication_count ?? 0} 个发布 · {app.debug_entry_count}{" "}
-                  个旧版 Debug 包 · {app.repository?.full_name ?? "未绑定仓库"}
-                </p>
-                <p className="muted">更新于 {date(app.updated_at)}</p>
+                <div className="inline apps-card-platforms">
+                  {app.platforms.map((p) => (
+                    <span key={p}>
+                      <Status value={p} />
+                      {app.disabled_platforms?.includes(p) && "（已停用）"}
+                    </span>
+                  ))}
+                </div>
+                <dl className="apps-card-stats">
+                  <div>
+                    <dt>安装包</dt>
+                    <dd>{app.package_count ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>发布</dt>
+                    <dd>{app.publication_count ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>旧版 Debug 包</dt>
+                    <dd>{app.debug_entry_count}</dd>
+                  </div>
+                </dl>
+                <div className="apps-card-footer">
+                  <p className="apps-card-repository">
+                    <Icon name="branch" size={14} />
+                    <span>{app.repository?.full_name ?? "未绑定仓库"}</span>
+                  </p>
+                  <p>更新于 {date(app.updated_at)}</p>
+                </div>
               </CardLink>
             ))}
           </div>
@@ -428,7 +453,7 @@ export function AppsPage() {
           />
         </>
       )}
-    </>
+    </div>
   );
 }
 function CreateAppForm({
@@ -549,11 +574,15 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
   const globalAdmin = isGlobalAdmin(session.data?.user);
   const cmd = useCommand();
   const client = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsId = useId();
   const [draft, setDraft] = useState<{
     base: DTO<"App">;
     values: ReturnType<typeof basicValues>;
   } | null>(null);
   const values = draft?.values ?? basicValues(app);
+  const locked = !editing || !!app.archived_at || cmd.pending;
   // Repository-only updates may advance the revision without invalidating this draft.
   // Keep the original revision if another editor changed any basic information.
   const revision =
@@ -569,7 +598,7 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
   }
   const navigate = useNavigate();
   return (
-    <>
+    <div className="app-settings-page">
       <Title description="维护基本信息，然后选择 Release 安装包或接入 GitHub Actions。">
         {app.name}
       </Title>
@@ -591,13 +620,31 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
       {cmd.feedback}
       <div className="two-columns">
         <Panel className="panel">
-          <h2>基本信息</h2>
+          <div className="settings-section-heading">
+            <h2>基本信息</h2>
+            {!editing && !app.archived_at && (
+              <Button
+                type="button"
+                aria-label="修改基本信息"
+                onClick={() => setEditing(true)}
+              >
+                修改
+              </Button>
+            )}
+          </div>
+          <p className="muted settings-edit-hint">
+            {editing
+              ? "修改后请保存，取消将恢复已保存的内容。"
+              : "已保存，点击「修改」后编辑。"}
+          </p>
           <fieldset
             disabled={!!app.archived_at}
             style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
           >
             <Form
+              key={editing ? "editing" : "saved"}
               submit={(f) =>
+                !locked &&
                 void cmd.run(
                   "app-update",
                   () =>
@@ -623,6 +670,7 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
                   (saved) => {
                     client.setQueryData(["app", app.id], saved);
                     setDraft(null);
+                    setEditing(false);
                   },
                   "基本信息已保存。",
                   JSON.stringify(values.disabled_platforms) !==
@@ -632,21 +680,24 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
                 )
               }
             >
-              <Field
-                name="name"
-                label="名称"
-                value={values.name}
-                onChange={(event) => change({ name: event.target.value })}
-                disabled={cmd.pending}
-                required
-                maxLength={100}
-              />
-              <Field
-                name="public_slug"
-                label="分发标识"
-                value={app.public_slug}
-                readOnly
-              />
+              <div className="settings-identity-fields">
+                <Field
+                  name="name"
+                  label="名称"
+                  value={values.name}
+                  onChange={(event) => change({ name: event.target.value })}
+                  disabled={locked}
+                  required
+                  maxLength={100}
+                />
+                <Field
+                  name="public_slug"
+                  label="分发标识"
+                  value={app.public_slug}
+                  readOnly
+                  disabled
+                />
+              </div>
               <Field
                 name="description"
                 label="描述"
@@ -654,58 +705,103 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
                 onChange={(event) =>
                   change({ description: event.target.value })
                 }
-                disabled={cmd.pending}
+                disabled={locked}
                 maxLength={2000}
               />
-              <Platforms
-                selected={values.platforms}
-                onChange={(platforms) => change({ platforms })}
-                disabled={cmd.pending}
-              />
-              <AppIconField
-                value={values.icon_data}
-                onChange={(icon_data) => change({ icon_data })}
-                disabled={cmd.pending}
-              />
-              <fieldset disabled={cmd.pending}>
-                <legend>平台运行状态</legend>
-                <p className="muted">
-                  停用保留平台配置及历史。再次启用会恢复已发布私有版本的可见性；公开发布须先下架并完成访问收回。
-                </p>
-                {values.platforms.map((p) => (
-                  <Check
-                    key={p}
-                    name={`platform-enabled-${p}`}
-                    label={`启用 ${platformNames[p]} 平台`}
-                    checked={!values.disabled_platforms.includes(p)}
-                    onChange={(event) =>
-                      change({
-                        disabled_platforms: event.target.checked
-                          ? values.disabled_platforms.filter(
-                              (item) => item !== p,
-                            )
-                          : [...values.disabled_platforms, p],
-                      })
-                    }
-                  />
-                ))}
-              </fieldset>
-              <Check
-                name="enabled"
-                label="启用 App"
-                checked={values.enabled}
-                onChange={(event) => change({ enabled: event.target.checked })}
-                disabled={cmd.pending}
-              />
-              <PackageIdentifiers
-                platforms={values.platforms}
-                values={values.identifiers}
-                onChange={(identifiers) => change({ identifiers })}
-                disabled={cmd.pending}
-              />
-              <Button disabled={cmd.pending} className="primary">
-                保存
-              </Button>
+              {!editing && (
+                <div className="settings-basic-summary">
+                  <span>
+                    {values.platforms.map((p) => platformNames[p]).join(" · ")}
+                  </span>
+                  <Badge>{values.enabled ? "已启用" : "已停用"}</Badge>
+                </div>
+              )}
+              <div className="settings-basic-details">
+                {editing ? (
+                  <h3>图标、平台与包标识</h3>
+                ) : (
+                  <Button
+                    type="button"
+                    className="settings-details-toggle"
+                    aria-expanded={detailsOpen}
+                    aria-controls={detailsId}
+                    onClick={() => setDetailsOpen(!detailsOpen)}
+                  >
+                    <span>图标、平台与包标识</span>
+                    <span aria-hidden="true">{detailsOpen ? "−" : "+"}</span>
+                  </Button>
+                )}
+                <div id={detailsId} hidden={!editing && !detailsOpen}>
+                  <div className="settings-details-fields">
+                    <Platforms
+                      selected={values.platforms}
+                      onChange={(platforms) => change({ platforms })}
+                      disabled={locked}
+                    />
+                    <AppIconField
+                      value={values.icon_data}
+                      onChange={(icon_data) => change({ icon_data })}
+                      disabled={locked}
+                    />
+                    <fieldset disabled={locked}>
+                      <legend>平台运行状态</legend>
+                      <p className="muted">
+                        停用保留平台配置及历史。再次启用会恢复已发布私有版本的可见性；公开发布须先下架并完成访问收回。
+                      </p>
+                      {values.platforms.map((p) => (
+                        <Check
+                          key={p}
+                          name={`platform-enabled-${p}`}
+                          label={`启用 ${platformNames[p]} 平台`}
+                          checked={!values.disabled_platforms.includes(p)}
+                          disabled={locked}
+                          onChange={(event) =>
+                            change({
+                              disabled_platforms: event.target.checked
+                                ? values.disabled_platforms.filter(
+                                    (item) => item !== p,
+                                  )
+                                : [...values.disabled_platforms, p],
+                            })
+                          }
+                        />
+                      ))}
+                    </fieldset>
+                    <Check
+                      name="enabled"
+                      label="启用 App"
+                      checked={values.enabled}
+                      onChange={(event) =>
+                        change({ enabled: event.target.checked })
+                      }
+                      disabled={locked}
+                    />
+                    <PackageIdentifiers
+                      platforms={values.platforms}
+                      values={values.identifiers}
+                      onChange={(identifiers) => change({ identifiers })}
+                      disabled={locked}
+                    />
+                  </div>
+                </div>
+              </div>
+              {editing && (
+                <div className="form-actions">
+                  <Button
+                    type="button"
+                    disabled={cmd.pending}
+                    onClick={() => {
+                      setDraft(null);
+                      setEditing(false);
+                    }}
+                  >
+                    取消修改
+                  </Button>
+                  <Button disabled={cmd.pending} className="primary">
+                    保存
+                  </Button>
+                </div>
+              )}
             </Form>
           </fieldset>
         </Panel>
@@ -754,10 +850,13 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
           )}
         </Panel>
       )}
-    </>
+    </div>
   );
 }
 function RepositoryBinding({ app }: { app: DTO<"App"> }) {
+  const [editing, setEditing] = useState(!app.repository);
+  const [revision, setRevision] = useState(app.revision);
+  const client = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const connectors = useQuery({
@@ -770,22 +869,67 @@ function RepositoryBinding({ app }: { app: DTO<"App"> }) {
   );
   const [repoName, setRepoName] = useState(app.repository?.full_name ?? "");
   const cmd = useCommand();
+  const locked = !editing || cmd.pending;
+  const currentConnectorId = editing
+    ? connectorId
+    : (app.repository?.connector_id ?? "");
+  const currentRepoName = editing
+    ? repoName
+    : (app.repository?.full_name ?? "");
+  const options =
+    connectors.data?.items.map((c) => ({
+      value: c.id,
+      label: c.name,
+      disabled: !c.enabled,
+    })) ?? [];
+  if (
+    currentConnectorId &&
+    !options.some((c) => c.value === currentConnectorId)
+  ) {
+    options.unshift({
+      value: currentConnectorId,
+      label: "已保存的 GitHub 连接",
+      disabled: false,
+    });
+  }
   return (
     <Panel>
-      <h2>绑定 GitHub 仓库</h2>
-      <p className="muted">当前：{app.repository?.full_name ?? "未绑定"}</p>
+      <div className="settings-section-heading">
+        <h2>绑定 GitHub 仓库</h2>
+        {!editing && (
+          <Button
+            type="button"
+            aria-label="修改仓库绑定"
+            onClick={() => {
+              setConnectorId(app.repository?.connector_id ?? "");
+              setRepoName(app.repository?.full_name ?? "");
+              setRevision(app.revision);
+              setSearch("");
+              setPage(1);
+              setEditing(true);
+            }}
+          >
+            修改
+          </Button>
+        )}
+      </div>
+      <p className="muted settings-edit-hint">
+        {editing
+          ? "选择连接与仓库，保存前会验证读取权限。"
+          : "已绑定，点击「修改」后更换连接或仓库。"}
+      </p>
       {cmd.feedback}
       <div className="field">
         <span id="connector-label">GitHub 连接</span>
         <Select
           aria-labelledby="connector-label"
           aria-label="GitHub 连接"
-          value={connectorId || undefined}
+          value={currentConnectorId || undefined}
           placeholder="搜索并选择连接"
           filter
           remote
           loading={connectors.isFetching}
-          disabled={cmd.pending}
+          disabled={locked}
           onSearch={(value) => {
             setSearch(value);
             setPage(1);
@@ -794,11 +938,7 @@ function RepositoryBinding({ app }: { app: DTO<"App"> }) {
             setConnectorId(String(value ?? ""));
             setRepoName("");
           }}
-          optionList={connectors.data?.items.map((c) => ({
-            value: c.id,
-            label: c.name,
-            disabled: !c.enabled,
-          }))}
+          optionList={options}
           outerBottomSlot={
             connectors.data &&
             connectors.data.total > connectors.data.page_size ? (
@@ -811,7 +951,7 @@ function RepositoryBinding({ app }: { app: DTO<"App"> }) {
       <ErrorBox error={connectors.error} />
       <Form
         submit={() => {
-          if (!connectorId || !repoName.trim()) return;
+          if (locked || !connectorId || !repoName.trim()) return;
           void cmd.run(
             "bind-repository",
             () =>
@@ -819,39 +959,57 @@ function RepositoryBinding({ app }: { app: DTO<"App"> }) {
                 "/api/v1/apps/{id}/repository",
                 "put",
                 { connector_id: connectorId, full_name: repoName.trim() },
-                { id: app.id, revision: app.revision },
+                { id: app.id, revision },
               ),
-            undefined,
+            (saved) => {
+              client.setQueryData(["app", app.id], saved);
+              setEditing(false);
+            },
             "仓库绑定已保存。",
           );
         }}
       >
         <RepositorySelect
-          key={connectorId}
-          connectorId={connectorId}
-          value={repoName}
+          key={`${currentConnectorId}-${editing}`}
+          connectorId={currentConnectorId}
+          value={currentRepoName}
           onChange={setRepoName}
-          disabled={cmd.pending}
+          disabled={locked}
         />
-        <Disclosure title="手动填写仓库名称">
-          <Field
-            label="仓库完整名称"
-            name="full_name"
-            value={repoName}
-            onChange={(event) => setRepoName(event.target.value)}
-            disabled={cmd.pending || !connectorId}
-            pattern={String.raw`[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+`}
-            validationMessage="请按 owner/repository 格式填写仓库完整名称。"
-            help="未在搜索中找到时，可填写已知仓库；服务端会验证读取权限。"
-          />
-        </Disclosure>
-        <Button
-          className="primary"
-          loading={cmd.pending}
-          disabled={cmd.pending || !connectorId || !repoName.trim()}
-        >
-          验证并绑定
-        </Button>
+        {editing && (
+          <Disclosure title="手动填写仓库名称">
+            <Field
+              label="仓库完整名称"
+              name="full_name"
+              value={repoName}
+              onChange={(event) => setRepoName(event.target.value)}
+              disabled={cmd.pending || !connectorId}
+              pattern={String.raw`[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+`}
+              validationMessage="请按 owner/repository 格式填写仓库完整名称。"
+              help="未在搜索中找到时，可填写已知仓库；服务端会验证读取权限。"
+            />
+          </Disclosure>
+        )}
+        {editing && (
+          <div className="form-actions">
+            {app.repository && (
+              <Button
+                type="button"
+                disabled={cmd.pending}
+                onClick={() => setEditing(false)}
+              >
+                取消修改
+              </Button>
+            )}
+            <Button
+              className="primary"
+              loading={cmd.pending}
+              disabled={cmd.pending || !connectorId || !repoName.trim()}
+            >
+              验证并绑定
+            </Button>
+          </div>
+        )}
       </Form>
       <Link to="/admin/connectors">管理 GitHub 连接</Link>
     </Panel>

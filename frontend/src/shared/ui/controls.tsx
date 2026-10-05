@@ -207,7 +207,7 @@ export function PageTabs({
     <Tabs
       className="page-tabs"
       type="line"
-      tabBarStyle={{ whiteSpace: "nowrap", overflowX: "auto" }}
+      collapsible="auto"
       activeKey={pathname}
       onChange={navigate}
     >

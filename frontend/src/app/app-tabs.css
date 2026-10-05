@@ -1,0 +1,365 @@
+.app-tab-page {
+  container: app-tab / inline-size;
+  min-width: 0;
+}
+.app-tab-page :is(h1, h2, h3, p, dd, code, .wrap-token) {
+  overflow-wrap: anywhere;
+}
+.app-tab-page .section-heading {
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.app-tab-page .section-heading > :first-child {
+  min-width: 0;
+}
+.app-tab-page .form {
+  gap: 16px;
+  margin-block: 16px;
+}
+.app-tab-page .field {
+  gap: 6px;
+}
+.app-tab-page :is(.semi-input-wrapper, .semi-select, .semi-button) {
+  min-height: 36px;
+}
+.app-tab-page .semi-input-textarea {
+  min-height: 96px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.app-tab-page .form > .semi-button {
+  align-self: flex-start;
+}
+.app-tab-page #package-upload-form .field > .semi-button {
+  align-self: flex-start;
+}
+.app-tab-page #version-create-form .form {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.app-tab-page #version-create-form .form > label {
+  grid-column: 1 / -1;
+}
+.app-tab-page #version-create-form .form > button {
+  justify-self: start;
+}
+.app-tab-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 16px;
+  margin-block: 16px;
+  background: var(--semi-color-bg-0);
+  border: 1px solid var(--semi-color-border);
+  border-radius: var(--semi-border-radius-medium);
+}
+.app-tab-filters > :is(label, .field) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.app-tab-page .search {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.app-tab-page .search .semi-input-wrapper {
+  width: 100%;
+  min-width: 0;
+}
+.app-tab-page .search > .semi-button {
+  flex-shrink: 0;
+}
+.app-tab-page .package-filter-panel {
+  display: block;
+}
+.app-tab-page .package-filters {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 0;
+}
+.app-tab-page .package-filters > .field {
+  grid-column: span 1;
+  min-width: 0;
+  max-width: none;
+}
+.app-tab-page .package-filters > .date-filter {
+  grid-column: span 2;
+}
+.app-tab-page .package-filters > button {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+.app-tab-page .semi-datepicker {
+  width: 100%;
+  min-width: 0;
+}
+.app-tab-page #package-upload-form > fieldset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.app-tab-page #package-upload-form > fieldset > :nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+.app-tab-page .card-grid {
+  gap: 16px;
+}
+.app-tab-page .card-grid h2 {
+  font-size: 16px;
+  line-height: 24px;
+}
+.app-tab-page .card-grid details {
+  margin-top: 12px;
+}
+.versions-toolbar .search {
+  max-width: 560px;
+}
+.versions-toolbar > .semi-button {
+  margin-left: auto;
+}
+.version-notes-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+.app-tab-page .release-rules .section-heading {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+.app-tab-page .release-rules .section-heading > .inline {
+  flex-shrink: 0;
+}
+.app-tab-page .release-rule-grid {
+  gap: 12px 16px;
+}
+.app-tab-page .release-rules.is-saved .release-rule-fields small,
+.app-tab-page .release-rules.is-saved .release-rule-fields > p {
+  display: none;
+}
+.app-tab-page .release-auto-settings {
+  margin-top: 16px;
+  gap: 16px;
+}
+.app-tab-page .release-sync-status,
+.app-tab-page .release-preview {
+  margin-top: 16px;
+  padding-top: 12px;
+}
+.release-filters .search {
+  flex-basis: 100%;
+}
+.release-filters > label {
+  flex: 1 1 180px;
+}
+.app-tab-page .release-card .data-table {
+  margin-block: 12px;
+}
+.app-tab-page .release-notes {
+  max-height: 280px;
+  overflow-y: auto;
+}
+.release-import-settings {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--semi-color-border);
+}
+.app-tab-page .actions-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+.actions-fields > :is(.form-actions, .semi-checkbox) {
+  grid-column: 1 / -1;
+}
+.actions-fields .field:has(input:disabled) small {
+  display: none;
+}
+.app-tab-page pre {
+  max-width: 100%;
+  max-height: 360px;
+  overflow: auto;
+}
+.actions-quick-guide .disclosure {
+  margin-bottom: 0;
+}
+.debug-package-list {
+  background: var(--semi-color-bg-0);
+  border-radius: var(--semi-border-radius-medium);
+}
+.debug-package-list .section-heading {
+  margin: 0;
+}
+.debug-package-list .section-heading h2 {
+  font-size: 16px;
+}
+.debug-package-list .semi-list-item {
+  padding: 16px 20px;
+}
+.debug-package-list .semi-list-item {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+.debug-package-list .debug-package-row {
+  flex: 1;
+  width: auto;
+}
+.debug-package-list .debug-package-selected {
+  background: var(--semi-color-primary-light-default);
+}
+.debug-package-select {
+  flex: 0 0 auto;
+  padding-block: 4px;
+}
+.debug-batch-header > .muted {
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+.debug-batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.debug-batch-report,
+.debug-batch-progress {
+  padding: 16px;
+  margin-block: 16px;
+  background: var(--semi-color-bg-0);
+  border: 1px solid var(--semi-color-border);
+  border-radius: var(--semi-border-radius-medium);
+}
+.debug-batch-progress > span {
+  display: block;
+  margin-bottom: 8px;
+}
+.debug-batch-report .section-heading p {
+  margin: 0;
+}
+.debug-batch-report .disclosure {
+  margin-bottom: 0;
+}
+.debug-batch-results {
+  display: grid;
+  gap: 12px;
+  max-height: 300px;
+  overflow: auto;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.debug-batch-results li {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.debug-batch-result-name {
+  overflow-wrap: anywhere;
+}
+.debug-package-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+}
+.debug-package-main {
+  min-width: 0;
+}
+.debug-package-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.debug-package-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--semi-color-text-2);
+  overflow-wrap: anywhere;
+}
+.debug-package-meta > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.debug-package-status {
+  gap: 8px;
+  margin-top: 8px;
+}
+.debug-package-dates {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+@container app-tab (max-width: 640px) {
+  .app-tab-page .package-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .app-tab-page .package-filters > .date-filter {
+    grid-column: 1 / -1;
+  }
+  .app-tab-page .release-rules .section-heading {
+    flex-wrap: wrap;
+  }
+  .app-tab-page
+    :is(
+      .actions-fields,
+      .release-rule-grid,
+      #package-upload-form > fieldset,
+      #version-create-form .form
+    ) {
+    grid-template-columns: 1fr;
+  }
+  .debug-package-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+  .debug-package-dates {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .debug-package-row > .button {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+  .app-tab-filters .search {
+    flex-basis: 100%;
+  }
+}
+@container app-tab (max-width: 400px) {
+  .app-tab-filters {
+    padding: 12px;
+  }
+  .app-tab-filters > :is(label, .field) {
+    flex: 1 1 100%;
+  }
+  .app-tab-filters > label > .semi-select {
+    width: 100%;
+  }
+  .debug-package-list .semi-list-item {
+    padding: 16px 12px;
+  }
+  .debug-package-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .debug-package-main {
+    grid-column: 1 / -1;
+  }
+  .debug-package-row > .button {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}

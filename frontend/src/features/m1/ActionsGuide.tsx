@@ -37,10 +37,12 @@ export function ActionsGuide({
 }) {
   if (compact)
     return (
-      <Panel>
-        <h2>接入 GitHub Actions</h2>
+      <Panel className="actions-quick-guide">
+        <div className="section-heading">
+          <h2>接入 GitHub Actions</h2>
+          <Link to="/docs/github-actions">打开独立接入文档</Link>
+        </div>
         <p>先创建规则，再把该规则的接入文档交给 Agent 修改源仓库 workflow。</p>
-        <Link to="/docs/github-actions">打开独立接入文档</Link>
         <Disclosure title="查看接入步骤与 YAML 示例">
           <ActionsGuide appId={appId} />
         </Disclosure>

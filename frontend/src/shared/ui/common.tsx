@@ -362,10 +362,12 @@ export function Pager({
   data,
   page,
   setPage,
+  disabled = false,
 }: {
   data?: { total: number; page_size: number };
   page: number;
   setPage: (p: number) => void;
+  disabled?: boolean;
 }) {
   if (!data || data.total === 0) return null;
   return (
@@ -374,6 +376,7 @@ export function Pager({
         total={data.total}
         pageSize={data.page_size}
         currentPage={page}
+        disabled={disabled}
         onPageChange={setPage}
         showTotal
         showSizeChanger={false}
@@ -461,9 +464,9 @@ export function TaskNotice({ task }: { task?: DTO<"TaskAccepted"> }) {
   });
   const settled = Boolean(
     query.data &&
-      ["succeeded", "partial_success", "failed", "unknown"].includes(
-        query.data.state,
-      ),
+    ["succeeded", "partial_success", "failed", "unknown"].includes(
+      query.data.state,
+    ),
   );
   useEffect(() => {
     if (settled) {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import Table from "@douyinfe/semi-ui-19/lib/es/table";
@@ -53,6 +53,9 @@ export function ReleaseRules({
     refetchInterval: 10_000,
   });
   const [edited, setEdited] = useState<Draft>();
+  const [editing, setEditing] = useState(false);
+  const [baseRevision, setBaseRevision] = useState<number>();
+  const client = useQueryClient();
   const [preview, setPreview] = useState<DTO<"ReleaseImportPreview">>();
   const [task, setTask] = useState<DTO<"TaskAccepted">>();
   const command = useCommand();
@@ -93,8 +96,9 @@ export function ReleaseRules({
       rules.tag_pattern,
     ].every((p) => p.length <= 255);
   const result = saved.last_result;
+  const locked = !editing || command.pending;
   return (
-    <Panel className="release-rules">
+    <Panel className={`release-rules ${editing ? "is-editing" : "is-saved"}`}>
       <div className="section-heading">
         <div>
           <h2>按规则导入安装包</h2>
@@ -103,12 +107,31 @@ export function ReleaseRules({
             分发，按需缓存且不解析包标识；不会加入安装包库、创建版本发布或发送通知。需要持久原件时，请在下方选择附件并导入安装包库。
           </p>
         </div>
-        <Badge>
-          {saved.auto_enabled ? "自动同步已启用" : "自动同步未启用"}
-        </Badge>
+        <div className="inline">
+          <Badge>
+            {saved.auto_enabled ? "自动同步已启用" : "自动同步未启用"}
+          </Badge>
+          {!editing && (
+            <Button
+              type="button"
+              aria-label="修改导入规则"
+              disabled={command.pending}
+              onClick={() => {
+                setEdited({ ...draft });
+                setBaseRevision(saved.revision);
+                setPreview(undefined);
+                setEditing(true);
+              }}
+            >
+              修改
+            </Button>
+          )}
+        </div>
       </div>
       <Form
+        key={editing ? "editing" : "saved"}
         submit={() =>
+          !locked &&
           void command.run(
             "release-policy-save",
             () =>
@@ -120,17 +143,23 @@ export function ReleaseRules({
                   auto_enabled: draft.auto,
                   interval_minutes: draft.interval,
                 },
-                { id: appId, revision: saved.revision },
+                { id: appId, revision: baseRevision ?? saved.revision },
               ),
-            () => setEdited(undefined),
+            (value) => {
+              client.setQueryData(["release-policy", appId], value);
+              setEdited(undefined);
+              setPreview(undefined);
+              setEditing(false);
+            },
             "规则已保存。",
           )
         }
       >
-        <fieldset disabled={command.pending} className="release-rule-fields">
+        <fieldset disabled={locked} className="release-rule-fields">
           <div className="release-rule-grid">
             <Field
               label="安装包文件名"
+              disabled={locked}
               required
               value={draft.include}
               maxLength={5119}
@@ -140,6 +169,7 @@ export function ReleaseRules({
             />
             <Field
               label="排除文件名（可选）"
+              disabled={locked}
               value={draft.exclude}
               maxLength={5119}
               placeholder="例如 *unsigned*, *symbols*"
@@ -148,6 +178,7 @@ export function ReleaseRules({
             />
             <Field
               label="Release Tag"
+              disabled={locked}
               required
               value={draft.tag}
               maxLength={255}
@@ -159,6 +190,7 @@ export function ReleaseRules({
               <Select
                 aria-labelledby={`rule-prerelease-${appId}`}
                 value={draft.prerelease}
+                disabled={locked}
                 onChange={(value) =>
                   change({ prerelease: String(value) as Rules["prerelease"] })
                 }
@@ -173,12 +205,14 @@ export function ReleaseRules({
           <div className="release-auto-settings">
             <Check
               label="自动检查更新并导入匹配产物"
+              disabled={locked}
               checked={draft.auto}
               onChange={(e) => change({ auto: Boolean(e.target.checked) })}
             />
             {draft.auto && (
               <Field
                 label="检查间隔（分钟）"
+                disabled={locked}
                 type="number"
                 min={5}
                 max={1440}
@@ -193,32 +227,47 @@ export function ReleaseRules({
             和附件更新；已有产物自动跳过，无需修改 GitHub Actions。导入到 Debug
             下载列表，文件在首次下载时缓存并校验。
           </p>
-          <div className="toolbar">
-            <Button
-              type="button"
-              disabled={!valid || !snapshotReady || command.pending}
-              onClick={() =>
-                void command.run(
-                  "release-preview",
-                  () =>
-                    write(
-                      "/api/v1/apps/{id}/github/releases/preview",
-                      "post",
-                      rules,
-                      { id: appId },
-                    ),
-                  setPreview,
-                  "匹配预览已更新。",
-                )
-              }
-            >
-              预览匹配产物
-            </Button>
-            <Button disabled={!valid || command.pending}>
-              保存规则{draft.auto ? "并启用自动同步" : ""}
-            </Button>
-          </div>
         </fieldset>
+        <div className="toolbar">
+          <Button
+            type="button"
+            disabled={!valid || !snapshotReady || command.pending}
+            onClick={() =>
+              void command.run(
+                "release-preview",
+                () =>
+                  write(
+                    "/api/v1/apps/{id}/github/releases/preview",
+                    "post",
+                    rules,
+                    { id: appId },
+                  ),
+                setPreview,
+                "匹配预览已更新。",
+              )
+            }
+          >
+            预览匹配产物
+          </Button>
+          {editing && (
+            <>
+              <Button
+                type="button"
+                disabled={command.pending}
+                onClick={() => {
+                  setEdited(undefined);
+                  setPreview(undefined);
+                  setEditing(false);
+                }}
+              >
+                取消修改
+              </Button>
+              <Button className="primary" disabled={!valid || command.pending}>
+                保存规则{draft.auto ? "并启用自动同步" : ""}
+              </Button>
+            </>
+          )}
+        </div>
       </Form>
       {!snapshotReady && (
         <Notice>

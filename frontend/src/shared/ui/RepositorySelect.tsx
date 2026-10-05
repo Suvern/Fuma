@@ -39,7 +39,7 @@ export function RepositorySelect({
       }),
     getNextPageParam: (last, pages) =>
       pages.length * last.page_size < last.total ? pages.length + 1 : undefined,
-    enabled: !!connectorId,
+    enabled: !!connectorId && !disabled,
   });
   const items = [
     ...new Map(
@@ -135,9 +135,11 @@ export function RepositorySelect({
         style={{ width: "100%" }}
       />
       <Typography.Text id={`${id}-help`} type="tertiary" size="small">
-        {loading && connectorId
-          ? "正在搜索仓库…"
-          : "搜索此连接可访问的仓库，选择后点击「验证并绑定」。"}
+        {disabled
+          ? "已保存的仓库"
+          : loading && connectorId
+            ? "正在搜索仓库…"
+            : "搜索此连接可访问的仓库，选择后点击「验证并绑定」。"}
       </Typography.Text>
       <ErrorBox error={repos.error} />
     </div>

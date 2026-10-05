@@ -1,10 +1,8 @@
+import { AppIcon } from "../../m1/AppIcon";
 import { TaskOverview } from "../components/TaskOverview";
 import { Metric } from "../../../shared/ui/controls";
-import Banner from "@douyinfe/semi-ui-19/lib/es/banner";
 import Button from "@douyinfe/semi-ui-19/lib/es/button";
 import Card from "@douyinfe/semi-ui-19/lib/es/card";
-import Descriptions from "@douyinfe/semi-ui-19/lib/es/descriptions";
-import Space from "@douyinfe/semi-ui-19/lib/es/space";
 import Steps from "@douyinfe/semi-ui-19/lib/es/steps";
 import Typography from "@douyinfe/semi-ui-19/lib/es/typography";
 import { useQuery } from "@tanstack/react-query";
@@ -47,14 +45,14 @@ function MaintainerDashboard() {
     queryFn: () => read("/api/v1/apps", { query: { page: 1, page_size: 8 } }),
   });
   return (
-    <>
+    <div className="dashboard-page">
       <Title description="管理获授权应用的安装包、版本发布和任务。全局连接、存储及成员授权由管理员维护。">
         我的工作台
       </Title>
       <div className="dashboard-columns">
         <Card
           className="panel"
-          title="我的应用"
+          title={<h2>我的应用</h2>}
           headerExtraContent={<Link to="/admin/apps">查看全部</Link>}
         >
           <ErrorBox error={apps.error} />
@@ -65,11 +63,15 @@ function MaintainerDashboard() {
               key={app.id}
               to={`/admin/apps/${app.id}`}
             >
-              <strong>{app.name}</strong>
-              <span>
-                {app.package_count ?? 0} 个安装包 · {app.publication_count ?? 0}{" "}
-                个发布
+              <AppIcon name={app.name} value={app.icon_data} />
+              <span className="row-copy">
+                <strong>{app.name}</strong>
+                <small>
+                  {app.package_count ?? 0} 个安装包 ·{" "}
+                  {app.publication_count ?? 0} 个发布
+                </small>
               </span>
+              <Icon name="chevron" size={14} />
             </Link>
           ))}
           {apps.data?.total === 0 && (
@@ -78,7 +80,7 @@ function MaintainerDashboard() {
         </Card>
         <TaskOverview />
       </div>
-    </>
+    </div>
   );
 }
 
@@ -132,7 +134,7 @@ function AdminDashboard() {
   const healthy =
     health.data && services.every(([key]) => health.data[key] === "ok");
   return (
-    <>
+    <div className="dashboard-page">
       <Title
         description="查看应用、分发任务与服务运行状态。"
         actions={
@@ -144,53 +146,6 @@ function AdminDashboard() {
       >
         工作台
       </Title>
-      <div className="dashboard-columns">
-        <Card
-          className="panel"
-          title="我的应用"
-          headerExtraContent={
-            <Link aria-label="查看全部应用" to="/admin/apps">
-              查看全部
-            </Link>
-          }
-        >
-          <ErrorBox error={apps.error} />
-          {apps.isPending && <Loading />}
-          {apps.data?.total === 0 && (
-            <Empty
-              title="尚未添加应用"
-              action={
-                <Link className="button primary" to="/admin/apps?new=1">
-                  新建应用
-                </Link>
-              }
-            >
-              添加应用并关联仓库，开始分发安装包。
-            </Empty>
-          )}
-          {apps.data?.items.map((app) => (
-            <Link
-              className="dashboard-row"
-              to={`/admin/apps/${app.id}`}
-              key={app.id}
-            >
-              <span className="app-monogram">{app.name[0]}</span>
-              <span className="row-copy">
-                <strong>{app.name}</strong>
-                <small>
-                  {app.repository?.full_name ?? "待绑定 GitHub 仓库"}
-                </small>
-              </span>
-              <Typography.Text type="tertiary">
-                包库 {app.package_count ?? 0} · 发布{" "}
-                {app.publication_count ?? 0}
-              </Typography.Text>
-              <Icon name="chevron" size={14} />
-            </Link>
-          ))}
-        </Card>
-        <TaskOverview />
-      </div>
       <div className="stat-grid">
         <Card>
           <Metric
@@ -227,8 +182,25 @@ function AdminDashboard() {
       </div>
       <ErrorBox error={health.error} />
       <Card
-        className="panel"
-        title="服务运行状态"
+        className="panel dashboard-health"
+        title={
+          <div className="dashboard-health-heading">
+            <h2>服务运行状态</h2>
+            <span
+              className={`dashboard-health-summary ${health.error || (health.data && !healthy) ? "needs-attention" : healthy ? "is-healthy" : ""}`}
+              role="status"
+            >
+              <Icon name={healthy ? "check" : "server"} size={14} />
+              {health.isPending
+                ? "正在连接服务"
+                : health.error
+                  ? "服务状态暂不可用"
+                  : healthy
+                    ? "所有服务运行正常"
+                    : "部分服务需要关注"}
+            </span>
+          </div>
+        }
         headerExtraContent={
           <Button
             icon={<Icon name="refresh" size={16} />}
@@ -241,33 +213,110 @@ function AdminDashboard() {
           </Button>
         }
       >
-        <Banner
-          fullMode={false}
-          type={healthy ? "success" : health.error ? "danger" : "info"}
-          closeIcon={null}
-          description={
-            health.isPending
-              ? "正在连接服务"
-              : health.error
-                ? "服务状态暂不可用"
-                : healthy
-                  ? "所有服务运行正常"
-                  : "部分服务需要关注"
-          }
-        />
-        <div className="status-list" style={{ marginTop: 20 }}>
+        <div className="dashboard-service-grid">
           {services.map(([key, label]) => (
-            <span key={key}>
-              {label}
+            <div key={key}>
+              <span>{label}</span>
               <Status value={health.data?.[key] ?? "pending"} />
-            </span>
+            </div>
           ))}
         </div>
       </Card>
+      <div className="dashboard-columns">
+        <div className="dashboard-stack">
+          <Card
+            className="panel"
+            title={<h2>我的应用</h2>}
+            headerExtraContent={
+              <Link aria-label="查看全部应用" to="/admin/apps">
+                查看全部
+              </Link>
+            }
+          >
+            <ErrorBox error={apps.error} />
+            {apps.isPending && <Loading />}
+            {apps.data?.total === 0 && (
+              <Empty
+                title="尚未添加应用"
+                action={
+                  <Link className="button primary" to="/admin/apps?new=1">
+                    新建应用
+                  </Link>
+                }
+              >
+                添加应用并关联仓库，开始分发安装包。
+              </Empty>
+            )}
+            {apps.data?.items.map((app) => (
+              <Link
+                className="dashboard-row dashboard-app-row"
+                to={`/admin/apps/${app.id}`}
+                key={app.id}
+              >
+                <AppIcon name={app.name} value={app.icon_data} />
+                <span className="row-copy">
+                  <strong>{app.name}</strong>
+                  <small>
+                    {app.repository?.full_name ?? "待绑定 GitHub 仓库"}
+                  </small>
+                </span>
+                <Typography.Text
+                  className="dashboard-app-count"
+                  type="tertiary"
+                >
+                  包库 {app.package_count ?? 0} · 发布{" "}
+                  {app.publication_count ?? 0}
+                </Typography.Text>
+                <Icon name="chevron" size={14} />
+              </Link>
+            ))}
+          </Card>
+          <Card
+            className="panel dashboard-environment"
+            title={<h2>运行环境</h2>}
+            headerExtraContent={
+              <Link to="/admin/settings/cache">缓存设置</Link>
+            }
+          >
+            {health.isPending && <Loading />}
+            {health.data && (
+              <dl className="dashboard-environment-list">
+                <div>
+                  <dt>下载门户</dt>
+                  <dd>
+                    <Typography.Text copyable>
+                      {health.data.public_origin}
+                    </Typography.Text>
+                  </dd>
+                </div>
+                <div>
+                  <dt>缓存目录</dt>
+                  <dd>
+                    <Status
+                      value={health.data.cache_writable ? "ok" : "failed"}
+                    />{" "}
+                    {health.data.cache_writable ? "可读写" : "不可写"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>最近任务心跳</dt>
+                  <dd>{date(health.data.worker_last_seen_at)}</dd>
+                </div>
+              </dl>
+            )}
+            {health.error && (
+              <p className="muted">
+                暂时无法读取运行环境，请刷新服务状态重试。
+              </p>
+            )}
+          </Card>
+        </div>
+        <TaskOverview />
+      </div>
       {(!setupKnown || complete < steps.length) && (
         <Card
           className="panel"
-          title="接入指引"
+          title={<h2>接入指引</h2>}
           headerExtraContent={
             <Typography.Text type="tertiary">
               {setupKnown ? `${complete} / 3 已完成` : "正在检查"}
@@ -291,44 +340,6 @@ function AdminDashboard() {
           </Steps>
         </Card>
       )}
-      <Card
-        className="panel"
-        title="运行环境"
-        headerExtraContent={<Link to="/admin/settings/cache">缓存设置</Link>}
-      >
-        {health.isPending && <Loading />}
-        {health.data && (
-          <Descriptions
-            align="left"
-            row
-            data={[
-              {
-                key: "下载门户",
-                value: (
-                  <Typography.Text copyable>
-                    {health.data.public_origin}
-                  </Typography.Text>
-                ),
-              },
-              {
-                key: "缓存目录",
-                value: health.data.cache_writable ? "可读写" : "不可写",
-              },
-              {
-                key: "最近任务心跳",
-                value: date(health.data.worker_last_seen_at),
-              },
-            ]}
-          />
-        )}
-        {health.error && (
-          <Space>
-            <Typography.Text type="tertiary">
-              暂时无法读取运行环境，请刷新服务状态重试。
-            </Typography.Text>
-          </Space>
-        )}
-      </Card>
-    </>
+    </div>
   );
 }

@@ -97,7 +97,7 @@ export function PackagesPage() {
       });
   }, [id, uploadStates, queryClient]);
   return (
-    <>
+    <div className="app-tab-page packages-page">
       <Title description="手工上传 APK / IPA，解析并校验包标识后入库。入库不会自动发布。">
         安装包
       </Title>
@@ -119,104 +119,109 @@ export function PackagesPage() {
           重试加载上传记录
         </Button>
       )}
-      {filters.search}
-      <div className="toolbar package-filters">
-        <div className="field">
-          <Select
-            label="平台"
-            value={platformFilter}
-            onChange={(e) => {
-              setPlatformFilter(e.target.value);
-              filters.setPage(1);
+      <section
+        className="app-tab-filters package-filter-panel"
+        aria-label="安装包筛选"
+      >
+        {filters.search}
+        <div className="toolbar package-filters">
+          <div className="field">
+            <Select
+              label="平台"
+              value={platformFilter}
+              onChange={(e) => {
+                setPlatformFilter(e.target.value);
+                filters.setPage(1);
+              }}
+            >
+              <option value="">全部平台</option>
+              <option value="android">Android</option>
+              <option value="ios">iOS</option>
+            </Select>
+          </div>
+          <div className="field">
+            <Select
+              label="模式"
+              value={modeFilter}
+              onChange={(e) => {
+                setModeFilter(e.target.value);
+                filters.setPage(1);
+              }}
+            >
+              <option value="">全部模式</option>
+              <option value="debug">Debug</option>
+              <option value="release">Release</option>
+            </Select>
+          </div>
+          <div className="field">
+            <Select
+              label="状态"
+              value={stateFilter}
+              onChange={(e) => {
+                setStateFilter(e.target.value);
+                filters.setPage(1);
+              }}
+            >
+              <option value="">全部状态</option>
+              <option value="processing">处理中</option>
+              <option value="ready">已入库</option>
+              <option value="deleting">清理中</option>
+              <option value="deleted">已删除</option>
+            </Select>
+          </div>
+          <div className="field">
+            <Select
+              label="来源"
+              value={sourceFilter}
+              onChange={(e) => {
+                setSourceFilter(e.target.value);
+                filters.setPage(1);
+              }}
+            >
+              <option value="">全部来源</option>
+              <option value="upload">手工上传</option>
+              <option value="github">GitHub</option>
+            </Select>
+          </div>
+          <div className="field date-filter">
+            <DateInput
+              label="入库起始时间（本地时间，含）"
+              type="datetime-local"
+              value={createdFrom}
+              onChange={(e) => {
+                setCreatedFrom(e.target.value);
+                filters.setPage(1);
+              }}
+            />
+          </div>
+          <div className="field date-filter">
+            <DateInput
+              label="入库结束时间（本地时间，不含）"
+              type="datetime-local"
+              value={createdBefore}
+              min={createdFrom || undefined}
+              onChange={(e) => {
+                setCreatedBefore(e.target.value);
+                filters.setPage(1);
+              }}
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={() => {
+              setPlatformFilter("");
+              setModeFilter("");
+              setStateFilter("");
+              setSourceFilter("");
+              setCreatedFrom("");
+              setCreatedBefore("");
+              filters.reset();
             }}
           >
-            <option value="">全部平台</option>
-            <option value="android">Android</option>
-            <option value="ios">iOS</option>
-          </Select>
+            清空筛选
+          </Button>
         </div>
-        <div className="field">
-          <Select
-            label="模式"
-            value={modeFilter}
-            onChange={(e) => {
-              setModeFilter(e.target.value);
-              filters.setPage(1);
-            }}
-          >
-            <option value="">全部模式</option>
-            <option value="debug">Debug</option>
-            <option value="release">Release</option>
-          </Select>
-        </div>
-        <div className="field">
-          <Select
-            label="状态"
-            value={stateFilter}
-            onChange={(e) => {
-              setStateFilter(e.target.value);
-              filters.setPage(1);
-            }}
-          >
-            <option value="">全部状态</option>
-            <option value="processing">处理中</option>
-            <option value="ready">已入库</option>
-            <option value="deleting">清理中</option>
-            <option value="deleted">已删除</option>
-          </Select>
-        </div>
-        <div className="field">
-          <Select
-            label="来源"
-            value={sourceFilter}
-            onChange={(e) => {
-              setSourceFilter(e.target.value);
-              filters.setPage(1);
-            }}
-          >
-            <option value="">全部来源</option>
-            <option value="upload">手工上传</option>
-            <option value="github">GitHub</option>
-          </Select>
-        </div>
-        <div className="field date-filter">
-          <DateInput
-            label="入库起始时间（本地时间，含）"
-            type="datetime-local"
-            value={createdFrom}
-            onChange={(e) => {
-              setCreatedFrom(e.target.value);
-              filters.setPage(1);
-            }}
-          />
-        </div>
-        <div className="field date-filter">
-          <DateInput
-            label="入库结束时间（本地时间，不含）"
-            type="datetime-local"
-            value={createdBefore}
-            min={createdFrom || undefined}
-            onChange={(e) => {
-              setCreatedBefore(e.target.value);
-              filters.setPage(1);
-            }}
-          />
-        </div>
-        <Button
-          type="button"
-          onClick={() => {
-            setPlatformFilter("");
-            setModeFilter("");
-            setStateFilter("");
-            setSourceFilter("");
-            setCreatedFrom("");
-            setCreatedBefore("");
-            filters.reset();
-          }}
-        >
-          清空筛选
-        </Button>
-      </div>
+      </section>
       {invalidRange && <p role="alert">入库起始时间必须早于结束时间。</p>}
       <ErrorBox error={packages.error} />
       {packages.isError && (
@@ -277,7 +282,7 @@ export function PackagesPage() {
         ))}
       </div>
       <Pager data={packages.data} {...filters} />
-    </>
+    </div>
   );
 }
 
@@ -703,22 +708,25 @@ export function VersionsPage() {
       }),
   });
   return (
-    <>
+    <div className="app-tab-page versions-page">
       <Title description="版本可包含 Android 与 iOS 的独立发布修订。上传入库后，需要在这里显式发布。">
         版本发布
       </Title>
       <PageTabs />
       {cmd.feedback}
-      <Button
-        type="button"
-        className="primary"
-        aria-expanded={creating}
-        aria-controls="version-create-form"
-        onClick={() => setCreating(!creating)}
-        disabled={cmd.pending}
-      >
-        {creating ? "取消新建版本" : "新建版本"}
-      </Button>
+      <div className="app-tab-filters versions-toolbar">
+        {filters.search}
+        <Button
+          type="button"
+          className="primary"
+          aria-expanded={creating}
+          aria-controls="version-create-form"
+          onClick={() => setCreating(!creating)}
+          disabled={cmd.pending}
+        >
+          {creating ? "取消新建版本" : "新建版本"}
+        </Button>
+      </div>
       {creating && (
         <Panel id="version-create-form">
           <h2>新建版本</h2>
@@ -764,7 +772,6 @@ export function VersionsPage() {
           </Form>
         </Panel>
       )}
-      {filters.search}
       <ErrorBox error={versions.error} />
       {versions.isError && (
         <Button
@@ -791,11 +798,13 @@ export function VersionsPage() {
           <p>
             {v.mode} · {date(v.created_at)}
           </p>
-          <p>{v.release_notes || "暂无发布说明"}</p>
+          <p className="version-notes-preview">
+            {v.release_notes || "暂无发布说明"}
+          </p>
         </Panel>
       ))}
       <Pager data={versions.data} {...filters} />
-    </>
+    </div>
   );
 }
 

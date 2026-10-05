@@ -13,16 +13,23 @@ import {
 
 function TaskRow({ task }: { task: DTO<"Task"> }) {
   return (
-    <Link className="dashboard-row" to={`/admin/tasks/${task.id}`}>
+    <Link
+      className="dashboard-row dashboard-task-row"
+      to={`/admin/tasks/${task.id}`}
+    >
       <span className="row-copy">
-        <strong>{labels[task.kind] ?? task.kind}</strong>
-        <small>
+        <span className="dashboard-task-heading">
+          <strong>{labels[task.kind] ?? task.kind}</strong>
+          <Status value={task.state} />
+        </span>
+        <small className="dashboard-task-subject">
           {task.app_name ?? "系统维护"}
           {task.resource_name ? ` · ${task.resource_name}` : ""}
         </small>
-        <small>{task.result_summary ?? date(task.updated_at)}</small>
+        <small className="dashboard-task-summary">
+          {task.result_summary ?? date(task.updated_at)}
+        </small>
       </span>
-      <Status value={task.state} />
     </Link>
   );
 }
@@ -46,8 +53,8 @@ export function TaskOverview() {
   });
   return (
     <Card
-      className="panel"
-      title="业务任务"
+      className="panel dashboard-tasks"
+      title={<h2>业务任务</h2>}
       headerExtraContent={
         <Link aria-label="查看全部任务" to="/admin/tasks?category=all">
           查看全部
@@ -58,14 +65,14 @@ export function TaskOverview() {
       {recent.isPending && <Loading />}
       {!!failed.data?.items.length && (
         <>
-          <h3>失败待排查</h3>
+          <h3 className="dashboard-task-section">失败待排查</h3>
           {failed.data.items.map((task) => (
             <TaskRow key={task.id} task={task} />
           ))}
           <Link to="/admin/tasks?category=all&state=failed">
             查看所有失败任务
           </Link>
-          <h3>最近业务任务</h3>
+          <h3 className="dashboard-task-section">最近业务任务</h3>
         </>
       )}
       {recent.data?.items.map((task) => (
@@ -74,7 +81,7 @@ export function TaskOverview() {
       {recent.data?.total === 0 && (
         <Empty>暂无业务任务。上传、构建和发布后可在这里跟踪结果。</Empty>
       )}
-      <p>
+      <p className="dashboard-task-footer">
         <Link to="/admin/tasks?category=system">查看例行同步与系统维护</Link>
       </p>
     </Card>

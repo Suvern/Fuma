@@ -87,6 +87,7 @@ function mount(ready = true) {
 }
 it("previews glob rules across all releases and imports the entire preview", async () => {
   mount();
+  fireEvent.click(await screen.findByRole("button", { name: "修改导入规则" }));
   fireEvent.change(await screen.findByLabelText(/安装包文件名/), {
     target: { value: "joice-*.apk, *.ipa" },
   });
@@ -116,8 +117,44 @@ it("previews glob rules across all releases and imports the entire preview", asy
     ),
   );
 });
+it("已存导入规则默认禁用，取消不保存，失败保留草稿并可重试", async () => {
+  mount();
+  expect(
+    ((await screen.findByLabelText(/安装包文件名/)) as HTMLInputElement)
+      .disabled,
+  ).toBe(true);
+  expect(screen.queryByRole("button", { name: "保存规则" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "修改导入规则" }));
+  fireEvent.change(screen.getByLabelText(/Release Tag/), {
+    target: { value: "discard-*" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "取消修改" }));
+  expect((screen.getByLabelText(/Release Tag/) as HTMLInputElement).value).toBe(
+    "*",
+  );
+  expect(write).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "修改导入规则" }));
+  fireEvent.change(screen.getByLabelText(/Release Tag/), {
+    target: { value: "v2*" },
+  });
+  vi.mocked(write).mockRejectedValueOnce(new Error("保存失败"));
+  fireEvent.click(screen.getByRole("button", { name: "保存规则" }));
+  await screen.findByText("保存失败");
+  expect((screen.getByLabelText(/Release Tag/) as HTMLInputElement).value).toBe(
+    "v2*",
+  );
+  expect(
+    (screen.getByLabelText(/Release Tag/) as HTMLInputElement).disabled,
+  ).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "保存规则" }));
+  await screen.findByText("规则已保存。");
+  expect(
+    (screen.getByLabelText(/Release Tag/) as HTMLInputElement).disabled,
+  ).toBe(true);
+});
 it("invalidates a preview when the matching rules are edited", async () => {
   mount();
+  fireEvent.click(await screen.findByRole("button", { name: "修改导入规则" }));
   fireEvent.click(await screen.findByRole("button", { name: "预览匹配产物" }));
   await screen.findByRole("button", { name: "批量导入 202 个安装包" });
   fireEvent.change(screen.getByLabelText(/Release Tag/), {
@@ -127,6 +164,7 @@ it("invalidates a preview when the matching rules are edited", async () => {
 });
 it("saves opt-in polling independently of having a local snapshot", async () => {
   mount(false);
+  fireEvent.click(await screen.findByRole("button", { name: "修改导入规则" }));
   const checkbox = await screen.findByRole("checkbox", {
     name: "自动检查更新并导入匹配产物",
   });

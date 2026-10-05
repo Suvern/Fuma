@@ -18,7 +18,7 @@ import {
   Badge,
 } from "../../shared/ui/controls";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
 import { ChatPicker } from "./Feishu";
@@ -55,7 +55,7 @@ export function ActionsPage() {
       }),
   });
   return (
-    <>
+    <div className="app-tab-page actions-page">
       <Title description="只接受可信仓库、workflow 和 ref 的回调；构建结束且文件就绪后通知所选群。">
         GitHub Actions
       </Title>
@@ -74,7 +74,7 @@ export function ActionsPage() {
           规则和选择通知群需管理员操作；你可以维护已绑定此应用的规则。
         </p>
       )}
-      <div className="toolbar">
+      <div className="app-tab-filters">
         {filters.search}
         {filters.q && (
           <Button type="button" onClick={filters.reset}>
@@ -100,7 +100,7 @@ export function ActionsPage() {
         </Empty>
       )}
       <Pager data={q.data} {...filters} />
-    </>
+    </div>
   );
 }
 function OneTimeToken({ token, close }: { token: string; close: () => void }) {
@@ -146,6 +146,11 @@ function RuleForm({
   rule?: DTO<"ActionsRule">;
 }) {
   const cmd = useCommand();
+  const client = useQueryClient();
+  const [editing, setEditing] = useState(!rule);
+  const [base, setBase] = useState(rule);
+  const initial = editing ? base : rule;
+  const locked = !editing || cmd.pending;
   const [selected, setSelected] = useState(rule?.chat_ids ?? []);
   const session = useSession();
   const [token, setToken] = useState("");
@@ -153,15 +158,44 @@ function RuleForm({
     <>
       {cmd.feedback}
       {token && <OneTimeToken token={token} close={() => setToken("")} />}
-      {isGlobalAdmin(session.data?.user) ? (
-        <ChatPicker selected={selected} onChange={setSelected} />
+      {rule && (
+        <div className="settings-section-heading">
+          <h3>规则与通知群</h3>
+          {!editing && (
+            <Button
+              type="button"
+              aria-label="修改 Actions 规则"
+              onClick={() => {
+                setBase(rule);
+                setSelected(rule.chat_ids);
+                setEditing(true);
+              }}
+            >
+              修改
+            </Button>
+          )}
+        </div>
+      )}
+      {editing && isGlobalAdmin(session.data?.user) ? (
+        <fieldset disabled={cmd.pending}>
+          <ChatPicker
+            selected={selected}
+            onChange={setSelected}
+            disabled={cmd.pending}
+          />
+        </fieldset>
       ) : (
-        <p className="muted">
-          沿用已配置的 {selected.length} 个通知群；更换群聊请联系管理员。
-        </p>
+        <Field
+          label="通知群"
+          value={`已配置 ${(initial?.chat_ids ?? selected).length} 个通知群`}
+          disabled
+        />
       )}
       <Form
+        className="actions-fields"
+        key={editing ? "editing" : `saved-${rule?.revision}`}
         submit={(f) => {
+          if (locked) return;
           const body: DTO<"ActionsRuleCreate"> = {
             name: text(f, "name"),
             workflow_path: text(f, "workflow_path"),
@@ -175,10 +209,27 @@ function RuleForm({
             "rule-save",
             async () => {
               if (rule) {
-                await write("/api/v1/actions-rules/{id}", "patch", body, {
-                  id: rule.id,
-                  revision: rule.revision,
-                });
+                const saved = await write(
+                  "/api/v1/actions-rules/{id}",
+                  "patch",
+                  body,
+                  {
+                    id: rule.id,
+                    revision: base?.revision ?? rule.revision,
+                  },
+                );
+                client.setQueriesData<{ items: DTO<"ActionsRule">[] }>(
+                  { queryKey: ["rules", appId] },
+                  (old) =>
+                    old
+                      ? {
+                          ...old,
+                          items: old.items.map((item) =>
+                            item.id === rule.id ? saved : item,
+                          ),
+                        }
+                      : old,
+                );
                 return undefined;
               }
               return write("/api/v1/apps/{id}/actions-rules", "post", body, {
@@ -187,6 +238,7 @@ function RuleForm({
             },
             (result) => {
               if (result) setToken(result.token);
+              if (rule) setEditing(false);
             },
           );
         }}
@@ -194,14 +246,16 @@ function RuleForm({
         <Field
           name="name"
           label="规则名称"
-          defaultValue={rule?.name}
+          disabled={locked}
+          defaultValue={initial?.name}
           required
           maxLength={100}
         />
         <Field
           name="workflow_path"
           label="Workflow 路径"
-          defaultValue={rule?.workflow_path ?? ".github/workflows/build.yml"}
+          disabled={locked}
+          defaultValue={initial?.workflow_path ?? ".github/workflows/build.yml"}
           required
           pattern={String.raw`\.github/workflows/[^\/]+\.ya?ml`}
           validationMessage="请填写 .github/workflows/ 下的 .yml 或 .yaml 文件路径。"
@@ -210,32 +264,57 @@ function RuleForm({
         <Field
           name="allowed_branches"
           label="可信分支"
-          defaultValue={rule?.allowed_branches.join(", ") ?? "main"}
+          disabled={locked}
+          defaultValue={initial?.allowed_branches.join(", ") ?? "main"}
           help="区分大小写的 glob，多个值用逗号分隔；分支与 Tag 至少填写一项。"
         />
         <Field
           name="allowed_tags"
           label="可信 Tag"
-          defaultValue={rule?.allowed_tags.join(", ") ?? ""}
+          disabled={locked}
+          defaultValue={initial?.allowed_tags.join(", ") ?? ""}
         />
         <Field
           name="asset_patterns"
           label="安装包匹配规则"
-          defaultValue={rule?.asset_patterns.join(", ") ?? "*.apk, *.ipa"}
+          disabled={locked}
+          defaultValue={initial?.asset_patterns.join(", ") ?? "*.apk, *.ipa"}
           required
         />
         <Check
           label="启用规则"
           name="enabled"
-          defaultChecked={rule?.enabled ?? true}
+          disabled={locked}
+          defaultChecked={initial?.enabled ?? true}
         />
-        <Button className="primary" disabled={cmd.pending || !selected.length}>
-          {rule ? "保存规则" : "创建规则并签发令牌"}
-        </Button>
+        {editing && (
+          <div className="form-actions">
+            {rule && (
+              <Button
+                type="button"
+                disabled={cmd.pending}
+                onClick={() => {
+                  setSelected(rule.chat_ids);
+                  setEditing(false);
+                }}
+              >
+                取消修改
+              </Button>
+            )}
+            <Button
+              className="primary"
+              disabled={cmd.pending || !selected.length}
+            >
+              {rule ? "保存规则" : "创建规则并签发令牌"}
+            </Button>
+          </div>
+        )}
       </Form>
-      <p className="muted">
-        签发令牌需要近期管理员登录。若请求超时，请先刷新规则列表确认结果，再决定是否轮换，避免重复创建。
-      </p>
+      {editing && !rule && (
+        <p className="muted">
+          签发令牌需要近期管理员登录。若请求超时，请先刷新规则列表确认结果，再决定是否轮换，避免重复创建。
+        </p>
+      )}
     </>
   );
 }
@@ -243,7 +322,7 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
   const cmd = useCommand();
   const [token, setToken] = useState("");
   return (
-    <Panel className="panel">
+    <Panel className="panel actions-rule-settings">
       <div className="section-heading">
         <h2>{r.name}</h2>
         <Badge className="badge">{r.enabled ? "已启用" : "已停用"}</Badge>
@@ -256,9 +335,7 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
       </p>
       {cmd.feedback}
       {token && <OneTimeToken token={token} close={() => setToken("")} />}
-      <Disclosure title={<>编辑规则与通知群</>}>
-        <RuleForm key={r.revision} appId={r.app_id} rule={r} />
-      </Disclosure>
+      <RuleForm appId={r.app_id} rule={r} />
       <RuleConnection rule={r} />
       <div className="toolbar">
         <Button
@@ -342,10 +419,12 @@ export function BuildEventsPage() {
     refetchInterval: 5000,
   });
   return (
-    <>
-      <Title>构建事件</Title>
+    <div className="app-tab-page build-events-page">
+      <Title description="跟踪回调接收、构建验证、缓存与通知进度。">
+        构建事件
+      </Title>
       <PageTabs />
-      <div className="toolbar">
+      <div className="app-tab-filters">
         {filters.search}
         <label>
           <span id="build-state-label">分发结果 / 阶段</span>
@@ -435,7 +514,8 @@ export function BuildEventsPage() {
             </Empty>
           )
         }
-        scroll={{ x: "100%" }}
+        scroll={q.data?.items.length ? { x: 720 } : undefined}
+        showHeader={Boolean(q.data?.items.length)}
         columns={[
           {
             title: "构建",
@@ -454,7 +534,7 @@ export function BuildEventsPage() {
         ]}
       />
       <Pager data={q.data} {...filters} />
-    </>
+    </div>
   );
 }
 export function BuildEventPage() {

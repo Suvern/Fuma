@@ -8,7 +8,7 @@ backend:
 	uv run --directory backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --no-access-log
 
 frontend:
-	pnpm --dir frontend dev
+	pnpm --dir frontend dev:local
 
 worker:
 	uv run --directory backend celery -A app.workers.celery_app:celery_app worker -Q general,files --loglevel=INFO

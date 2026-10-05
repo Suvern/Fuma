@@ -131,6 +131,150 @@ afterEach(() => {
 });
 
 describe("应用管理走查问题回归", () => {
+  it("已保存的基本信息与仓库默认锁定，取消恢复保存值且不发送请求", async () => {
+    mount(<AppPage />);
+    const description = (await screen.findByLabelText(
+      "描述",
+    )) as HTMLInputElement;
+    expect(description.disabled).toBe(true);
+    expect(
+      (
+        await screen.findByRole("combobox", { name: "GitHub 仓库" })
+      ).getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(screen.queryByRole("button", { name: "保存" })).toBeNull();
+    expect(
+      vi
+        .mocked(read)
+        .mock.calls.some(([path]) => path.endsWith("/repositories")),
+    ).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "修改基本信息" }));
+    const editable = screen.getByLabelText("描述") as HTMLInputElement;
+    expect(editable.disabled).toBe(false);
+    fireEvent.change(editable, { target: { value: "放弃的草稿" } });
+    fireEvent.click(screen.getByRole("button", { name: "取消修改" }));
+    expect((screen.getByLabelText("描述") as HTMLInputElement).value).toBe(
+      "原描述",
+    );
+    expect((screen.getByLabelText("描述") as HTMLInputElement).disabled).toBe(
+      true,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "修改仓库绑定" }));
+    fireEvent.change(screen.getByLabelText("仓库完整名称"), {
+      target: { value: "owner/other" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "取消修改" }));
+    expect(
+      screen.getByRole("combobox", { name: "GitHub 仓库" }).textContent,
+    ).toContain("owner/repo");
+    expect(
+      (
+        await screen.findByRole("combobox", { name: "GitHub 仓库" })
+      ).getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("仓库保存失败保留编辑草稿，成功后显示保存结果并重新锁定", async () => {
+    vi.mocked(write).mockRejectedValueOnce(new Error("验证失败"));
+    mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "修改仓库绑定" }),
+    );
+    fireEvent.change(screen.getByLabelText("仓库完整名称"), {
+      target: { value: "owner/updated" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "验证并绑定" }));
+    await screen.findByText("验证失败");
+    expect(
+      (screen.getByLabelText("仓库完整名称") as HTMLInputElement).value,
+    ).toBe("owner/updated");
+    vi.mocked(write).mockImplementation(async () => {
+      server = {
+        ...server,
+        revision: 2,
+        repository: { ...server.repository!, full_name: "owner/updated" },
+      };
+      return server as never;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "验证并绑定" }));
+    await screen.findByText("仓库绑定已保存。");
+    expect(
+      screen.getByRole("combobox", { name: "GitHub 仓库" }).textContent,
+    ).toContain("owner/updated");
+    expect(
+      (
+        await screen.findByRole("combobox", { name: "GitHub 仓库" })
+      ).getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(screen.queryByRole("button", { name: "验证并绑定" })).toBeNull();
+  });
+
+  it("Actions 已存规则默认禁用，取消恢复旧值，保存后锁定", async () => {
+    let rule = {
+      id: "rule",
+      app_id: "app",
+      name: "现有规则",
+      workflow_path: ".github/workflows/build.yml",
+      allowed_branches: ["main"],
+      allowed_tags: [],
+      asset_patterns: ["*.apk"],
+      chat_ids: ["chat"],
+      enabled: true,
+      revision: 1,
+      repository_full_name: "owner/repo",
+      has_token: false,
+    };
+    const original = vi.mocked(read).getMockImplementation()!;
+    vi.mocked(read).mockImplementation(async (path, options) =>
+      path.endsWith("/actions-rules")
+        ? ({ ...page, items: [rule], total: 1 } as never)
+        : original(path, options),
+    );
+    mount(
+      <ActionsPage />,
+      "/admin/apps/:id/actions",
+      "/admin/apps/app/actions",
+    );
+    const card = (
+      await screen.findByRole("heading", { name: "现有规则" })
+    ).closest("section")!;
+    const section = within(card);
+    expect(
+      (section.getByLabelText(/规则名称/) as HTMLInputElement).disabled,
+    ).toBe(true);
+    fireEvent.click(section.getByRole("button", { name: "修改 Actions 规则" }));
+    fireEvent.change(section.getByLabelText(/规则名称/), {
+      target: { value: "未保存规则" },
+    });
+    fireEvent.click(section.getByRole("button", { name: "取消修改" }));
+    expect((section.getByLabelText(/规则名称/) as HTMLInputElement).value).toBe(
+      "现有规则",
+    );
+    expect(write).not.toHaveBeenCalled();
+    fireEvent.click(section.getByRole("button", { name: "修改 Actions 规则" }));
+    fireEvent.change(section.getByLabelText(/规则名称/), {
+      target: { value: "已更新规则" },
+    });
+    vi.mocked(write).mockImplementation(async () => {
+      rule = { ...rule, name: "已更新规则", revision: 2 };
+      return rule as never;
+    });
+    fireEvent.click(section.getByRole("button", { name: "保存规则" }));
+    await waitFor(() =>
+      expect(
+        (section.getByLabelText(/规则名称/) as HTMLInputElement).disabled,
+      ).toBe(true),
+    );
+    expect((section.getByLabelText(/规则名称/) as HTMLInputElement).value).toBe(
+      "已更新规则",
+    );
+    expect(vi.mocked(write).mock.calls[0]?.[3]).toEqual({
+      id: "rule",
+      revision: 1,
+    });
+  });
+
   it("平台停用明确确认并保留关联平台配置", async () => {
     const confirm = Modal.confirm;
     vi.spyOn(Modal, "confirm").mockImplementation((options) =>
@@ -145,6 +289,9 @@ describe("应用管理走查问题回归", () => {
       return server as never;
     });
     mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "修改基本信息" }),
+    );
     fireEvent.click(
       await screen.findByRole("checkbox", { name: "启用 Android 平台" }),
     );
@@ -178,6 +325,9 @@ describe("应用管理走查问题回归", () => {
 
   it("图标拒绝不支持格式并允许清除错误重新提交", async () => {
     mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "修改基本信息" }),
+    );
     const field = (await screen.findByLabelText(
       "应用图标（选填）",
     )) as HTMLInputElement;
@@ -203,6 +353,9 @@ describe("应用管理走查问题回归", () => {
       return server as never;
     });
     mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "修改基本信息" }),
+    );
     fireEvent.change(await screen.findByLabelText("Android Debug 包名"), {
       target: { value: "com.example.debug, com.example.qa" },
     });
@@ -233,6 +386,9 @@ describe("应用管理走查问题回归", () => {
       }),
     );
     mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "修改基本信息" }),
+    );
     fireEvent.change(await screen.findByLabelText("Android Debug 包名"), {
       target: { value: "com.example.draft" },
     });
@@ -317,6 +473,9 @@ describe("应用管理走查问题回归", () => {
   ])("%s 的可选多标识校验支持 HTML v 模式", async (label, invalid, valid) => {
     server = { ...server, platforms: ["android", "ios"] };
     mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "修改基本信息" }),
+    );
     const field = (await screen.findByLabelText(label)) as HTMLInputElement;
     const pattern = new RegExp(`^(?:${field.pattern})$`, "v");
     expect(pattern.test(invalid)).toBe(false);
@@ -339,8 +498,12 @@ describe("应用管理走查问题回归", () => {
       return server as never;
     });
     mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "修改基本信息" }),
+    );
     const description = await screen.findByLabelText("描述");
     fireEvent.change(description, { target: { value: "未保存草稿" } });
+    fireEvent.click(screen.getByRole("button", { name: "修改仓库绑定" }));
     fireEvent.change(screen.getByLabelText(/仓库完整名称/), {
       target: { value: "owner/repo" },
     });
@@ -359,10 +522,9 @@ describe("应用管理走查问题回归", () => {
       revision: 2,
     });
     expect(server.description).toBe("未保存草稿");
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "保存" }).hasAttribute("disabled"),
-      ).toBe(false),
+    expect(screen.queryByRole("button", { name: "保存" })).toBeNull();
+    expect((screen.getByLabelText("描述") as HTMLInputElement).disabled).toBe(
+      true,
     );
   });
 
@@ -375,6 +537,9 @@ describe("应用管理走查问题回归", () => {
       }),
     );
     mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "修改基本信息" }),
+    );
     fireEvent.change(await screen.findByLabelText("描述"), {
       target: { value: "我的草稿" },
     });
@@ -401,6 +566,9 @@ describe("应用管理走查问题回归", () => {
 
   it("没有草稿时刷新会显示最新基本信息", async () => {
     mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "修改基本信息" }),
+    );
     await screen.findByLabelText("描述");
     await act(async () => {
       client.setQueryData(["app", "app"], {
@@ -495,6 +663,10 @@ describe("应用管理走查问题回归", () => {
     "%s 使用可编译的 pattern 且能拦截非法值",
     async (_name, element, route, path, label, invalid, valid) => {
       mount(element, route, path);
+      if (_name === "repository")
+        fireEvent.click(
+          await screen.findByRole("button", { name: "修改仓库绑定" }),
+        );
       const field = (await screen.findByLabelText(label)) as HTMLInputElement;
       const pattern = new RegExp(`^(?:${field.pattern})$`, "v");
       expect(pattern.test(invalid)).toBe(false);
@@ -517,7 +689,11 @@ describe("应用管理走查问题回归", () => {
         : original(path, options),
     );
     mount(<AppPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "修改基本信息" }),
+    );
     await screen.findByLabelText("描述");
+    fireEvent.click(screen.getByRole("button", { name: "修改仓库绑定" }));
     expect(await screen.findByText("正在搜索仓库…")).toBeTruthy();
     const select = screen.getByRole("combobox", { name: "GitHub 仓库" });
     fireEvent.click(select);
@@ -535,6 +711,59 @@ describe("应用管理走查问题回归", () => {
     });
     await screen.findByText("没有匹配的仓库");
     expect(screen.queryByText("正在搜索仓库…")).toBeNull();
+  });
+
+  it("Debug 列表保留文件详情入口、排序及分页查询", async () => {
+    vi.mocked(read).mockImplementation(async (path, options) => {
+      if (path === "/api/v1/apps/{id}/debug-entries")
+        return {
+          items: [
+            {
+              id: "entry",
+              file_name: "demo-with-a-long-build-name.apk",
+              source_tag: "debug-v1",
+              platform: "android",
+              enabled: true,
+              size_bytes: 1024,
+              created_at: "2026-10-01T00:00:00Z",
+              source: { asset_updated_at: "2026-10-02T00:00:00Z" },
+              cache: { state: "ready" },
+            },
+          ],
+          total: 21,
+          page: options?.query?.page ?? 1,
+          page_size: 20,
+        } as never;
+      return page as never;
+    });
+    mount(<DebugListPage />, "/admin/apps/:id/debug", "/admin/apps/app/debug");
+    const file = await screen.findByRole("link", {
+      name: "demo-with-a-long-build-name.apk",
+    });
+    expect(file.getAttribute("href")).toBe("/admin/debug/entry");
+    expect(file.closest("li")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() =>
+      expect(read).toHaveBeenCalledWith(
+        "/api/v1/apps/{id}/debug-entries",
+        expect.objectContaining({
+          query: expect.objectContaining({ page: 2 }),
+        }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("combobox", { name: "排序" }));
+    fireEvent.click(
+      await screen.findByRole("option", { name: /导入时间从新到旧/ }),
+    );
+    await waitFor(() =>
+      expect(read).toHaveBeenCalledWith(
+        "/api/v1/apps/{id}/debug-entries",
+        expect.objectContaining({
+          query: expect.objectContaining({ page: 1, sort: "imported_at" }),
+        }),
+      ),
+    );
+    expect(write).not.toHaveBeenCalled();
   });
 
   it("Debug 搜索空结果不再误导用户导入安装包", async () => {
