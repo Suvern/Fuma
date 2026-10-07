@@ -34,7 +34,8 @@ def test_custom_card_fields_are_sent_as_plain_text_with_fixed_destination():
     card = json.loads(sent[0]["content"])
     assert card["header"]["template"] == "green"
     assert card["elements"][0]["text"] == {"tag": "plain_text", "content": "第一行\n<at id=all>"}
-    button = card["elements"][1]["actions"][0]
+    assert card["elements"][1] == {"tag": "hr"}
+    button = card["elements"][2]["actions"][0]
     assert button["text"]["content"] == "打开安装页"
     assert button["url"] == "https://example.com/apps/1"
 

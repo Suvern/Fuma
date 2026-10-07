@@ -116,6 +116,8 @@ class FeishuClient:
             {"tag": "div", "text": {"tag": "plain_text", "content": card["summary"][:2000]}}
         ]
         if card.get("page_url"):
+            if card.get("header_color"):
+                elements.append({"tag": "hr"})
             elements.append(
                 {
                     "tag": "action",

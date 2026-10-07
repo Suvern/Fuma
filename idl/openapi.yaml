@@ -9852,6 +9852,11 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        build_number:
+          description: App package build number (Android versionCode or iOS CFBundleVersion), never a GitHub run ID. Null when unavailable.
+          anyOf:
+          - type: string
+          - type: 'null'
         file_names:
           type: array
           items:

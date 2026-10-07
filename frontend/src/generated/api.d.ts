@@ -2750,6 +2750,8 @@ export interface components {
         };
         NotificationCard: {
             app_name: string | null;
+            /** @description App package build number (Android versionCode or iOS CFBundleVersion), never a GitHub run ID. Null when unavailable. */
+            build_number?: string | null;
             /** @default 查看安装包 */
             button_text: string;
             file_names: string[];

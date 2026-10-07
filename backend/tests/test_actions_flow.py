@@ -2,6 +2,7 @@
 
 import base64
 import copy
+import json
 import secrets
 from uuid import UUID, uuid4
 
@@ -251,7 +252,7 @@ def test_provider_trust_validation_rejects_spoofing(client, change):
             verify_source(provider, event)
 
 
-def test_wait_run_cache_then_notify_resumes_without_duplicate(client, monkeypatch):
+def test_wait_run_cache_then_notify_resumes_without_duplicate(client, monkeypatch, tmp_path):
     _, rule, _ = setup_rule(client)
     event_id = UUID(submit(client, rule).json()["event_id"])
     provider = Provider()
@@ -271,12 +272,28 @@ def test_wait_run_cache_then_notify_resumes_without_duplicate(client, monkeypatc
         assert len(entries) == 1
         assert not db.scalars(select(DeliveryRecord)).all()
         entries[0].cache_state = "ready"
+        entries[0].sha256 = "c" * 64
         entries[0].cache_record.cache_state = "ready"
+        cached = tmp_path / "synthetic.apk"
+        cached.write_bytes(b"synthetic-package")
+        monkeypatch.setattr(
+            "app.domains.distribution.package_metadata.cache_path", lambda *_: cached
+        )
         db.commit()
         with pytest.raises(RetryLater):
             process_event(db, client.app.state.settings, event_id)
+        assert not db.scalars(select(DeliveryRecord)).all()
+        settings = client.app.state.settings
+        request = next(settings.parser_inbox.glob("*.json"))
+        (settings.parser_outbox / request.name).write_text(
+            json.dumps({"ok": True, "sha256": "c" * 64, "metadata": {"build_number": "42"}})
+        )
+        with pytest.raises(RetryLater):
+            process_event(db, settings, event_id)
         deliveries = db.scalars(select(DeliveryRecord)).all()
         assert len(deliveries) == 1
+        assert deliveries[0].card["build_number"] == "42"
+        assert "Build：42" in deliveries[0].card["summary"]
         assert deliveries[0].card["page_url"].endswith("/apps/" + str(entries[0].app_id))
         deliveries[0].state = "succeeded"
         db.commit()

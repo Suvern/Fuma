@@ -3532,6 +3532,17 @@
               }
             ]
           },
+          "build_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "App package build number (Android versionCode or iOS CFBundleVersion), never a GitHub run ID. Null when unavailable."
+          },
           "button_text": {
             "default": "查看安装包",
             "type": "string"

@@ -13,6 +13,7 @@ from app.domains.applications.service import platform_enabled
 from app.domains.auth.service import utcnow
 from app.domains.distribution.feishu import create_delivery, delivery_dto, validate_chats
 from app.domains.distribution.models import DebugRecord, DeliveryRecord, EventRecord, RuleRecord
+from app.domains.distribution.package_metadata import notification_build_number
 from app.domains.distribution.service import RetryLater, lock, must_get
 from app.domains.github.service import get_github_client
 
@@ -317,6 +318,25 @@ def process_event(db, settings, event_id):
             select(DeliveryRecord).where(DeliveryRecord.event_id == event.id)
         ).all()
         if not deliveries:
+            numbers, metadata_pending = [], False
+            started_at = next(s["started_at"] for s in event.stages if s["name"] == "notify")
+            for item in ready:
+                entry = db.get(DebugRecord, UUID(item["entry_id"]))
+                number, pending = notification_build_number(
+                    db, settings, entry, event.id, started_at
+                )
+                numbers.append((item["file_name"], number or "未获取"))
+                metadata_pending = metadata_pending or pending
+            if metadata_pending:
+                db.commit()
+                raise RetryLater(delay=5)
+            # Different platform builds must remain associated with their own file names.
+            unique_numbers = list(dict.fromkeys(number for _, number in numbers))
+            build_number = (
+                unique_numbers[0]
+                if len(unique_numbers) == 1
+                else "\n".join(f"{name}：{number}" for name, number in numbers) or None
+            )
             result = "partial_failure" if ready and partial else "success" if ready else "failure"
             card = {
                 "title": "Debug 安装包已就绪" if ready else "构建成功，安装包准备失败",
@@ -324,6 +344,7 @@ def process_event(db, settings, event_id):
                 "app_name": app.name,
                 "mode": "debug",
                 "version_label": f"Tag: {release['tag_name']}",
+                "build_number": build_number,
                 "file_names": [r["file_name"] for r in ready],
                 "result": result,
                 "occurred_at": utcnow().isoformat(),

@@ -706,6 +706,10 @@ class NotificationCard(BaseModel):
     app_name: str | None
     mode: Literal["debug"]
     version_label: str | None
+    build_number: str | None = Field(
+        None,
+        description="App package build number (Android versionCode or iOS CFBundleVersion), never a GitHub run ID. Null when unavailable.",
+    )
     file_names: list[str]
     result: Literal["test", "success", "partial_failure", "failure"]
     occurred_at: AwareDatetime

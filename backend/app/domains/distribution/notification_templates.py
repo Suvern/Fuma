@@ -9,19 +9,28 @@ from app.domains.distribution.models import IntegrationState
 
 STATE_KEY = "release_notification_template"
 DEFAULT_TEMPLATE = {
-    "title": "{{app_name}} · 安装包已就绪",
-    "body": "{{summary}}\n应用：{{app_name}}\n版本：{{version}}\n\n{{file_names}}\n\n{{time}}",
-    "button_text": "查看安装包",
-    "header_color": "blue",
+    "title": "{{app_name}} · 新安装包已就绪",
+    "body": (
+        "版本：{{version}}\nBuild：{{buildNumber}}\n\n"
+        "安装包\n{{file_names}}\n\n"
+        "{{summary}}\n通知时间：{{time}}（北京时间）"
+    ),
+    "button_text": "打开下载页面",
+    "header_color": "green",
 }
 VARIABLES = [
     {"name": "app_name", "label": "应用名称", "sample": "Joice"},
     {"name": "version", "label": "Release 版本", "sample": "Tag: android-debug-v1.0.0"},
+    {
+        "name": "buildNumber",
+        "label": "App 构建号（versionCode / CFBundleVersion，缺失时为“未获取”）",
+        "sample": "42",
+    },
     {"name": "file_names", "label": "就绪的安装包（每行一个）", "sample": "Joice-v1.0.0.apk"},
     {"name": "summary", "label": "安装包准备结果", "sample": "已就绪 1/1 个安装包"},
     {"name": "time", "label": "通知时间（北京时间）", "sample": "2026/10/07 15:42"},
 ]
-TOKEN = re.compile(r"\{\{\s*([a-z_]+)\s*\}\}")
+TOKEN = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 LIMITS = {"title": 100, "body": 2000, "button_text": 30}
 COLORS = {"blue", "green", "orange", "red", "purple", "grey"}
 
@@ -51,6 +60,7 @@ def sample_card():
         "app_name": "Joice",
         "mode": "debug",
         "version_label": "Tag: android-debug-v1.0.0",
+        "build_number": "42",
         "file_names": ["Joice-v1.0.0.apk"],
         "result": "success",
         "occurred_at": "2026-10-07T07:42:00+00:00",
@@ -62,6 +72,7 @@ def render_template(template, card):
     values = {
         "app_name": card.get("app_name") or "应用",
         "version": card.get("version_label") or "未提供版本",
+        "buildNumber": card.get("build_number") or "未获取",
         "file_names": "\n".join(card.get("file_names", [])),
         "summary": card["summary"],
         "time": datetime.fromisoformat(card["occurred_at"])
@@ -96,6 +107,5 @@ def template_config(db):
 
 
 def apply_release_template(db, card):
-    # Preserve existing card behavior until an administrator explicitly saves a template.
     row = db.get(IntegrationState, STATE_KEY)
-    return render_template(row.data, card) if row else dict(card)
+    return render_template(row.data if row else DEFAULT_TEMPLATE, card)

@@ -31,7 +31,7 @@ function fieldError(value: string, field: TextField, names: string[]) {
   if (Array.from(value).length > limits[field])
     return `最多 ${limits[field]} 个字`;
   let unknown = false;
-  const rest = value.replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (_, name: string) => {
+  const rest = value.replace(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g, (_, name: string) => {
     if (!names.includes(name)) unknown = true;
     return "";
   });
@@ -43,7 +43,7 @@ function fieldError(value: string, field: TextField, names: string[]) {
 function preview(value: string, limit: number, variables: Config["variables"]) {
   const rendered = value
     .replace(
-      /\{\{\s*([a-z_]+)\s*\}\}/g,
+      /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g,
       (token, name: string) =>
         variables.find((v) => v.name === name)?.sample ?? token,
     )
@@ -158,7 +158,7 @@ function TemplateEditor({ config }: { config: Config }) {
               name="body"
               required
               maxLength={2000}
-              rows={7}
+              rows={10}
               value={draft.body}
               disabled={cmd.pending}
               onChange={(e) => change("body", e.target.value)}

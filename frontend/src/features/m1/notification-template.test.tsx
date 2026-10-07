@@ -21,7 +21,7 @@ const config: DTO<"ReleaseNotificationTemplateConfig"> = {
   revision: 2,
   template: {
     title: "{{app_name}} 新版本",
-    body: "版本 {{version}}\n{{file_names}}",
+    body: "版本 {{version}}\nBuild：{{buildNumber}}\n\n{{file_names}}",
     button_text: "立即安装",
     header_color: "blue",
   },
@@ -34,6 +34,7 @@ const config: DTO<"ReleaseNotificationTemplateConfig"> = {
   variables: [
     { name: "app_name", label: "应用名称", sample: "Joice" },
     { name: "version", label: "版本", sample: "v1.0.0" },
+    { name: "buildNumber", label: "App 构建号", sample: "42" },
     { name: "file_names", label: "安装包", sample: "Joice.apk" },
     { name: "summary", label: "结果", sample: "已就绪 1/1 个安装包" },
   ],
@@ -80,6 +81,7 @@ it("previews draft variables without sending or saving and saves with revision",
     ).getByText("Joice 发布啦"),
   ).toBeTruthy();
   expect(write).not.toHaveBeenCalled();
+  expect(screen.getByRole("complementary", { name: "通知卡片预览" }).textContent).toContain("Build：42");
   vi.mocked(write).mockResolvedValue({
     ...config,
     revision: 3,
