@@ -122,7 +122,10 @@ class FeishuClient:
                     "actions": [
                         {
                             "tag": "button",
-                            "text": {"tag": "plain_text", "content": "查看安装包"},
+                            "text": {
+                                "tag": "plain_text",
+                                "content": card.get("button_text", "查看安装包")[:30],
+                            },
                             "type": "primary",
                             "url": card["page_url"],
                         }
@@ -134,6 +137,8 @@ class FeishuClient:
             "header": {"title": {"tag": "plain_text", "content": card["title"][:100]}},
             "elements": elements,
         }
+        if card.get("header_color"):
+            content["header"]["template"] = card["header_color"]
         data = self.request(
             "POST",
             "/open-apis/im/v1/messages",

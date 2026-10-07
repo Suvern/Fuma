@@ -1,0 +1,84 @@
+.notification-template-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 32px;
+  margin-block-start: 24px;
+}
+.notification-template-layout > * {
+  min-width: 0;
+}
+.notification-template-variables {
+  margin-block-start: 24px;
+}
+.notification-template-variables dl {
+  display: block;
+  margin-block: 12px 0;
+}
+.notification-template-variables dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-block: 8px;
+}
+.notification-template-variables dd {
+  margin: 0;
+}
+.notification-template-preview {
+  align-self: start;
+}
+.release-card-preview {
+  --card-accent: var(--semi-color-primary);
+  --card-tint: var(--semi-color-primary-light-default);
+  margin-block-start: 16px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: var(--semi-border-radius-medium);
+  overflow: hidden;
+  background: var(--semi-color-bg-2);
+  overflow-wrap: anywhere;
+}
+.release-card-preview--green {
+  --card-accent: var(--semi-color-success);
+  --card-tint: var(--semi-color-success-light-default);
+}
+.release-card-preview--orange {
+  --card-accent: var(--semi-color-warning);
+  --card-tint: var(--semi-color-warning-light-default);
+}
+.release-card-preview--red {
+  --card-accent: var(--semi-color-danger);
+  --card-tint: var(--semi-color-danger-light-default);
+}
+.release-card-preview--purple {
+  --card-accent: rgb(var(--semi-purple-7));
+  --card-tint: rgb(var(--semi-purple-0));
+}
+.release-card-preview--grey {
+  --card-accent: var(--semi-color-text-1);
+  --card-tint: var(--semi-color-fill-0);
+}
+.release-card-preview-title {
+  padding: 16px 20px;
+  background: var(--card-tint);
+  border-block-start: 4px solid var(--card-accent);
+  font-weight: 600;
+  font-size: 16px;
+  white-space: pre-wrap;
+}
+.release-card-preview-body {
+  padding: 20px;
+  white-space: pre-wrap;
+}
+.release-card-preview-button {
+  display: inline-block;
+  margin: 0 20px 20px;
+  padding: 8px 16px;
+  border-radius: var(--semi-border-radius-small);
+  color: var(--semi-color-primary);
+  background: var(--semi-color-primary-light-default);
+}
+@media (max-width: 800px) {
+  .notification-template-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}

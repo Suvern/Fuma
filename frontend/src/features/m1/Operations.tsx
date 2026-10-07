@@ -570,7 +570,7 @@ export function NotificationPage() {
         <Panel className="panel notification-preview">
           <p className="eyebrow">通知卡片内容</p>
           <h2>{d.card.title}</h2>
-          <p>{d.card.summary}</p>
+          <p style={{ whiteSpace: "pre-wrap" }}>{d.card.summary}</p>
           {d.kind === "test" ? (
             <p>连接测试通知</p>
           ) : (
@@ -594,7 +594,7 @@ export function NotificationPage() {
           <Status value={d.card.result} />
           {d.card.page_url && (
             <p>
-              <a href={d.card.page_url}>查看分发页面</a>
+              <a href={d.card.page_url}>{d.card.button_text || "查看分发页面"}</a>
             </p>
           )}
         </Panel>

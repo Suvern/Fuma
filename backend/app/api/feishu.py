@@ -41,6 +41,54 @@ from app.integrations.feishu import FeishuClient
 router = APIRouter(tags=["Feishu"])
 
 
+@router.get(
+    "/settings/release-notification-template",
+    response_model=dto.ReleaseNotificationTemplateConfig,
+    operation_id="get_release_notification_template",
+)
+def get_release_notification_template(response: Response, db: DB, admin: Admin):
+    from app.domains.distribution.notification_templates import template_config
+
+    value = template_config(db)
+    response.headers["ETag"] = f'"{value["revision"]}"'
+    return value
+
+
+@router.put(
+    "/settings/release-notification-template",
+    response_model=dto.ReleaseNotificationTemplateConfig,
+    operation_id="update_release_notification_template",
+)
+def update_release_notification_template(
+    body: dto.ReleaseNotificationTemplate,
+    request: Request,
+    response: Response,
+    db: DB,
+    admin: Admin,
+    csrf: CSRF,
+    if_match: Annotated[str | None, Header()] = None,
+):
+    from app.domains.distribution.notification_templates import STATE_KEY, validate_template
+
+    data = body.model_dump()
+    validate_template(data)
+    row = state(db, STATE_KEY, locked=True)
+    require_revision(if_match, row.revision)
+    row.data = data
+    row.revision += 1
+    record_audit(
+        db,
+        action="notification_template.update",
+        resource_type="notification_template",
+        resource_id=STATE_KEY,
+        request_id=request.state.request_id,
+        actor_id=str(admin.user.id),
+        summary="更新 Release 安装包就绪通知模板，仅用于新生成的通知",
+    )
+    db.commit()
+    return get_release_notification_template(response, db, admin)
+
+
 def check(code, status, message):
     return {"code": code, "status": status, "message": message}
 

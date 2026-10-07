@@ -1683,6 +1683,158 @@ paths:
         schema: *id001
       - $ref: '#/components/parameters/CSRF'
       - $ref: '#/components/parameters/IdempotencyKey'
+  /api/v1/settings/release-notification-template:
+    get:
+      operationId: get_release_notification_template
+      tags:
+      - settings
+      summary: Get Release notification card template
+      description: Administrator-only global template for new successful Actions Release notifications.
+        Supported variables are returned by GET. Unknown or malformed variables are rejected. Existing deliveries
+        and retries retain their card snapshot; saving does not send messages.
+      security:
+      - SessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseNotificationTemplateConfig'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted integer revision
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed or invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: State conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Revision mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-access: admin
+    put:
+      operationId: update_release_notification_template
+      tags:
+      - settings
+      summary: Update Release notification card template
+      description: Administrator-only global template for new successful Actions Release notifications.
+        Supported variables are returned by GET. Unknown or malformed variables are rejected. Existing deliveries
+        and retries retain their card snapshot; saving does not send messages.
+      security:
+      - SessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseNotificationTemplateConfig'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted integer revision
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed or invalid CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: State conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '412':
+          description: Revision mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-access: admin
+      parameters:
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseNotificationTemplate'
   /api/v1/settings/feishu:
     get:
       operationId: get_feishu_config
@@ -9605,12 +9757,87 @@ components:
       - updated_at
       - can_retry
       - card
+    ReleaseNotificationTemplate:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Plain text with supported {{variable}} placeholders.
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        button_text:
+          type: string
+          minLength: 1
+          maxLength: 30
+        header_color:
+          type: string
+          enum:
+          - blue
+          - green
+          - orange
+          - red
+          - purple
+          - grey
+      required:
+      - title
+      - body
+      - button_text
+      - header_color
+    ReleaseNotificationTemplateConfig:
+      type: object
+      additionalProperties: false
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+        template:
+          $ref: '#/components/schemas/ReleaseNotificationTemplate'
+        defaults:
+          $ref: '#/components/schemas/ReleaseNotificationTemplate'
+        variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationTemplateVariable'
+        sample:
+          $ref: '#/components/schemas/NotificationCard'
+      required:
+      - revision
+      - template
+      - defaults
+      - variables
+      - sample
+    NotificationTemplateVariable:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        sample:
+          type: string
+      required:
+      - name
+      - label
+      - sample
     NotificationCard:
       type: object
       additionalProperties: false
       properties:
         title:
           type: string
+        button_text:
+          type: string
+          default: 查看安装包
+        header_color:
+          type: string
+          enum: [blue, green, orange, red, purple, grey]
+          default: blue
         summary:
           type: string
         app_name:

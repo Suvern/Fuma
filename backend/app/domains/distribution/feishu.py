@@ -141,6 +141,10 @@ def validate_chats(db, chat_ids):
 def create_delivery(
     db, chat_id, card, *, event_id=None, app_id=None, kind="test", enqueue_task=True
 ):
+    if kind == "build_ready":
+        from app.domains.distribution.notification_templates import apply_release_template
+
+        card = apply_release_template(db, card)
     chat = db.get(ChatRecord, chat_id)
     now = utcnow()
     delivery = DeliveryRecord(

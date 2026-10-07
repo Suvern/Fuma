@@ -319,6 +319,8 @@ describe("M1 页面关键流程", () => {
       can_retry: true,
       card: {
         title: "测试卡片",
+        button_text: "查看安装包",
+        header_color: "blue",
         summary: "通知摘要",
         app_name: null,
         mode: "debug",

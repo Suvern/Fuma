@@ -671,11 +671,37 @@ class ErrorMessage(RootModel[str]):
     root: str = Field(..., max_length=500)
 
 
+class ReleaseNotificationTemplate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    title: str = Field(
+        ...,
+        description="Plain text with supported {{variable}} placeholders.",
+        max_length=100,
+        min_length=1,
+    )
+    body: str = Field(..., max_length=2000, min_length=1)
+    button_text: str = Field(..., max_length=30, min_length=1)
+    header_color: Literal["blue", "green", "orange", "red", "purple", "grey"]
+
+
+class NotificationTemplateVariable(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: str
+    label: str
+    sample: str
+
+
 class NotificationCard(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     title: str
+    button_text: str = "查看安装包"
+    header_color: Literal["blue", "green", "orange", "red", "purple", "grey"] = "blue"
     summary: str
     app_name: str | None
     mode: Literal["debug"]
@@ -1634,6 +1660,17 @@ class Delivery(BaseModel):
     updated_at: AwareDatetime
     can_retry: bool
     card: NotificationCard
+
+
+class ReleaseNotificationTemplateConfig(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    revision: int = Field(..., ge=0)
+    template: ReleaseNotificationTemplate
+    defaults: ReleaseNotificationTemplate
+    variables: list[NotificationTemplateVariable]
+    sample: NotificationCard
 
 
 class DeliveryPage(BaseModel):

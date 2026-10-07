@@ -442,3 +442,97 @@ def test_complete_chat_search_and_test_message_has_one_parent_task(feishu_fixtur
         tasks = db.scalars(select(TaskRecord).where(TaskRecord.kind == "notification")).all()
         assert len(tasks) == 1
         assert len(tasks[0].payload["delivery_ids"]) == 2
+
+
+def test_release_template_save_permissions_validation_and_snapshot(feishu_fixture):
+    from app.domains.distribution.notification_templates import sample_card
+
+    client, provider, _, headers = feishu_fixture
+    path = "/api/v1/settings/release-notification-template"
+    initial = client.get(path)
+    assert initial.status_code == 200
+    assert initial.headers["etag"] == '"0"'
+    draft = {**initial.json()["template"], "title": "{{app_name}} 上新", "button_text": "立即安装"}
+    assert client.put(path, json=draft).status_code == 403
+    assert client.put(path, json=draft, headers=headers).status_code == 422
+    invalid = client.put(
+        path, json={**draft, "body": "{{unknown}}"}, headers={**headers, "If-Match": '"0"'}
+    )
+    assert invalid.status_code == 422
+    assert client.get(path).json()["revision"] == 0
+    saved = client.put(path, json=draft, headers={**headers, "If-Match": '"0"'})
+    assert saved.status_code == 200
+    assert saved.headers["etag"] == '"1"'
+    assert saved.json()["template"] == draft
+    with Session(client.app.state.engine) as db:
+        delivery = create_delivery(
+            db, "test-chat", sample_card(), kind="build_ready", enqueue_task=False
+        )
+        delivery_id = delivery.id
+        first_card = dict(delivery.card)
+        assert first_card["title"] == "Joice 上新"
+        assert first_card["button_text"] == "立即安装"
+        failed = create_delivery(
+            db, "test-chat", sample_card(), kind="build_failed", enqueue_task=False
+        )
+        assert failed.card == sample_card()
+        db.commit()
+    assert client.put(path, json=draft, headers={**headers, "If-Match": '"0"'}).status_code == 412
+    updated = client.put(
+        path, json={**draft, "title": "新模板"}, headers={**headers, "If-Match": '"1"'}
+    )
+    assert updated.status_code == 200
+    with Session(client.app.state.engine) as db:
+        assert db.get(DeliveryRecord, delivery_id).card == first_card
+        assert (
+            create_delivery(
+                db, "test-chat", sample_card(), kind="build_ready", enqueue_task=False
+            ).card["title"]
+            == "新模板"
+        )
+        # Never queue or send during template editing.
+        assert not db.scalars(select(TaskRecord)).all()
+    assert provider["sent"] == 0
+    client.cookies.clear()
+    assert client.get(path).status_code == 401
+
+
+def test_release_template_forbids_non_admin(feishu_fixture):
+    client, _, _, headers = feishu_fixture
+    from app.domains.auth.service import cookie_name, token_hash
+
+    with Session(client.app.state.engine) as db:
+        user = User(kind="feishu", display_name="Maintainer", global_role="maintainer", active=True)
+        db.add(user)
+        db.flush()
+        raw = "synthetic-maintainer-session"
+        now = utcnow()
+        db.add(
+            AuthSession(
+                token_hash=token_hash(raw),
+                csrf_hash=token_hash("synthetic-csrf"),
+                user_id=user.id,
+                kind="feishu",
+                created_at=now,
+                expires_at=now + timedelta(hours=1),
+                authenticated_at=now,
+            )
+        )
+        db.commit()
+    client.cookies.set(cookie_name(client.app.state.settings), raw)
+    path = "/api/v1/settings/release-notification-template"
+    assert client.get(path).status_code == 403
+    from app.domains.distribution.notification_templates import DEFAULT_TEMPLATE
+
+    assert (
+        client.put(
+            path,
+            json=DEFAULT_TEMPLATE,
+            headers={
+                **headers,
+                "X-CSRF-Token": "synthetic-csrf",
+                "If-Match": '"0"',
+            },
+        ).status_code
+        == 403
+    )
