@@ -1,5 +1,5 @@
 .card-markdown { white-space: normal; overflow-wrap: anywhere; line-height: 1.8; }
-.card-markdown p { margin: 0 0 1em; white-space: pre-wrap; }
+.card-markdown p { margin: 0 0 1em; }
 .card-markdown p:last-child { margin-bottom: 0; }
 .card-markdown a { text-decoration: underline; text-underline-offset: 2px; }
 .card-markdown strong { font-weight: 650; }
