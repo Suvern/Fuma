@@ -3532,6 +3532,15 @@
               }
             ]
           },
+          "body_format": {
+            "default": "plain_text",
+            "description": "Frozen body format. Missing on historical cards means plain text.",
+            "enum": [
+              "plain_text",
+              "lark_md"
+            ],
+            "type": "string"
+          },
           "build_number": {
             "anyOf": [
               {
@@ -4785,6 +4794,7 @@
         "additionalProperties": false,
         "properties": {
           "body": {
+            "description": "Feishu Markdown body with supported {{variable}} placeholders. Variables are escaped as literal text.",
             "maxLength": 2000,
             "minLength": 1,
             "type": "string"

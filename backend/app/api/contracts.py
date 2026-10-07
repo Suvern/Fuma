@@ -681,7 +681,12 @@ class ReleaseNotificationTemplate(BaseModel):
         max_length=100,
         min_length=1,
     )
-    body: str = Field(..., max_length=2000, min_length=1)
+    body: str = Field(
+        ...,
+        description="Feishu Markdown body with supported {{variable}} placeholders. Variables are escaped as literal text.",
+        max_length=2000,
+        min_length=1,
+    )
     button_text: str = Field(..., max_length=30, min_length=1)
     sub_button_text: str = Field(
         ...,
@@ -714,6 +719,10 @@ class NotificationCard(BaseModel):
         description="Server-generated URL of the owning app’s download page, frozen at delivery creation.",
     )
     summary: str
+    body_format: Literal["plain_text", "lark_md"] = Field(
+        "plain_text",
+        description="Frozen body format. Missing on historical cards means plain text.",
+    )
     app_name: str | None
     mode: Literal["debug"]
     version_label: str | None

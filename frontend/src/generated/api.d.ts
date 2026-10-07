@@ -2750,6 +2750,12 @@ export interface components {
         };
         NotificationCard: {
             app_name: string | null;
+            /**
+             * @description Frozen body format. Missing on historical cards means plain text.
+             * @default plain_text
+             * @enum {string}
+             */
+            body_format: "plain_text" | "lark_md";
             /** @description App package build number (Android versionCode or iOS CFBundleVersion), never a GitHub run ID. Null when unavailable. */
             build_number?: string | null;
             /** @default 查看安装包 */
@@ -3024,6 +3030,7 @@ export interface components {
             tag_pattern: string;
         };
         ReleaseNotificationTemplate: {
+            /** @description Feishu Markdown body with supported {{variable}} placeholders. Variables are escaped as literal text. */
             body: string;
             button_text: string;
             /** @enum {string} */

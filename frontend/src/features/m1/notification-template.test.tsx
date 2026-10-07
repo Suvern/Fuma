@@ -36,11 +36,12 @@ const config: DTO<"ReleaseNotificationTemplateConfig"> = {
   variables: [
     { name: "app_name", label: "应用名称", sample: "Joice" },
     { name: "version", label: "版本", sample: "v1.0.0" },
-    { name: "buildNumber", label: "App 构建号", sample: "42" },
+    { name: "buildNumber", label: "App 构建号", sample: "2026100701" },
     { name: "file_names", label: "安装包", sample: "Joice.apk" },
     { name: "summary", label: "结果", sample: "已就绪 1/1 个安装包" },
   ],
   sample: {
+    body_format: "plain_text",
     title: "安装包已就绪",
     summary: "已就绪 1/1 个安装包",
     app_name: "Joice",
@@ -86,7 +87,7 @@ it("previews draft variables without sending or saving and saves with revision",
   expect(write).not.toHaveBeenCalled();
   expect(screen.getByRole("link", { name: "应用下载页" }).getAttribute("href")).toBe("https://example.com/apps/app-a");
   expect(read).toHaveBeenCalledWith("/api/v1/apps/{id}/release-notification-template", { id: "app-a" });
-  expect(screen.getByRole("complementary", { name: "通知卡片预览" }).textContent).toContain("Build：42");
+  expect(screen.getByRole("complementary", { name: "通知卡片预览" }).textContent).toContain("Build：2026100701");
   vi.mocked(write).mockResolvedValue({
     ...config,
     revision: 3,
@@ -162,4 +163,31 @@ it("does not carry a draft across application changes", async () => {
   expect(await screen.findByDisplayValue("应用 B")).toBeTruthy();
   expect(screen.queryByDisplayValue("A 的未保存草稿")).toBeNull();
   expect(write).not.toHaveBeenCalled();
+});
+
+
+it("renders Markdown emphasis, line breaks and safe links while preserving the full build number", async () => {
+  mount();
+  const body = await screen.findByLabelText("卡片正文 *");
+  fireEvent.change(body, { target: { value: "**Build**：{{buildNumber}}\n*斜体* ~~旧版~~\n[说明](https://example.com)\n[危险](javascript:alert%281%29)\n<img src=x onerror=alert(1)>" } });
+  const preview = screen.getByRole("complementary", { name: "通知卡片预览" });
+  expect(preview.querySelector("strong")?.textContent).toBe("Build");
+  expect(preview.querySelector("em")?.textContent).toBe("斜体");
+  expect(preview.querySelector("del")?.textContent).toBe("旧版");
+  expect(preview.querySelector("br")).toBeTruthy();
+  expect(preview.textContent).toContain("2026100701");
+  expect(within(preview).getByRole("link", { name: "说明" }).getAttribute("href")).toBe("https://example.com");
+  expect(within(preview).queryByRole("link", { name: "危险" })).toBeNull();
+  expect(preview.querySelector("img, script")).toBeNull();
+  expect(write).not.toHaveBeenCalled();
+});
+
+it("escapes Markdown syntax inside template variables", async () => {
+  vi.mocked(read).mockResolvedValue({ ...config, variables: config.variables.map(v => v.name === "app_name" ? { ...v, sample: "*Joice* <at id=all>" } : v) } as never);
+  mount();
+  const body = await screen.findByLabelText("卡片正文 *");
+  fireEvent.change(body, { target: { value: "{{app_name}}" } });
+  const preview = screen.getByRole("complementary", { name: "通知卡片预览" });
+  expect(preview.querySelector("em, at")).toBeNull();
+  expect(preview.textContent).toContain("*Joice* <at id=all>");
 });

@@ -12,6 +12,7 @@ import {
   Title,
   useCommand,
 } from "../../shared/ui/common";
+import { CardMarkdown } from "./CardMarkdown";
 import "./notification-template.css";
 
 type Template = DTO<"ReleaseNotificationTemplate">;
@@ -42,12 +43,20 @@ function fieldError(value: string, field: TextField, names: string[]) {
   return "";
 }
 
-function preview(value: string, limit: number, variables: Config["variables"]) {
-  const rendered = value
+function escapeMarkdownValue(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replace(/([\\`*_~[\]()])/g, "\\$1");
+}
+
+function preview(value: string, limit: number, variables: Config["variables"], markdown = false) {
+  const source = markdown ? value.replaceAll("<", "&lt;").replaceAll(">", "&gt;") : value;
+  const rendered = source
     .replace(
       /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g,
-      (token, name: string) =>
-        variables.find((v) => v.name === name)?.sample ?? token,
+      (token, name: string) => {
+        const sample = variables.find((v) => v.name === name)?.sample ?? token;
+        return markdown ? escapeMarkdownValue(sample) : sample;
+      },
     )
     .trim();
   const chars = Array.from(rendered);
@@ -191,7 +200,7 @@ function TemplateEditor({ config, appId }: { config: Config; appId: string }) {
               aria-describedby={`${id}-body-help`}
             />
             <small id={`${id}-body-help`}>
-              支持换行和变量，按纯文本发送。最多 2000 字；替换后超长内容会省略。
+              支持 Markdown：**加粗**、*斜体*、~~删除线~~、[链接](https://…) 和换行。最多 2000 字。
             </small>
             {touched.body && errors.body && (
               <p role="alert" className="field-error">
@@ -319,7 +328,7 @@ function TemplateEditor({ config, appId }: { config: Config; appId: string }) {
       >
         <h3>示例预览</h3>
         <p className="muted">
-          使用当前应用与示例版本，实际消息会替换为本次 Release 数据。
+          使用当前应用与示例版本，Build 示例为 2026100701。实际消息读取本次安装包的完整构建号。
         </p>
         <div
           className={`release-card-preview release-card-preview--${draft.header_color}`}
@@ -328,8 +337,8 @@ function TemplateEditor({ config, appId }: { config: Config; appId: string }) {
             {preview(draft.title, 100, config.variables) || config.sample.title}
           </div>
           <div className="release-card-preview-body">
-            {preview(draft.body, 2000, config.variables) ||
-              config.sample.summary}
+            <CardMarkdown>{preview(draft.body, 2000, config.variables, true) ||
+              config.sample.summary}</CardMarkdown>
           </div>
           <div className="release-card-preview-actions">
             <a className="release-card-preview-button" href={config.sample.page_url ?? undefined} target="_blank" rel="noreferrer">

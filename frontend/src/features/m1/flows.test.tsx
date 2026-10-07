@@ -318,6 +318,7 @@ describe("M1 页面关键流程", () => {
       updated_at: "2026-10-01T00:00:00Z",
       can_retry: true,
       card: {
+        body_format: "plain_text",
         title: "测试卡片",
         button_text: "查看安装包",
         header_color: "blue",

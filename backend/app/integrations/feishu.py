@@ -113,7 +113,13 @@ class FeishuClient:
 
     def send_card(self, chat_id, card, request_uuid):
         elements = [
-            {"tag": "div", "text": {"tag": "plain_text", "content": card["summary"][:2000]}}
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md" if card.get("body_format") == "lark_md" else "plain_text",
+                    "content": card["summary"][:2000],
+                },
+            }
         ]
         actions = []
         if card.get("page_url"):

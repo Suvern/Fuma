@@ -1,5 +1,6 @@
-"""Plain-text Release card templates, rendered once before delivery is queued."""
+"""Release card templates, rendered once before delivery is queued."""
 
+import html
 import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -10,8 +11,8 @@ from app.domains.distribution.models import AppNotificationTemplate
 DEFAULT_TEMPLATE = {
     "title": "{{app_name}} · 新安装包已就绪",
     "body": (
-        "版本：{{version}}\nBuild：{{buildNumber}}\n\n"
-        "安装包\n{{file_names}}\n\n"
+        "**版本**：{{version}}\n**Build**：{{buildNumber}}\n\n"
+        "**安装包**\n{{file_names}}\n\n"
         "{{summary}}\n通知时间：{{time}}（北京时间）"
     ),
     "button_text": "打开下载页面",
@@ -24,7 +25,7 @@ VARIABLES = [
     {
         "name": "buildNumber",
         "label": "App 构建号（versionCode / CFBundleVersion，缺失时为“未获取”）",
-        "sample": "42",
+        "sample": "2026100701",
     },
     {"name": "file_names", "label": "就绪的安装包（每行一个）", "sample": "Joice-v1.0.0.apk"},
     {"name": "summary", "label": "安装包准备结果", "sample": "已就绪 1/1 个安装包"},
@@ -60,12 +61,17 @@ def sample_card():
         "app_name": "Joice",
         "mode": "debug",
         "version_label": "Tag: android-debug-v1.0.0",
-        "build_number": "42",
+        "build_number": "2026100701",
         "file_names": ["Joice-v1.0.0.apk"],
         "result": "success",
         "occurred_at": "2026-10-07T07:42:00+00:00",
         "page_url": None,
     }
+
+
+def escape_markdown_value(value):
+    # Provider values must not create links, emphasis, HTML or Feishu mentions.
+    return re.sub(r"([\\`*_~\[\]()])", r"\\\1", html.escape(value, quote=False))
 
 
 def render_template(template, card):
@@ -83,7 +89,15 @@ def render_template(template, card):
 
     def render(field):
         # A single substitution pass: provider strings are text, never template code.
-        value = TOKEN.sub(lambda match: values[match[1]], template[field]).strip()
+        source = template[field]
+        if field == "body":
+            source = source.replace("<", "&lt;").replace(">", "&gt;")
+        value = TOKEN.sub(
+            lambda match: (
+                escape_markdown_value(values[match[1]]) if field == "body" else values[match[1]]
+            ),
+            source,
+        ).strip()
         limit = LIMITS[field]
         return value if len(value) <= limit else value[: limit - 1] + "…"
 
@@ -91,6 +105,7 @@ def render_template(template, card):
         **card,
         "title": render("title") or card["title"],
         "summary": render("body") or card["summary"],
+        "body_format": "lark_md",
         "button_text": render("button_text") or "查看安装包",
         "sub_button_text": render("sub_button_text") or "应用下载页",
         "sub_button_url": card.get("page_url"),

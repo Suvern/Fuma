@@ -9779,6 +9779,7 @@ components:
           type: string
           minLength: 1
           maxLength: 2000
+          description: Feishu Markdown body with supported {{variable}} placeholders. Variables are escaped as literal text.
         button_text:
           type: string
           minLength: 1
@@ -9865,6 +9866,11 @@ components:
           - type: 'null'
         summary:
           type: string
+        body_format:
+          type: string
+          enum: [plain_text, lark_md]
+          default: plain_text
+          description: Frozen body format. Missing on historical cards means plain text.
         app_name:
           anyOf:
           - type: string

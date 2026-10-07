@@ -286,14 +286,14 @@ def test_wait_run_cache_then_notify_resumes_without_duplicate(client, monkeypatc
         settings = client.app.state.settings
         request = next(settings.parser_inbox.glob("*.json"))
         (settings.parser_outbox / request.name).write_text(
-            json.dumps({"ok": True, "sha256": "c" * 64, "metadata": {"build_number": "42"}})
+            json.dumps({"ok": True, "sha256": "c" * 64, "metadata": {"build_number": "2026100701"}})
         )
         with pytest.raises(RetryLater):
             process_event(db, settings, event_id)
         deliveries = db.scalars(select(DeliveryRecord)).all()
         assert len(deliveries) == 1
-        assert deliveries[0].card["build_number"] == "42"
-        assert "Build：42" in deliveries[0].card["summary"]
+        assert deliveries[0].card["build_number"] == "2026100701"
+        assert "**Build**：2026100701" in deliveries[0].card["summary"]
         assert deliveries[0].card["page_url"].endswith("/apps/" + str(entries[0].app_id))
         assert deliveries[0].card["sub_button_url"] == deliveries[0].card["page_url"]
         deliveries[0].state = "succeeded"

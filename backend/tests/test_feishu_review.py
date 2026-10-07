@@ -474,7 +474,7 @@ def test_release_template_save_permissions_validation_and_snapshot(feishu_fixtur
             db, "test-chat", sample_card(), app_id=app_id, kind="build_ready", enqueue_task=False
         ).card
         assert default_card["header_color"] == "green"
-        assert "Build：42" in default_card["summary"]
+        assert "**Build**：2026100701" in default_card["summary"]
         db.rollback()
     draft = {**initial.json()["template"], "title": "{{app_name}} 上新", "button_text": "立即安装"}
     assert client.put(path, json=draft).status_code == 403
