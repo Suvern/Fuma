@@ -23,12 +23,14 @@ const config: DTO<"ReleaseNotificationTemplateConfig"> = {
     title: "{{app_name}} 新版本",
     body: "版本 {{version}}\nBuild：{{buildNumber}}\n\n{{file_names}}",
     button_text: "立即安装",
+    sub_button_text: "应用下载页",
     header_color: "blue",
   },
   defaults: {
     title: "安装包已就绪",
     body: "{{summary}}",
     button_text: "查看安装包",
+    sub_button_text: "应用下载页",
     header_color: "blue",
   },
   variables: [
@@ -47,8 +49,9 @@ const config: DTO<"ReleaseNotificationTemplateConfig"> = {
     file_names: ["Joice.apk"],
     result: "success",
     occurred_at: "2026-10-07T07:42:00Z",
-    page_url: null,
+    page_url: "https://example.com/apps/app-a",
     button_text: "查看安装包",
+    sub_button_text: "应用下载页",
     header_color: "blue",
   },
 };
@@ -66,7 +69,7 @@ function mount() {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <NotificationTemplateSection />
+        <NotificationTemplateSection appId="app-a" />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -81,6 +84,8 @@ it("previews draft variables without sending or saving and saves with revision",
     ).getByText("Joice 发布啦"),
   ).toBeTruthy();
   expect(write).not.toHaveBeenCalled();
+  expect(screen.getByRole("link", { name: "应用下载页" }).getAttribute("href")).toBe("https://example.com/apps/app-a");
+  expect(read).toHaveBeenCalledWith("/api/v1/apps/{id}/release-notification-template", { id: "app-a" });
   expect(screen.getByRole("complementary", { name: "通知卡片预览" }).textContent).toContain("Build：42");
   vi.mocked(write).mockResolvedValue({
     ...config,
@@ -90,10 +95,10 @@ it("previews draft variables without sending or saving and saves with revision",
   fireEvent.click(screen.getByRole("button", { name: "保存模板" }));
   await waitFor(() =>
     expect(write).toHaveBeenCalledWith(
-      "/api/v1/settings/release-notification-template",
+      "/api/v1/apps/{id}/release-notification-template",
       "put",
       { ...config.template, title: "{{app_name}} 发布啦" },
-      { revision: 2 },
+      { id: "app-a", revision: 2 },
     ),
   );
   expect(await screen.findByText(/模板已保存/)).toBeTruthy();
@@ -129,5 +134,32 @@ it("restores defaults only in the draft and supports undo without a request", as
   expect(write).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "撤销修改" }));
   expect((screen.getByLabelText("卡片正文 *") as HTMLTextAreaElement).value).toBe(config.template.body);
+  expect(write).not.toHaveBeenCalled();
+});
+
+it("validates and previews secondary button text while keeping its application URL fixed", async () => {
+  mount();
+  const secondary = await screen.findByLabelText("次按钮文案 *");
+  fireEvent.change(secondary, { target: { value: "下载 {{app_name}}" } });
+  expect(screen.getByRole("link", { name: "下载 Joice" }).getAttribute("href")).toBe("https://example.com/apps/app-a");
+  fireEvent.change(secondary, { target: { value: "{{unknown}}" } });
+  fireEvent.blur(secondary);
+  fireEvent.click(screen.getByRole("button", { name: "保存模板" }));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(write).not.toHaveBeenCalled();
+});
+
+it("does not carry a draft across application changes", async () => {
+  vi.mocked(read).mockImplementation(async (_path, options) => ({
+    ...config,
+    template: { ...config.template, title: options?.id === "app-b" ? "应用 B" : "应用 A" },
+  }) as never);
+  const wrap = (appId: string) => <QueryClientProvider client={client}><MemoryRouter><NotificationTemplateSection appId={appId} /></MemoryRouter></QueryClientProvider>;
+  const view = render(wrap("app-a"));
+  const title = await screen.findByLabelText("卡片标题 *");
+  fireEvent.change(title, { target: { value: "A 的未保存草稿" } });
+  view.rerender(wrap("app-b"));
+  expect(await screen.findByDisplayValue("应用 B")).toBeTruthy();
+  expect(screen.queryByDisplayValue("A 的未保存草稿")).toBeNull();
   expect(write).not.toHaveBeenCalled();
 });

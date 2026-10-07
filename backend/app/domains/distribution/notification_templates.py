@@ -5,9 +5,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from app.core.errors import AppError
-from app.domains.distribution.models import IntegrationState
+from app.domains.distribution.models import AppNotificationTemplate
 
-STATE_KEY = "release_notification_template"
 DEFAULT_TEMPLATE = {
     "title": "{{app_name}} · 新安装包已就绪",
     "body": (
@@ -16,6 +15,7 @@ DEFAULT_TEMPLATE = {
         "{{summary}}\n通知时间：{{time}}（北京时间）"
     ),
     "button_text": "打开下载页面",
+    "sub_button_text": "应用下载页",
     "header_color": "green",
 }
 VARIABLES = [
@@ -31,7 +31,7 @@ VARIABLES = [
     {"name": "time", "label": "通知时间（北京时间）", "sample": "2026/10/07 15:42"},
 ]
 TOKEN = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
-LIMITS = {"title": 100, "body": 2000, "button_text": 30}
+LIMITS = {"title": 100, "body": 2000, "button_text": 30, "sub_button_text": 30}
 COLORS = {"blue", "green", "orange", "red", "purple", "grey"}
 
 
@@ -69,6 +69,7 @@ def sample_card():
 
 
 def render_template(template, card):
+    template = {**DEFAULT_TEMPLATE, **template}
     values = {
         "app_name": card.get("app_name") or "应用",
         "version": card.get("version_label") or "未提供版本",
@@ -91,21 +92,30 @@ def render_template(template, card):
         "title": render("title") or card["title"],
         "summary": render("body") or card["summary"],
         "button_text": render("button_text") or "查看安装包",
+        "sub_button_text": render("sub_button_text") or "应用下载页",
+        "sub_button_url": card.get("page_url"),
         "header_color": template["header_color"],
     }
 
 
-def template_config(db):
-    row = db.get(IntegrationState, STATE_KEY)
+def template_config(db, app, site_url):
+    row = db.get(AppNotificationTemplate, app.id)
+    sample = sample_card()
+    sample.update(
+        app_name=app.name,
+        file_names=[f"{app.name}-v1.0.0.apk"],
+        page_url=f"{site_url}/apps/{app.id}",
+    )
+    samples = {"app_name": app.name, "file_names": sample["file_names"][0]}
     return {
         "revision": row.revision if row else 0,
-        "template": row.data if row else dict(DEFAULT_TEMPLATE),
+        "template": {**DEFAULT_TEMPLATE, **row.data} if row else dict(DEFAULT_TEMPLATE),
         "defaults": dict(DEFAULT_TEMPLATE),
-        "variables": VARIABLES,
-        "sample": sample_card(),
+        "variables": [{**v, "sample": samples.get(v["name"], v["sample"])} for v in VARIABLES],
+        "sample": sample,
     }
 
 
-def apply_release_template(db, card):
-    row = db.get(IntegrationState, STATE_KEY)
+def apply_release_template(db, card, app_id):
+    row = db.get(AppNotificationTemplate, app_id) if app_id else None
     return render_template(row.data if row else DEFAULT_TEMPLATE, card)

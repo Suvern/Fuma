@@ -1,22 +1,24 @@
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link, useParams } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
-import { Button, Panel } from "../../shared/ui/controls";
+import { Button, PageTabs, Panel } from "../../shared/ui/controls";
 import { Select, TextArea } from "../../shared/ui/FormControls";
 import {
   ErrorBox,
   Field,
   Form,
   Loading,
+  Title,
   useCommand,
 } from "../../shared/ui/common";
 import "./notification-template.css";
 
 type Template = DTO<"ReleaseNotificationTemplate">;
 type Config = DTO<"ReleaseNotificationTemplateConfig">;
-type TextField = "title" | "body" | "button_text";
-const limits = { title: 100, body: 2000, button_text: 30 };
-const labels = { title: "卡片标题", body: "卡片正文", button_text: "按钮文案" };
+type TextField = "title" | "body" | "button_text" | "sub_button_text";
+const limits = { title: 100, body: 2000, button_text: 30, sub_button_text: 30 };
+const labels = { title: "卡片标题", body: "卡片正文", button_text: "主按钮文案", sub_button_text: "次按钮文案" };
 const colors: Record<Template["header_color"], string> = {
   blue: "蓝色",
   green: "绿色",
@@ -54,10 +56,29 @@ function preview(value: string, limit: number, variables: Config["variables"]) {
     : rendered;
 }
 
-export function NotificationTemplateSection() {
+export function AppNotificationTemplatePage() {
+  const { id = "" } = useParams();
+  const app = useQuery({
+    queryKey: ["app", id],
+    queryFn: () => read("/api/v1/apps/{id}", { id }),
+  });
+  if (app.isPending) return <Loading />;
+  if (!app.data) return <ErrorBox error={app.error} />;
+  return (
+    <>
+      <Title description="管理此应用的安装包就绪通知，编辑时可实时预览卡片。">
+        {`${app.data.name} · 飞书卡片`}
+      </Title>
+      <PageTabs><Link to={`/admin/apps/${id}`}>应用设置</Link></PageTabs>
+      <NotificationTemplateSection key={id} appId={id} readOnly={!!app.data.archived_at} />
+    </>
+  );
+}
+
+export function NotificationTemplateSection({ appId, readOnly = false }: { appId: string; readOnly?: boolean }) {
   const q = useQuery({
-    queryKey: ["release-notification-template"],
-    queryFn: () => read("/api/v1/settings/release-notification-template"),
+    queryKey: ["release-notification-template", appId],
+    queryFn: () => read("/api/v1/apps/{id}/release-notification-template", { id: appId }),
   });
   return (
     <Panel
@@ -66,8 +87,8 @@ export function NotificationTemplateSection() {
     >
       <h2 id="notification-template-title">Release 通知卡片模板</h2>
       <p className="muted">
-        用于所有应用经 GitHub Actions 上传 Release、安装包就绪后的飞书通知。
-        保存仅影响新生成的成功通知；历史通知及其重试保留原内容。
+        仅用于当前应用经 GitHub Actions 上传 Release、安装包就绪后的飞书通知。
+        独立保存，不影响其他应用；历史通知及其重试保留原内容。
       </p>
       <ErrorBox error={q.error} />
       {q.isPending && <Loading />}
@@ -76,12 +97,15 @@ export function NotificationTemplateSection() {
           重新加载模板
         </Button>
       )}
-      {q.data && <TemplateEditor config={q.data} />}
+      {readOnly && <p className="muted">应用已归档，模板仅可查看。恢复应用后可继续编辑。</p>}
+      {q.data && <fieldset className="notification-template-fieldset" disabled={readOnly}>
+        <TemplateEditor key={appId} config={q.data} appId={appId} />
+      </fieldset>}
     </Panel>
   );
 }
 
-function TemplateEditor({ config }: { config: Config }) {
+function TemplateEditor({ config, appId }: { config: Config; appId: string }) {
   const id = useId();
   const cmd = useCommand();
   const [saved, setSaved] = useState(config);
@@ -113,7 +137,7 @@ function TemplateEditor({ config }: { config: Config }) {
       <div>
         <Form
           submit={() => {
-            setTouched({ title: true, body: true, button_text: true });
+            setTouched({ title: true, body: true, button_text: true, sub_button_text: true });
             const invalid = (Object.keys(limits) as TextField[]).find(
               (field) => errors[field],
             );
@@ -125,13 +149,13 @@ function TemplateEditor({ config }: { config: Config }) {
               "notification-template-save",
               () =>
                 write(
-                  "/api/v1/settings/release-notification-template",
+                  "/api/v1/apps/{id}/release-notification-template",
                   "put",
                   draft,
-                  { revision: saved.revision },
+                  { id: appId, revision: saved.revision },
                 ),
               load,
-              "模板已保存，将用于新生成的 Release 成功通知。未发送任何消息。",
+              "模板已保存，将用于此应用新生成的 Release 成功通知。未发送任何消息。",
             );
           }}
         >
@@ -178,7 +202,7 @@ function TemplateEditor({ config }: { config: Config }) {
           <Field
             id={`${id}-button_text`}
             name="button_text"
-            label="按钮文案"
+            label="主按钮文案"
             required
             maxLength={30}
             value={draft.button_text}
@@ -191,6 +215,21 @@ function TemplateEditor({ config }: { config: Config }) {
             <p role="alert" className="field-error">
               {errors.button_text}
             </p>
+          )}
+          <Field
+            id={`${id}-sub_button_text`}
+            name="sub_button_text"
+            label="次按钮文案"
+            required
+            maxLength={30}
+            value={draft.sub_button_text}
+            disabled={cmd.pending}
+            onChange={(e) => change("sub_button_text", e.target.value)}
+            onBlur={() => setTouched({ ...touched, sub_button_text: true })}
+            help="次按钮固定跳转到当前应用的下载页面。可编辑文案，链接由系统生成。"
+          />
+          {touched.sub_button_text && errors.sub_button_text && (
+            <p role="alert" className="field-error">{errors.sub_button_text}</p>
           )}
           <div className="field">
             <Select
@@ -250,7 +289,7 @@ function TemplateEditor({ config }: { config: Config }) {
             onClick={() =>
               void cmd.run(
                 "notification-template-reload",
-                () => read("/api/v1/settings/release-notification-template"),
+                () => read("/api/v1/apps/{id}/release-notification-template", { id: appId }),
                 load,
                 "已载入最新模板。",
                 dirty ? "重新载入会丢弃未保存的修改，是否继续？" : undefined,
@@ -280,7 +319,7 @@ function TemplateEditor({ config }: { config: Config }) {
       >
         <h3>示例预览</h3>
         <p className="muted">
-          使用示例应用与版本，实际消息会替换为本次 Release 数据。
+          使用当前应用与示例版本，实际消息会替换为本次 Release 数据。
         </p>
         <div
           className={`release-card-preview release-card-preview--${draft.header_color}`}
@@ -292,9 +331,14 @@ function TemplateEditor({ config }: { config: Config }) {
             {preview(draft.body, 2000, config.variables) ||
               config.sample.summary}
           </div>
-          <span className="release-card-preview-button">
-            {preview(draft.button_text, 30, config.variables) || "查看安装包"}
-          </span>
+          <div className="release-card-preview-actions">
+            <a className="release-card-preview-button" href={config.sample.page_url ?? undefined} target="_blank" rel="noreferrer">
+              {preview(draft.button_text, 30, config.variables) || "查看安装包"}
+            </a>
+            <a className="release-card-preview-button release-card-preview-button--secondary" href={config.sample.page_url ?? undefined} target="_blank" rel="noreferrer">
+              {preview(draft.sub_button_text, 30, config.variables) || "应用下载页"}
+            </a>
+          </div>
         </div>
       </aside>
     </div>

@@ -136,6 +136,12 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        path: "apps/:id/notifications",
+        lazy: async () => ({
+          Component: (await import("../features/m1/NotificationTemplate")).AppNotificationTemplatePage,
+        }),
+      },
+      {
         path: "apps/:id/events",
         lazy: async () => ({
           Component: (await import("../features/m1/Actions")).BuildEventsPage,

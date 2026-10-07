@@ -137,6 +137,7 @@ describe("应用管理走查问题回归", () => {
       "描述",
     )) as HTMLInputElement;
     expect(description.disabled).toBe(true);
+    expect(screen.getByRole("tab", { name: "飞书卡片" })).toBeTruthy();
     expect(
       (
         await screen.findByRole("combobox", { name: "GitHub 仓库" })

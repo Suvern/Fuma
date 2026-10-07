@@ -295,6 +295,7 @@ def test_wait_run_cache_then_notify_resumes_without_duplicate(client, monkeypatc
         assert deliveries[0].card["build_number"] == "42"
         assert "Build：42" in deliveries[0].card["summary"]
         assert deliveries[0].card["page_url"].endswith("/apps/" + str(entries[0].app_id))
+        assert deliveries[0].card["sub_button_url"] == deliveries[0].card["page_url"]
         deliveries[0].state = "succeeded"
         db.commit()
         process_event(db, client.app.state.settings, event_id)

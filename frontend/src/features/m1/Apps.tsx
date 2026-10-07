@@ -609,6 +609,7 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
         <Link to={`/admin/apps/${app.id}/debug`}>Debug 包</Link>
         <Link to={`/admin/apps/${app.id}/actions`}>Actions 规则</Link>
         <Link to={`/admin/apps/${app.id}/events`}>构建事件</Link>
+        <Link to={`/admin/apps/${app.id}/notifications`}>飞书卡片</Link>
       </PageTabs>
       <div className="inline">
         <AppIcon name={app.name} value={app.icon_data} />

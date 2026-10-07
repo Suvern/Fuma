@@ -597,6 +597,9 @@ export function NotificationPage() {
               <a href={d.card.page_url}>{d.card.button_text || "查看分发页面"}</a>
             </p>
           )}
+          {d.card.sub_button_url && d.card.sub_button_text && (
+            <p><a href={d.card.sub_button_url}>{d.card.sub_button_text}</a></p>
+          )}
         </Panel>
       </div>
     </>

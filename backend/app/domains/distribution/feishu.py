@@ -144,7 +144,7 @@ def create_delivery(
     if kind == "build_ready":
         from app.domains.distribution.notification_templates import apply_release_template
 
-        card = apply_release_template(db, card)
+        card = apply_release_template(db, card, app_id)
     chat = db.get(ChatRecord, chat_id)
     now = utcnow()
     delivery = DeliveryRecord(

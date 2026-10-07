@@ -683,6 +683,12 @@ class ReleaseNotificationTemplate(BaseModel):
     )
     body: str = Field(..., max_length=2000, min_length=1)
     button_text: str = Field(..., max_length=30, min_length=1)
+    sub_button_text: str = Field(
+        ...,
+        description="Secondary button label. Destination is fixed to this app’s download page.",
+        max_length=30,
+        min_length=1,
+    )
     header_color: Literal["blue", "green", "orange", "red", "purple", "grey"]
 
 
@@ -702,6 +708,11 @@ class NotificationCard(BaseModel):
     title: str
     button_text: str = "查看安装包"
     header_color: Literal["blue", "green", "orange", "red", "purple", "grey"] = "blue"
+    sub_button_text: str | None = None
+    sub_button_url: AnyUrl | None = Field(
+        None,
+        description="Server-generated URL of the owning app’s download page, frozen at delivery creation.",
+    )
     summary: str
     app_name: str | None
     mode: Literal["debug"]

@@ -7,7 +7,8 @@ from app.core.errors import AppError
 from app.integrations.feishu import FeishuClient
 
 
-def test_custom_card_fields_are_sent_as_plain_text_with_fixed_destination():
+@pytest.mark.parametrize("with_secondary", [False, True])
+def test_custom_card_fields_are_sent_as_plain_text_with_fixed_destination(with_secondary):
     sent = []
 
     def handler(request):
@@ -26,6 +27,14 @@ def test_custom_card_fields_are_sent_as_plain_text_with_fixed_destination():
                 "button_text": "打开安装页",
                 "header_color": "green",
                 "page_url": "https://example.com/apps/1",
+                **(
+                    {
+                        "sub_button_text": "应用下载页",
+                        "sub_button_url": "https://example.com/apps/1",
+                    }
+                    if with_secondary
+                    else {}
+                ),
             },
             "request-1",
         )
@@ -38,6 +47,13 @@ def test_custom_card_fields_are_sent_as_plain_text_with_fixed_destination():
     button = card["elements"][2]["actions"][0]
     assert button["text"]["content"] == "打开安装页"
     assert button["url"] == "https://example.com/apps/1"
+    if with_secondary:
+        secondary = card["elements"][2]["actions"][1]
+        assert secondary["type"] == "default"
+        assert secondary["text"] == {"tag": "plain_text", "content": "应用下载页"}
+        assert secondary["url"] == "https://example.com/apps/1"
+    else:
+        assert len(card["elements"][2]["actions"]) == 1
 
 
 def provider(body):

@@ -1683,13 +1683,13 @@ paths:
         schema: *id001
       - $ref: '#/components/parameters/CSRF'
       - $ref: '#/components/parameters/IdempotencyKey'
-  /api/v1/settings/release-notification-template:
+  /api/v1/apps/{id}/release-notification-template:
     get:
       operationId: get_release_notification_template
       tags:
       - settings
       summary: Get Release notification card template
-      description: Administrator-only global template for new successful Actions Release notifications.
+      description: App-scoped template for new successful Actions Release notifications, editable by administrators and this app’s maintainers.
         Supported variables are returned by GET. Unknown or malformed variables are rejected. Existing deliveries
         and retries retain their card snapshot; saving does not send messages.
       security:
@@ -1754,13 +1754,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
     put:
       operationId: update_release_notification_template
       tags:
       - settings
       summary: Update Release notification card template
-      description: Administrator-only global template for new successful Actions Release notifications.
+      description: App-scoped template for new successful Actions Release notifications, editable by administrators and this app’s maintainers.
         Supported variables are returned by GET. Unknown or malformed variables are rejected. Existing deliveries
         and retries retain their card snapshot; saving does not send messages.
       security:
@@ -1825,8 +1830,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      x-access: admin
+      x-access: app-manager
       parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
       - $ref: '#/components/parameters/CSRF'
       - $ref: '#/components/parameters/IfMatch'
       requestBody:
@@ -9774,6 +9783,11 @@ components:
           type: string
           minLength: 1
           maxLength: 30
+        sub_button_text:
+          type: string
+          minLength: 1
+          maxLength: 30
+          description: Secondary button label. Destination is fixed to this app’s download page.
         header_color:
           type: string
           enum:
@@ -9788,6 +9802,7 @@ components:
       - body
       - button_text
       - header_color
+      - sub_button_text
     ReleaseNotificationTemplateConfig:
       type: object
       additionalProperties: false
@@ -9838,6 +9853,16 @@ components:
           type: string
           enum: [blue, green, orange, red, purple, grey]
           default: blue
+        sub_button_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+        sub_button_url:
+          description: Server-generated URL of the owning app’s download page, frozen at delivery creation.
+          anyOf:
+          - type: string
+            format: uri
+          - type: 'null'
         summary:
           type: string
         app_name:

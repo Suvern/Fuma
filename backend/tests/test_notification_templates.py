@@ -28,6 +28,8 @@ def test_render_is_plain_text_single_pass_bounded_and_keeps_destination():
     card = render_template(template, original)
     assert card["summary"] == "{{secret}} <at id=all>\nJoice-v1.0.0.apk"
     assert card["page_url"] == original["page_url"]
+    assert card["sub_button_url"] == original["page_url"]
+    assert card["sub_button_text"] == "应用下载页"
     assert card["button_text"] == "下载"
     assert original["summary"] == "已就绪 1/1 个安装包"
     long_card = render_template(

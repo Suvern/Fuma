@@ -29,6 +29,8 @@ from app.domains.library.models import PackageRecord, PublicationRecord, UploadR
 
 LIST_OPERATIONS = {"list_notifications", "list_apps", "list_audit_events", "list_tasks"}
 RESOURCE_OPERATIONS = {
+    "get_release_notification_template": AppRecord,
+    "update_release_notification_template": AppRecord,
     "get_apps": AppRecord,
     "update_apps": AppRecord,
     "get_app_archive_impact": AppRecord,

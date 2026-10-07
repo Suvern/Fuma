@@ -197,6 +197,7 @@ export function PageTabs({
         { to: `${appPath}/debug`, label: "Debug 包" },
         { to: `${appPath}/actions`, label: "Actions 规则" },
         { to: `${appPath}/events`, label: "构建事件" },
+        { to: `${appPath}/notifications`, label: "飞书卡片" },
       ]
     : Children.toArray(children).flatMap((child) =>
         isValidElement<LinkProps>(child)

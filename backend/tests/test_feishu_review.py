@@ -448,13 +448,30 @@ def test_release_template_save_permissions_validation_and_snapshot(feishu_fixtur
     from app.domains.distribution.notification_templates import sample_card
 
     client, provider, _, headers = feishu_fixture
-    path = "/api/v1/settings/release-notification-template"
+    from app.domains.applications.models import AppRecord
+
+    with Session(client.app.state.engine) as db:
+        apps = [
+            AppRecord(
+                name=name,
+                public_slug=name,
+                platforms=["android"],
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            )
+            for name in ("app-a", "app-b")
+        ]
+        db.add_all(apps)
+        db.commit()
+        app_id, other_id = (app.id for app in apps)
+    path = f"/api/v1/apps/{app_id}/release-notification-template"
+    other_path = f"/api/v1/apps/{other_id}/release-notification-template"
     initial = client.get(path)
     assert initial.status_code == 200
     assert initial.headers["etag"] == '"0"'
     with Session(client.app.state.engine) as db:
         default_card = create_delivery(
-            db, "test-chat", sample_card(), kind="build_ready", enqueue_task=False
+            db, "test-chat", sample_card(), app_id=app_id, kind="build_ready", enqueue_task=False
         ).card
         assert default_card["header_color"] == "green"
         assert "Build：42" in default_card["summary"]
@@ -471,9 +488,20 @@ def test_release_template_save_permissions_validation_and_snapshot(feishu_fixtur
     assert saved.status_code == 200
     assert saved.headers["etag"] == '"1"'
     assert saved.json()["template"] == draft
+    assert client.get(other_path).json()["revision"] == 0
+    assert client.get(other_path).json()["template"]["title"] != draft["title"]
+    assert saved.json()["sample"]["app_name"] == "app-a"
+    assert saved.json()["sample"]["page_url"].endswith(f"/apps/{app_id}")
+    malicious = client.put(
+        path,
+        json={**draft, "sub_button_url": "https://other.example"},
+        headers={**headers, "If-Match": '"1"'},
+    )
+    assert malicious.status_code == 422
+    assert client.get("/api/v1/settings/release-notification-template").status_code == 404
     with Session(client.app.state.engine) as db:
         delivery = create_delivery(
-            db, "test-chat", sample_card(), kind="build_ready", enqueue_task=False
+            db, "test-chat", sample_card(), app_id=app_id, kind="build_ready", enqueue_task=False
         )
         delivery_id = delivery.id
         first_card = dict(delivery.card)
@@ -493,53 +521,33 @@ def test_release_template_save_permissions_validation_and_snapshot(feishu_fixtur
         assert db.get(DeliveryRecord, delivery_id).card == first_card
         assert (
             create_delivery(
-                db, "test-chat", sample_card(), kind="build_ready", enqueue_task=False
+                db,
+                "test-chat",
+                sample_card(),
+                app_id=app_id,
+                kind="build_ready",
+                enqueue_task=False,
             ).card["title"]
             == "新模板"
         )
         # Never queue or send during template editing.
         assert not db.scalars(select(TaskRecord)).all()
+    with Session(client.app.state.engine) as db:
+        from app.domains.audit.models import AuditRecord
+
+        edits = db.scalars(
+            select(AuditRecord).where(AuditRecord.action == "notification_template.update")
+        ).all()
+        assert len(edits) == 2 and all(row.app_id == app_id for row in edits)
+        other_card = create_delivery(
+            db, "test-chat", sample_card(), app_id=other_id, kind="build_ready", enqueue_task=False
+        ).card
+        assert other_card["title"] != "新模板"
+        app = db.get(AppRecord, app_id)
+        app.archived_at = utcnow()
+        db.commit()
+    assert client.get(path).status_code == 200
+    assert client.put(path, json=draft, headers={**headers, "If-Match": '"2"'}).status_code == 409
     assert provider["sent"] == 0
     client.cookies.clear()
     assert client.get(path).status_code == 401
-
-
-def test_release_template_forbids_non_admin(feishu_fixture):
-    client, _, _, headers = feishu_fixture
-    from app.domains.auth.service import cookie_name, token_hash
-
-    with Session(client.app.state.engine) as db:
-        user = User(kind="feishu", display_name="Maintainer", global_role="maintainer", active=True)
-        db.add(user)
-        db.flush()
-        raw = "synthetic-maintainer-session"
-        now = utcnow()
-        db.add(
-            AuthSession(
-                token_hash=token_hash(raw),
-                csrf_hash=token_hash("synthetic-csrf"),
-                user_id=user.id,
-                kind="feishu",
-                created_at=now,
-                expires_at=now + timedelta(hours=1),
-                authenticated_at=now,
-            )
-        )
-        db.commit()
-    client.cookies.set(cookie_name(client.app.state.settings), raw)
-    path = "/api/v1/settings/release-notification-template"
-    assert client.get(path).status_code == 403
-    from app.domains.distribution.notification_templates import DEFAULT_TEMPLATE
-
-    assert (
-        client.put(
-            path,
-            json=DEFAULT_TEMPLATE,
-            headers={
-                **headers,
-                "X-CSRF-Token": "synthetic-csrf",
-                "If-Match": '"0"',
-            },
-        ).status_code
-        == 403
-    )
