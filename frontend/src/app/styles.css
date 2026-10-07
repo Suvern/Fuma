@@ -120,9 +120,11 @@ dd {
   color: var(--semi-color-text-0);
 }
 .brand-mark {
-  color: var(--semi-color-primary);
-  display: inline-flex;
-  align-items: center;
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 .workspace-label {
   margin-left: 16px;
@@ -871,8 +873,34 @@ dd {
   max-width: 440px;
   margin: 48px auto;
 }
-.auth-symbol {
-  margin-bottom: 24px;
+.login-intro {
+  margin-bottom: 28px;
+  text-align: center;
+}
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0 24px;
+}
+.auth-brand .brand-mark {
+  width: 80px;
+  height: 80px;
+}
+.auth-brand-name {
+  color: var(--semi-color-text-0);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -1px;
+  text-box: trim-both cap alphabetic;
+}
+.login-intro .page-heading {
+  justify-content: center;
+}
+.login-intro > p {
+  margin-bottom: 0;
 }
 .auth-card .form > .semi-button {
   align-self: stretch;

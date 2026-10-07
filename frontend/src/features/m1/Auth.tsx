@@ -54,11 +54,14 @@ export function LoginPage() {
   if (status.error) return <ErrorBox error={status.error} />;
   return (
     <Panel className="auth-card panel login-card">
-      <div className="auth-symbol">
-        <BrandMark />
-      </div>
-      <Title>后台登录</Title>
-      <p className="muted">欢迎回来，继续管理团队的应用与分发。</p>
+      <header className="login-intro">
+        <div className="auth-brand">
+          <BrandMark />
+          <span className="auth-brand-name">Fuma</span>
+        </div>
+        <Title>后台登录</Title>
+        <p className="muted">欢迎回来，继续管理团队的应用与分发。</p>
+      </header>
       {!status.data?.initialized && (
         <Notice role="status" className="notice">
           服务正在初始化管理员，请稍后刷新。

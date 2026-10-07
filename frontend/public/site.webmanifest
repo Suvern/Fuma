@@ -1,0 +1,18 @@
+{
+  "name": "Fuma · 移动端安装包管理",
+  "short_name": "Fuma",
+  "icons": [
+    {
+      "src": "icons/fuma-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/fuma-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

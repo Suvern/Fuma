@@ -23,6 +23,7 @@ import {
   IconClose,
   IconLock,
 } from "@douyinfe/semi-icons";
+import fumaMark from "../../assets/fuma-mark.png";
 const icons = {
   grid: IconGridStroked,
   apps: IconApps,
@@ -69,8 +70,13 @@ export function Icon({
 }
 export function BrandMark() {
   return (
-    <span className="brand-mark" aria-hidden>
-      <Icon name="package" size={24} />
-    </span>
+    <img
+      className="brand-mark"
+      src={fumaMark}
+      width={36}
+      height={36}
+      alt=""
+      aria-hidden="true"
+    />
   );
 }

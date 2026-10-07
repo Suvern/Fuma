@@ -33,6 +33,8 @@ FUMA_API_PROXY_TARGET=https://your-fuma.example.com npm run dev
 
 组件按路径导入，入口加载 Semi 基础主题；业务路由按需加载。共用控件位于 `src/shared/ui/`：保留原生 FormData、约束校验、只读和提交语义，渲染 Semi Input / Checkbox / Button；弹窗、确认、导航、筛选、分页及数据表使用 Semi 组件。移动端使用 SideSheet 导航与可滚动表格。
 
+Fuma 品牌头像采用风马的银白面甲、蓝色额纹与暖白双眼，由 `BrandMark` 统一用于前后台导航和登录页；登录卡片顶部突出展示头像与 Fuma 字样。页面资源为 `src/assets/fuma-mark.png`（256px 透明 PNG）；浏览器图标位于 `public/favicon.ico`（16/32/48px）及 `public/icons/`，同时提供 Apple 触屏图标（180px）和 manifest 图标（192/512px）。更新品牌时需同步这些尺寸；业务应用各自上传的图标不属于 Fuma 品牌资源。
+
 仓库绑定使用远程搜索 Select，300ms 防抖，支持分页追加、空结果、错误重试、键盘选择及手动填写。连接 ID 和搜索条件隔离查询缓存，切换连接清空仓库选择，并将 AbortSignal 传给请求；只有点击「验证并绑定」才保存。测试覆盖迟到响应、分页选择、失败重试和旧选择不遮挡空结果。
 
 ## 页面
