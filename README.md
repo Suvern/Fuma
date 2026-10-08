@@ -62,3 +62,5 @@ make frontend
 ## 许可证
 
 本项目原创代码与文档使用 [MIT License](LICENSE)。第三方依赖遵循各自许可证；头像及相关角色素材的权利说明见上文。
+
+发布产物中的声明位置和第三方许可边界见[第三方声明](THIRD_PARTY_NOTICES.md)，生成及校验方法见[开发指南](docs/development.md#发布前安全与许可证检查)。

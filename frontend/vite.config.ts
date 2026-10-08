@@ -25,6 +25,7 @@ export default defineConfig(({ command, mode, isPreview }) => {
 
   return {
     envDir: false,
+    build: { license: { fileName: 'dependency-licenses.json' } },
     plugins: [react()],
     // API requests stay same-origin; do not expose third-party secrets via VITE_*.
     server: {

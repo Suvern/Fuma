@@ -1,4 +1,4 @@
-name: M1 checks
+name: Checks
 
 on:
   push:
@@ -29,15 +29,29 @@ jobs:
       FUMA_TEST_DATABASE_URL: postgresql+psycopg://fuma@127.0.0.1:55432/fuma_test
       FUMA_TEST_DATABASE_ALLOW_CREATE: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 12.4.1
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: '0.12.7'
       - run: make setup
       - run: make check
+      - name: Audit Python dependencies
+        run: uvx pip-audit==2.10.1 --path backend/.venv/lib/python3.13/site-packages
+      - name: Audit frontend dependencies, including build and test tools
+        run: pnpm --dir frontend audit
+      - name: Check Python dependency licenses
+        run: python3 scripts/backend_licenses.py --python backend/.venv/bin/python --output "$RUNNER_TEMP/python-licenses.json"
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Scan project files with a verified Gitleaks binary
+        run: python3 scripts/scan_secrets.py

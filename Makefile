@@ -44,8 +44,10 @@ idl-check:
 lint:
 	uv run --directory backend ruff check .
 	uv run --directory backend ruff check ../parser
+	uv run --directory backend ruff check ../scripts
 	uv run --directory backend ruff format --check .
 	uv run --directory backend ruff format --check ../parser
+	uv run --directory backend ruff format --check ../scripts
 	pnpm --dir frontend lint
 
 test:
@@ -55,5 +57,6 @@ test:
 build:
 	uv build --directory backend
 	pnpm --dir frontend build
+	uv run --directory backend python ../scripts/check_release_artifacts.py
 
 check: idl-check lint test build

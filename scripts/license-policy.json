@@ -1,0 +1,10 @@
+{
+  "frontend": ["MIT", "ISC", "BSD-2-Clause", "BSD-3-Clause", "Apache-2.0", "0BSD"],
+  "backend": [
+    "MIT", "MIT License", "MIT-0", "BSD-2-Clause", "BSD-3-Clause", "BSD License",
+    "Apache-2.0", "Apache Software License", "Apache-2.0 OR BSD-3-Clause",
+    "Apache-2.0 OR BSD-2-Clause", "Apache Software License; BSD License",
+    "Apache Software License; MIT License", "BSD License; Public Domain",
+    "PSF-2.0", "LGPL-3.0-only", "Mozilla Public License 2.0 (MPL 2.0)"
+  ]
+}
