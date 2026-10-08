@@ -23,22 +23,25 @@ const config: DTO<"ReleaseNotificationTemplateConfig"> = {
     title: "{{app_name}} 新版本",
     body: "版本 {{version}}\nBuild：{{buildNumber}}\n\n{{file_names}}",
     button_text: "立即安装",
+    sub_button_text: "应用下载页",
     header_color: "blue",
   },
   defaults: {
     title: "安装包已就绪",
     body: "{{summary}}",
     button_text: "查看安装包",
+    sub_button_text: "应用下载页",
     header_color: "blue",
   },
   variables: [
     { name: "app_name", label: "应用名称", sample: "SomeProject" },
     { name: "version", label: "版本", sample: "v1.0.0" },
-    { name: "buildNumber", label: "App 构建号", sample: "42" },
+    { name: "buildNumber", label: "App 构建号", sample: "2026100701" },
     { name: "file_names", label: "安装包", sample: "SomeProject.apk" },
     { name: "summary", label: "结果", sample: "已就绪 1/1 个安装包" },
   ],
   sample: {
+    body_format: "plain_text",
     title: "安装包已就绪",
     summary: "已就绪 1/1 个安装包",
     app_name: "SomeProject",
@@ -47,8 +50,9 @@ const config: DTO<"ReleaseNotificationTemplateConfig"> = {
     file_names: ["SomeProject.apk"],
     result: "success",
     occurred_at: "2026-10-07T07:42:00Z",
-    page_url: null,
+    page_url: "https://example.com/apps/app-a",
     button_text: "查看安装包",
+    sub_button_text: "应用下载页",
     header_color: "blue",
   },
 };
@@ -66,7 +70,7 @@ function mount() {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <NotificationTemplateSection />
+        <NotificationTemplateSection appId="app-a" />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -81,7 +85,9 @@ it("previews draft variables without sending or saving and saves with revision",
     ).getByText("SomeProject 发布啦"),
   ).toBeTruthy();
   expect(write).not.toHaveBeenCalled();
-  expect(screen.getByRole("complementary", { name: "通知卡片预览" }).textContent).toContain("Build：42");
+  expect(screen.getByRole("link", { name: "应用下载页" }).getAttribute("href")).toBe("https://example.com/apps/app-a");
+  expect(read).toHaveBeenCalledWith("/api/v1/apps/{id}/release-notification-template", { id: "app-a" });
+  expect(screen.getByRole("complementary", { name: "通知卡片预览" }).textContent).toContain("Build：2026100701");
   vi.mocked(write).mockResolvedValue({
     ...config,
     revision: 3,
@@ -90,10 +96,10 @@ it("previews draft variables without sending or saving and saves with revision",
   fireEvent.click(screen.getByRole("button", { name: "保存模板" }));
   await waitFor(() =>
     expect(write).toHaveBeenCalledWith(
-      "/api/v1/settings/release-notification-template",
+      "/api/v1/apps/{id}/release-notification-template",
       "put",
       { ...config.template, title: "{{app_name}} 发布啦" },
-      { revision: 2 },
+      { id: "app-a", revision: 2 },
     ),
   );
   expect(await screen.findByText(/模板已保存/)).toBeTruthy();
@@ -130,4 +136,58 @@ it("restores defaults only in the draft and supports undo without a request", as
   fireEvent.click(screen.getByRole("button", { name: "撤销修改" }));
   expect((screen.getByLabelText("卡片正文 *") as HTMLTextAreaElement).value).toBe(config.template.body);
   expect(write).not.toHaveBeenCalled();
+});
+
+it("validates and previews secondary button text while keeping its application URL fixed", async () => {
+  mount();
+  const secondary = await screen.findByLabelText("次按钮文案 *");
+  fireEvent.change(secondary, { target: { value: "下载 {{app_name}}" } });
+  expect(screen.getByRole("link", { name: "下载 SomeProject" }).getAttribute("href")).toBe("https://example.com/apps/app-a");
+  fireEvent.change(secondary, { target: { value: "{{unknown}}" } });
+  fireEvent.blur(secondary);
+  fireEvent.click(screen.getByRole("button", { name: "保存模板" }));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(write).not.toHaveBeenCalled();
+});
+
+it("does not carry a draft across application changes", async () => {
+  vi.mocked(read).mockImplementation(async (_path, options) => ({
+    ...config,
+    template: { ...config.template, title: options?.id === "app-b" ? "应用 B" : "应用 A" },
+  }) as never);
+  const wrap = (appId: string) => <QueryClientProvider client={client}><MemoryRouter><NotificationTemplateSection appId={appId} /></MemoryRouter></QueryClientProvider>;
+  const view = render(wrap("app-a"));
+  const title = await screen.findByLabelText("卡片标题 *");
+  fireEvent.change(title, { target: { value: "A 的未保存草稿" } });
+  view.rerender(wrap("app-b"));
+  expect(await screen.findByDisplayValue("应用 B")).toBeTruthy();
+  expect(screen.queryByDisplayValue("A 的未保存草稿")).toBeNull();
+  expect(write).not.toHaveBeenCalled();
+});
+
+
+it("renders Markdown emphasis, line breaks and safe links while preserving the full build number", async () => {
+  mount();
+  const body = await screen.findByLabelText("卡片正文 *");
+  fireEvent.change(body, { target: { value: "**Build**：{{buildNumber}}\n*斜体* ~~旧版~~\n[说明](https://example.com)\n[危险](javascript:alert%281%29)\n<img src=x onerror=alert(1)>" } });
+  const preview = screen.getByRole("complementary", { name: "通知卡片预览" });
+  expect(preview.querySelector("strong")?.textContent).toBe("Build");
+  expect(preview.querySelector("em")?.textContent).toBe("斜体");
+  expect(preview.querySelector("del")?.textContent).toBe("旧版");
+  expect(preview.querySelector("br")).toBeTruthy();
+  expect(preview.textContent).toContain("2026100701");
+  expect(within(preview).getByRole("link", { name: "说明" }).getAttribute("href")).toBe("https://example.com");
+  expect(within(preview).queryByRole("link", { name: "危险" })).toBeNull();
+  expect(preview.querySelector("img, script")).toBeNull();
+  expect(write).not.toHaveBeenCalled();
+});
+
+it("escapes Markdown syntax inside template variables", async () => {
+  vi.mocked(read).mockResolvedValue({ ...config, variables: config.variables.map(v => v.name === "app_name" ? { ...v, sample: "*Joice* <at id=all>" } : v) } as never);
+  mount();
+  const body = await screen.findByLabelText("卡片正文 *");
+  fireEvent.change(body, { target: { value: "{{app_name}}" } });
+  const preview = screen.getByRole("complementary", { name: "通知卡片预览" });
+  expect(preview.querySelector("em, at")).toBeNull();
+  expect(preview.textContent).toContain("*Joice* <at id=all>");
 });

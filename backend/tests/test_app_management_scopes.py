@@ -68,6 +68,31 @@ def managed_apps(client):
     return headers, apps, actor_id
 
 
+def test_app_template_is_editable_only_with_current_app_permission(client, managed_apps):
+    headers, apps, actor_id = managed_apps
+    own, foreign = (f"/api/v1/apps/{row['id']}/release-notification-template" for row in apps)
+    value = client.get(own)
+    assert value.status_code == 200
+    draft = {
+        **value.json()["template"],
+        "title": "仅当前应用",
+        "sub_button_text": "下载 {{app_name}}",
+    }
+    saved = client.put(own, json=draft, headers={**headers, "If-Match": '"0"'})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["template"] == draft
+    assert client.get(foreign).status_code == 404
+    assert (
+        client.put(foreign, json=draft, headers={**headers, "If-Match": '"0"'}).status_code == 404
+    )
+    with Session(client.app.state.engine) as db:
+        actor = db.get(User, actor_id)
+        actor.global_role = "downloader"
+        db.commit()
+    assert client.get(own).status_code == 403
+    assert client.put(own, json=draft, headers={**headers, "If-Match": '"1"'}).status_code == 403
+
+
 def test_app_scope_lists_writes_and_global_configuration(client, managed_apps):
     headers, apps, actor = managed_apps
     own, foreign = (row["id"] for row in apps)
@@ -87,6 +112,7 @@ def test_app_scope_lists_writes_and_global_configuration(client, managed_apps):
         "release-defaults/ios",
         "distribution-statistics",
         "available-storage",
+        "release-notification-template",
     ):
         assert client.get(f"/api/v1/apps/{foreign}/{suffix}").status_code == 404, suffix
     result = client.patch(

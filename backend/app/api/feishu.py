@@ -13,11 +13,13 @@ from app.api.app_access import ScopedManager
 from app.api.dependencies import CSRF, DB, Admin, optional_context, require_revision
 from app.core.errors import AppError
 from app.domains.access.authorization import manageable_app_ids
+from app.domains.applications.models import AppRecord
 from app.domains.audit.service import record_audit
 from app.domains.auth.models import AuthSession, User
 from app.domains.auth.service import AuthContext, create_user_session, token_hash, utcnow
 from app.domains.distribution import feishu as fs
 from app.domains.distribution.models import (
+    AppNotificationTemplate,
     BindingProofRecord,
     ChatRecord,
     DeliveryRecord,
@@ -42,51 +44,62 @@ router = APIRouter(tags=["Feishu"])
 
 
 @router.get(
-    "/settings/release-notification-template",
+    "/apps/{id}/release-notification-template",
     response_model=dto.ReleaseNotificationTemplateConfig,
     operation_id="get_release_notification_template",
 )
-def get_release_notification_template(response: Response, db: DB, admin: Admin):
+def get_release_notification_template(
+    id: UUID, request: Request, response: Response, db: DB, manager: ScopedManager
+):
     from app.domains.distribution.notification_templates import template_config
 
-    value = template_config(db)
+    value = template_config(db, must_get(db, AppRecord, id), request.app.state.settings.site_url)
     response.headers["ETag"] = f'"{value["revision"]}"'
     return value
 
 
 @router.put(
-    "/settings/release-notification-template",
+    "/apps/{id}/release-notification-template",
     response_model=dto.ReleaseNotificationTemplateConfig,
     operation_id="update_release_notification_template",
 )
 def update_release_notification_template(
+    id: UUID,
     body: dto.ReleaseNotificationTemplate,
     request: Request,
     response: Response,
     db: DB,
-    admin: Admin,
+    manager: ScopedManager,
     csrf: CSRF,
     if_match: Annotated[str | None, Header()] = None,
 ):
-    from app.domains.distribution.notification_templates import STATE_KEY, validate_template
+    from app.domains.distribution.notification_templates import validate_template
 
+    app = must_get(db, AppRecord, id)
+    if app.archived_at:
+        raise AppError(409, "APP_ARCHIVED", "归档应用不能修改通知模板")
     data = body.model_dump()
     validate_template(data)
-    row = state(db, STATE_KEY, locked=True)
-    require_revision(if_match, row.revision)
+    # ScopedManager holds the App lock, serializing first-save and later edits alike.
+    row = db.get(AppNotificationTemplate, id)
+    require_revision(if_match, row.revision if row else 0)
+    if row is None:
+        row = AppNotificationTemplate(app_id=id, revision=0)
+        db.add(row)
     row.data = data
     row.revision += 1
     record_audit(
         db,
         action="notification_template.update",
         resource_type="notification_template",
-        resource_id=STATE_KEY,
+        resource_id=str(id),
+        app_id=id,
         request_id=request.state.request_id,
-        actor_id=str(admin.user.id),
+        actor_id=str(manager.user.id),
         summary="更新 Release 安装包就绪通知模板，仅用于新生成的通知",
     )
     db.commit()
-    return get_release_notification_template(response, db, admin)
+    return get_release_notification_template(id, request, response, db, manager)
 
 
 def check(code, status, message):

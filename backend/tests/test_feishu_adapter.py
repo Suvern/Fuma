@@ -7,7 +7,9 @@ from app.core.errors import AppError
 from app.integrations.feishu import FeishuClient
 
 
-def test_custom_card_fields_are_sent_as_plain_text_with_fixed_destination():
+@pytest.mark.parametrize("with_secondary", [False, True])
+@pytest.mark.parametrize("body_format", [None, "lark_md"])
+def test_card_format_is_frozen_with_fixed_destination(with_secondary, body_format):
     sent = []
 
     def handler(request):
@@ -22,10 +24,19 @@ def test_custom_card_fields_are_sent_as_plain_text_with_fixed_destination():
             "test-chat",
             {
                 "title": "SomeProject 发布",
-                "summary": "第一行\n<at id=all>",
+                "summary": "**第一行**\n第二行",
+                **({"body_format": body_format} if body_format else {}),
                 "button_text": "打开安装页",
                 "header_color": "green",
                 "page_url": "https://example.com/apps/1",
+                **(
+                    {
+                        "sub_button_text": "应用下载页",
+                        "sub_button_url": "https://example.com/apps/1",
+                    }
+                    if with_secondary
+                    else {}
+                ),
             },
             "request-1",
         )
@@ -33,11 +44,21 @@ def test_custom_card_fields_are_sent_as_plain_text_with_fixed_destination():
         api.close()
     card = json.loads(sent[0]["content"])
     assert card["header"]["template"] == "green"
-    assert card["elements"][0]["text"] == {"tag": "plain_text", "content": "第一行\n<at id=all>"}
+    assert card["elements"][0]["text"] == {
+        "tag": body_format or "plain_text",
+        "content": "**第一行**\n第二行",
+    }
     assert card["elements"][1] == {"tag": "hr"}
     button = card["elements"][2]["actions"][0]
     assert button["text"]["content"] == "打开安装页"
     assert button["url"] == "https://example.com/apps/1"
+    if with_secondary:
+        secondary = card["elements"][2]["actions"][1]
+        assert secondary["type"] == "default"
+        assert secondary["text"] == {"tag": "plain_text", "content": "应用下载页"}
+        assert secondary["url"] == "https://example.com/apps/1"
+    else:
+        assert len(card["elements"][2]["actions"]) == 1
 
 
 def provider(body):

@@ -21,6 +21,13 @@ class IntegrationState(Base):
     data: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class AppNotificationTemplate(Base):
+    __tablename__ = "app_notification_templates"
+    app_id: Mapped[UUID] = mapped_column(ForeignKey("applications.id"), primary_key=True)
+    revision: Mapped[int] = mapped_column(default=0)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
 class OAuthState(Base):
     __tablename__ = "oauth_states"
     state_hash: Mapped[str] = mapped_column(String(64), primary_key=True)

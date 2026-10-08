@@ -113,27 +113,40 @@ class FeishuClient:
 
     def send_card(self, chat_id, card, request_uuid):
         elements = [
-            {"tag": "div", "text": {"tag": "plain_text", "content": card["summary"][:2000]}}
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md" if card.get("body_format") == "lark_md" else "plain_text",
+                    "content": card["summary"][:2000],
+                },
+            }
         ]
+        actions = []
         if card.get("page_url"):
-            if card.get("header_color"):
-                elements.append({"tag": "hr"})
-            elements.append(
+            actions.append(
                 {
-                    "tag": "action",
-                    "actions": [
-                        {
-                            "tag": "button",
-                            "text": {
-                                "tag": "plain_text",
-                                "content": card.get("button_text", "查看安装包")[:30],
-                            },
-                            "type": "primary",
-                            "url": card["page_url"],
-                        }
-                    ],
+                    "tag": "button",
+                    "text": {
+                        "tag": "plain_text",
+                        "content": card.get("button_text", "查看安装包")[:30],
+                    },
+                    "type": "primary",
+                    "url": card["page_url"],
                 }
             )
+        if card.get("sub_button_text") and card.get("sub_button_url"):
+            actions.append(
+                {
+                    "tag": "button",
+                    "text": {"tag": "plain_text", "content": card["sub_button_text"][:30]},
+                    "type": "default",
+                    "url": card["sub_button_url"],
+                }
+            )
+        if actions:
+            if card.get("header_color"):
+                elements.append({"tag": "hr"})
+            elements.append({"tag": "action", "actions": actions})
         content = {
             "config": {"wide_screen_mode": True},
             "header": {"title": {"tag": "plain_text", "content": card["title"][:100]}},

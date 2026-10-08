@@ -104,6 +104,7 @@ function AdminShell() {
     debug: "Debug 包",
     actions: "Actions 规则",
     events: "构建事件",
+    notifications: "飞书卡片",
   }[appMatch?.params["*"] ?? ""];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);

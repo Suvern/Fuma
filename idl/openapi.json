@@ -3532,6 +3532,15 @@
               }
             ]
           },
+          "body_format": {
+            "default": "plain_text",
+            "description": "Frozen body format. Missing on historical cards means plain text.",
+            "enum": [
+              "plain_text",
+              "lark_md"
+            ],
+            "type": "string"
+          },
           "build_number": {
             "anyOf": [
               {
@@ -3594,6 +3603,28 @@
               "failure"
             ],
             "type": "string"
+          },
+          "sub_button_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sub_button_url": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Server-generated URL of the owning app’s download page, frozen at delivery creation."
           },
           "summary": {
             "type": "string"
@@ -4763,6 +4794,7 @@
         "additionalProperties": false,
         "properties": {
           "body": {
+            "description": "Feishu Markdown body with supported {{variable}} placeholders. Variables are escaped as literal text.",
             "maxLength": 2000,
             "minLength": 1,
             "type": "string"
@@ -4783,6 +4815,12 @@
             ],
             "type": "string"
           },
+          "sub_button_text": {
+            "description": "Secondary button label. Destination is fixed to this app’s download page.",
+            "maxLength": 30,
+            "minLength": 1,
+            "type": "string"
+          },
           "title": {
             "description": "Plain text with supported {{variable}} placeholders.",
             "maxLength": 100,
@@ -4794,7 +4832,8 @@
           "title",
           "body",
           "button_text",
-          "header_color"
+          "header_color",
+          "sub_button_text"
         ],
         "type": "object"
       },
@@ -9567,6 +9606,274 @@
         ],
         "tags": [
           "PackageLibrary"
+        ],
+        "x-access": "app-manager"
+      }
+    },
+    "/api/v1/apps/{id}/release-notification-template": {
+      "get": {
+        "description": "App-scoped template for new successful Actions Release notifications, editable by administrators and this app’s maintainers. Supported variables are returned by GET. Unknown or malformed variables are rejected. Existing deliveries and retries retain their card snapshot; saving does not send messages.",
+        "operationId": "get_release_notification_template",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseNotificationTemplateConfig"
+                }
+              }
+            },
+            "description": "Success",
+            "headers": {
+              "ETag": {
+                "description": "Quoted integer revision",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed or invalid CSRF"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not available"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "State conflict"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision mismatch"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Get Release notification card template",
+        "tags": [
+          "settings"
+        ],
+        "x-access": "app-manager"
+      },
+      "put": {
+        "description": "App-scoped template for new successful Actions Release notifications, editable by administrators and this app’s maintainers. Supported variables are returned by GET. Unknown or malformed variables are rejected. Existing deliveries and retries retain their card snapshot; saving does not send messages.",
+        "operationId": "update_release_notification_template",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseNotificationTemplate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseNotificationTemplateConfig"
+                }
+              }
+            },
+            "description": "Success",
+            "headers": {
+              "ETag": {
+                "description": "Quoted integer revision",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed or invalid CSRF"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not available"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "State conflict"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision mismatch"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid input"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rate limited"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Update Release notification card template",
+        "tags": [
+          "settings"
         ],
         "x-access": "app-manager"
       }
@@ -17933,254 +18240,6 @@
         ],
         "tags": [
           "Access"
-        ],
-        "x-access": "admin"
-      }
-    },
-    "/api/v1/settings/release-notification-template": {
-      "get": {
-        "description": "Administrator-only global template for new successful Actions Release notifications. Supported variables are returned by GET. Unknown or malformed variables are rejected. Existing deliveries and retries retain their card snapshot; saving does not send messages.",
-        "operationId": "get_release_notification_template",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReleaseNotificationTemplateConfig"
-                }
-              }
-            },
-            "description": "Success",
-            "headers": {
-              "ETag": {
-                "description": "Quoted integer revision",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Authentication required"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not allowed or invalid CSRF"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Resource not available"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "State conflict"
-          },
-          "412": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Revision mismatch"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid input"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Rate limited"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Dependency unavailable"
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          }
-        ],
-        "summary": "Get Release notification card template",
-        "tags": [
-          "settings"
-        ],
-        "x-access": "admin"
-      },
-      "put": {
-        "description": "Administrator-only global template for new successful Actions Release notifications. Supported variables are returned by GET. Unknown or malformed variables are rejected. Existing deliveries and retries retain their card snapshot; saving does not send messages.",
-        "operationId": "update_release_notification_template",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/CSRF"
-          },
-          {
-            "$ref": "#/components/parameters/IfMatch"
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReleaseNotificationTemplate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReleaseNotificationTemplateConfig"
-                }
-              }
-            },
-            "description": "Success",
-            "headers": {
-              "ETag": {
-                "description": "Quoted integer revision",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Authentication required"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not allowed or invalid CSRF"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Resource not available"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "State conflict"
-          },
-          "412": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Revision mismatch"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid input"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Rate limited"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Dependency unavailable"
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          }
-        ],
-        "summary": "Update Release notification card template",
-        "tags": [
-          "settings"
         ],
         "x-access": "admin"
       }

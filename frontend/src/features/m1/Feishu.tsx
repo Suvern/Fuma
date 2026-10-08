@@ -3,7 +3,6 @@ import { Button, Panel, Input, Notice } from "../../shared/ui/controls";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { read, write, type DTO } from "../../shared/api/http";
-import { NotificationTemplateSection } from "./NotificationTemplate";
 import {
   Check,
   Checks,
@@ -110,7 +109,7 @@ function FeishuEditor({ config: c }: { config: DTO<"FeishuConfig"> }) {
       <Title description="每个部署绑定一个飞书租户；SSO 与通知机器人复用同一个企业自建应用。">
         飞书集成
       </Title>
-      <NotificationTemplateSection />
+      <p className="muted">通知卡片模板已移到各应用的「飞书卡片」，可在<Link to="/admin/apps">应用管理</Link>中按应用编辑。</p>
       <Panel className="panel">
         <h2>1. 企业自建应用</h2>
         <p>

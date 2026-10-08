@@ -1,3 +1,4 @@
+import { CardMarkdown } from "./CardMarkdown";
 import { DateInput } from "../../shared/ui/FormControls";
 import { Badge, Metric } from "../../shared/ui/controls";
 import { Icon } from "../../shared/ui/Icon";
@@ -570,7 +571,8 @@ export function NotificationPage() {
         <Panel className="panel notification-preview">
           <p className="eyebrow">通知卡片内容</p>
           <h2>{d.card.title}</h2>
-          <p style={{ whiteSpace: "pre-wrap" }}>{d.card.summary}</p>
+          {d.card.body_format === "lark_md" ? <CardMarkdown>{d.card.summary}</CardMarkdown> :
+            <p style={{ whiteSpace: "pre-wrap" }}>{d.card.summary}</p>}
           {d.kind === "test" ? (
             <p>连接测试通知</p>
           ) : (
@@ -596,6 +598,9 @@ export function NotificationPage() {
             <p>
               <a href={d.card.page_url}>{d.card.button_text || "查看分发页面"}</a>
             </p>
+          )}
+          {d.card.sub_button_url && d.card.sub_button_text && (
+            <p><a href={d.card.sub_button_url}>{d.card.sub_button_text}</a></p>
           )}
         </Panel>
       </div>

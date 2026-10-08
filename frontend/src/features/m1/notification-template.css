@@ -74,16 +74,34 @@
 }
 .release-card-preview-button {
   display: inline-block;
-  margin: 0 20px 20px;
   padding: 8px 16px;
+  text-decoration: none;
+  border: 1px solid var(--semi-color-primary);
   border-radius: var(--semi-border-radius-small);
   font-weight: 600;
   color: var(--semi-color-white);
   background: var(--semi-color-primary);
+}
+.release-card-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 20px 20px;
+}
+.release-card-preview-button--secondary {
+  color: var(--semi-color-text-0);
+  border-color: var(--semi-color-border);
+  background: var(--semi-color-bg-2);
 }
 @media (max-width: 800px) {
   .notification-template-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
   }
+}
+.notification-template-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
 }
