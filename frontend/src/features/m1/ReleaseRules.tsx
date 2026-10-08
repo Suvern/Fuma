@@ -163,7 +163,7 @@ export function ReleaseRules({
               required
               value={draft.include}
               maxLength={5119}
-              placeholder="例如 joice-*-arm64.apk, *.ipa"
+              placeholder="例如 SomeProject-*-arm64.apk, *.ipa"
               onChange={(e) => change({ include: e.target.value })}
               help="多个规则用逗号分隔，命中任意一条即可。* 匹配任意字符，? 匹配一个字符，区分大小写。"
             />

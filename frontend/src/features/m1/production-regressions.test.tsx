@@ -76,7 +76,7 @@ beforeEach(() => {
       },
       "/api/v1/tasks/{id}": task,
       "/api/v1/tasks": { items: [], total: 0, page: 1, page_size: 20 },
-      "/api/v1/apps/{id}": { id: "app", name: "Joice" },
+      "/api/v1/apps/{id}": { id: "app", name: "SomeProject" },
       "/api/v1/auth/browser-context": {
         authenticated: true,
         viewer_key: "admin",
@@ -186,7 +186,7 @@ it("retains the app breadcrumb on subpages and has only one main landmark", asyn
     name: "Breadcrumb",
   });
   expect(
-    await within(breadcrumb).findByRole("link", { name: "Joice" }),
+    await within(breadcrumb).findByRole("link", { name: "SomeProject" }),
   ).toBeTruthy();
   expect(
     within(breadcrumb)

@@ -13,13 +13,17 @@ pnpm dev:local
 
 访问 `http://127.0.0.1:5173`，API 代理到本机 `127.0.0.1:8000`。数据库、API、Worker、Scheduler 和 parser 的启动方式见[开发指南](../docs/development.md)。
 
-普通 `pnpm dev` 当前仍保留远程代理默认值，不能用来表示本地后端开发。只有调试自己控制的远程实例时，显式指定站点地址，例如：
+普通 `pnpm dev` 从 `frontend/.env` 读取 `FUMA_API_PROXY_TARGET`，未配置时连接本机后端。可将 `frontend/.env.example` 复制为 `frontend/.env` 后修改地址；`.env` 仅留本地，示例文件不包含实际实例地址。修改后重启开发服务。
+
+进程环境变量优先于文件配置。调试自己控制的远程实例时，也可以临时指定站点地址：
 
 ```sh
 FUMA_API_PROXY_TARGET=https://fuma.example.com pnpm dev
 ```
 
-远程模式的页面操作会写入所选服务。代理适配 Host、Origin 和 Cookie；须在本地页面重新登录。飞书 OAuth 及依赖远程绝对地址的下载仍须在远程站点验证。Vite 不自动读取 dotenv，凭据只保存在服务端。
+地址只能包含 HTTP(S) 协议、主机及可选端口，不包含凭据、`/api`、查询参数或片段。`pnpm dev:local` 始终忽略代理配置，连接 `127.0.0.1:8000`。
+
+远程模式的页面操作会写入所选服务。代理适配 Host、Origin 和 Cookie；须在本地页面重新登录。飞书 OAuth 及依赖远程绝对地址的下载仍须在远程站点验证。本地配置只供开发服务器读取，不注入浏览器；构建、预览和测试不加载本机 dotenv。第三方凭据仍只保存在后端。
 
 ```sh
 pnpm lint

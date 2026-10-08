@@ -62,15 +62,15 @@ def execute(client, task_id):
 
 def test_rules_match_all_pages_and_filter_drafts_platform_size(github_client):
     client, provider = github_client
-    provider["releases"] = [make_release(i, f"joice-{i}-arm64.apk") for i in range(1, 104)]
+    provider["releases"] = [make_release(i, f"SomeProject-{i}-arm64.apk") for i in range(1, 104)]
     provider["releases"][0]["draft"] = True
     provider["releases"][1]["prerelease"] = True
     provider["releases"][2]["assets"][0]["size"] = 0
     headers, _, url = setup(client)
     rules = {
         **RULES,
-        "asset_patterns": ["joice-*-arm64.apk"],
-        "exclude_patterns": ["joice-4-*"],
+        "asset_patterns": ["SomeProject-*-arm64.apk"],
+        "exclude_patterns": ["SomeProject-4-*"],
         "prerelease": "exclude",
     }
     matched = preview(client, headers, url, rules)

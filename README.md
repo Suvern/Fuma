@@ -33,7 +33,7 @@ make frontend
 
 访问 `http://127.0.0.1:5173/login`，使用 API 首次初始化日志中的随机 admin 密码登录并改密。开发数据库与 Redis 仅绑定本机端口，代码默认配置与之匹配。
 
-完整上传流程还需要独立 parser，启动方式见[开发指南](docs/development.md)。普通前端 `dev` 仍有远程代理默认值，本地开发使用上述 `make frontend` 或 `pnpm --dir frontend dev:local`。
+完整上传流程还需要独立 parser，启动方式见[开发指南](docs/development.md)。前端 `pnpm dev` 从 `frontend/.env` 读取代理地址，未配置时连接本地；上述 `make frontend` 或 `pnpm --dir frontend dev:local` 始终连接本地后端。
 
 ## 文档与代码
 
@@ -50,3 +50,7 @@ make frontend
 修改接口先编辑 IDL，再运行 `make idl` 同步契约。完整 `make check` 包含会清空测试表的后端测试，必须先按开发指南准备可丢弃的隔离数据库。
 
 本轮文档整理未执行 Docker 部署、真实第三方联调或手机安装验收。上线前应在目标环境完成登录、解析、发布下载、通知和备份恢复验证；IPA 可下载不表示设备可安装。
+
+## 许可证
+
+本项目使用 [MIT License](LICENSE)。
