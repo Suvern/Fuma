@@ -1,0 +1,19 @@
+name: fuma-test
+
+# Disposable test cluster, separate from development and production services.
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_USER: fuma
+      POSTGRES_DB: fuma_test
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:${FUMA_TEST_POSTGRES_PORT:-55499}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U fuma -d fuma_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20

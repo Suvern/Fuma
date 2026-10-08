@@ -55,7 +55,7 @@ uv run ruff format --check --config pyproject.toml app tests migrations ../parse
 uv run python -m app.cli.export_openapi --check --check-implementation
 ```
 
-完整 `pytest` 会清空测试表；部分测试仍使用固定数据库名。先阅读开发指南并准备隔离实例，不要在业务环境直接运行。提供方替身测试不能代替真实接入验收。
+完整 `pytest` 使用统一的 `FUMA_TEST_DATABASE_URL` 测试入口及 `FUMA_TEST_DATABASE_ALLOW_CREATE=1` 开关。每个用例创建独立随机数据库，结束后只删除自己成功创建的库；入口库不清表、不执行迁移。未配置时数据库测试跳过，不回退到本地业务库。启动专用测试实例及 URL 约束见开发指南。提供方替身测试不能代替真实接入验收。
 
 ## 运维入口
 

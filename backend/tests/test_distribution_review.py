@@ -26,21 +26,14 @@ from app.main import create_app
 
 
 @pytest.fixture
-def download_fixture(tmp_path):
+def download_fixture(tmp_path, isolated_database_url):
     settings = Settings(
-        database_url="postgresql+psycopg://fuma@127.0.0.1:55432/fuma_review_test",
+        database_url=isolated_database_url,
         encryption_key=base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
         cache_dir=tmp_path,
         state_dir=tmp_path / "state",
     )
     engine = build_engine(settings)
-    try:
-        with engine.connect() as connection:
-            connection.exec_driver_sql("SELECT 1")
-    except Exception:
-        engine.dispose()
-        pytest.skip("isolated native PostgreSQL fuma_review_test unavailable")
-    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     payload, now = b"0123456789", utcnow()
     with Session(engine) as db:

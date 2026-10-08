@@ -1,7 +1,6 @@
 """Task context and grouping on an explicitly isolated PostgreSQL database."""
 
 import base64
-import os
 import secrets
 from datetime import timedelta
 from uuid import UUID
@@ -20,23 +19,13 @@ from app.main import create_app
 
 
 @pytest.fixture
-def client(tmp_path, initial_password_log):
+def client(tmp_path, initial_password_log, isolated_database_url):
     settings = Settings(
-        database_url=os.environ.get(
-            "FUMA_OPERATIONS_TEST_DATABASE_URL",
-            "postgresql+psycopg://fuma@127.0.0.1:55432/fuma_core_test",
-        ),
+        database_url=isolated_database_url,
         state_dir=tmp_path / "state",
         encryption_key=base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
     )
     engine = build_engine(settings)
-    try:
-        with engine.connect() as connection:
-            connection.exec_driver_sql("SELECT 1")
-    except Exception:
-        engine.dispose()
-        pytest.skip("isolated operations test database unavailable")
-    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with Session(engine) as db:
         db.add(SystemState(id=1))

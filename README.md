@@ -47,7 +47,7 @@ make frontend
 | [接口契约](idl/README.md) | OpenAPI YAML 及 DTO / 类型生成 |
 | [Actions 示例](deploy/github-actions-example.yml) | 源应用构建并回调 Fuma 的工作流 |
 
-修改接口先编辑 IDL，再运行 `make idl` 同步契约。完整 `make check` 包含会清空测试表的后端测试，必须先按开发指南准备可丢弃的隔离数据库。
+修改接口先编辑 IDL，再运行 `make idl` 同步契约。完整 `make check` 需按开发指南启动独立测试 PostgreSQL，设置测试入口与显式创建开关；测试会创建并回收随机数据库，不能使用业务实例。
 
 本轮文档整理未执行 Docker 部署、真实第三方联调或手机安装验收。上线前应在目标环境完成登录、解析、发布下载、通知和备份恢复验证；IPA 可下载不表示设备可安装。
 

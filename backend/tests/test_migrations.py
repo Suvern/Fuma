@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import pytest
@@ -9,10 +8,8 @@ from sqlalchemy.exc import IntegrityError
 
 
 @pytest.mark.integration
-def test_migration_round_trip_and_singleton_constraint(monkeypatch):
-    url = os.environ.get("FUMA_TEST_DATABASE_URL")
-    if not url:
-        pytest.skip("Set FUMA_TEST_DATABASE_URL to an isolated, disposable PostgreSQL database")
+def test_migration_round_trip_and_singleton_constraint(monkeypatch, isolated_database_url):
+    url = isolated_database_url.get_secret_value()
     monkeypatch.setenv("FUMA_DATABASE_URL", url)
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     engine = create_engine(url)
