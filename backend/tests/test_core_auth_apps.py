@@ -31,20 +31,13 @@ from app.main import create_app
 
 
 @pytest.fixture
-def core_app(tmp_path, initial_password_log):
+def core_app(tmp_path, initial_password_log, isolated_database_url):
     settings = Settings(
-        database_url="postgresql+psycopg://fuma@127.0.0.1:55432/fuma_core_test",
+        database_url=isolated_database_url,
         state_dir=tmp_path / "state",
         encryption_key=base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
     )
     engine = build_engine(settings)
-    try:
-        with engine.connect() as conn:
-            conn.exec_driver_sql("SELECT 1")
-    except Exception:
-        engine.dispose()
-        pytest.skip("isolated native PostgreSQL fuma_core_test unavailable")
-    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with Session(engine) as db:
         db.add(SystemState(id=1))

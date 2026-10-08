@@ -32,19 +32,19 @@ const config: DTO<"ReleaseNotificationTemplateConfig"> = {
     header_color: "blue",
   },
   variables: [
-    { name: "app_name", label: "应用名称", sample: "Joice" },
+    { name: "app_name", label: "应用名称", sample: "SomeProject" },
     { name: "version", label: "版本", sample: "v1.0.0" },
     { name: "buildNumber", label: "App 构建号", sample: "42" },
-    { name: "file_names", label: "安装包", sample: "Joice.apk" },
+    { name: "file_names", label: "安装包", sample: "SomeProject.apk" },
     { name: "summary", label: "结果", sample: "已就绪 1/1 个安装包" },
   ],
   sample: {
     title: "安装包已就绪",
     summary: "已就绪 1/1 个安装包",
-    app_name: "Joice",
+    app_name: "SomeProject",
     mode: "debug",
     version_label: "v1.0.0",
-    file_names: ["Joice.apk"],
+    file_names: ["SomeProject.apk"],
     result: "success",
     occurred_at: "2026-10-07T07:42:00Z",
     page_url: null,
@@ -78,7 +78,7 @@ it("previews draft variables without sending or saving and saves with revision",
   expect(
     within(
       screen.getByRole("complementary", { name: "通知卡片预览" }),
-    ).getByText("Joice 发布啦"),
+    ).getByText("SomeProject 发布啦"),
   ).toBeTruthy();
   expect(write).not.toHaveBeenCalled();
   expect(screen.getByRole("complementary", { name: "通知卡片预览" }).textContent).toContain("Build：42");

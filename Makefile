@@ -1,4 +1,4 @@
-.PHONY: setup backend frontend worker scheduler infra-up infra-down migrate idl idl-check lint test build check
+.PHONY: setup backend frontend worker scheduler infra-up infra-down test-infra-up test-infra-down migrate idl idl-check lint test build check
 
 setup:
 	uv sync --directory backend --locked
@@ -21,6 +21,12 @@ infra-up:
 
 infra-down:
 	docker compose --env-file /dev/null -f deploy/compose.dev.yml down
+
+test-infra-up:
+	docker compose --env-file /dev/null -f deploy/compose.test.yml up -d --wait
+
+test-infra-down:
+	docker compose --env-file /dev/null -f deploy/compose.test.yml down
 
 migrate:
 	uv run --directory backend alembic upgrade head

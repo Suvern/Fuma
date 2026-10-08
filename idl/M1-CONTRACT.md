@@ -1,12 +1,12 @@
-# M1 前后端接口协作约定
+# 前后端接口协作约定
 
-状态：设计先行；契约定义不代表功能已实现。范围以 [M1](../docs/milestones/m1.md) 为准。
+文件名保留早期命名；本文约定适用于当前接口。具体字段以 OpenAPI YAML 为准，能力与验收边界见[功能状态](../docs/roadmap.md)。
 
 ## 修改与分工
 
 1. 修改 `openapi.yaml` 并运行 `make idl`；评审后前后端才能基于新增接口并行实现。
 2. 后端提供契约规定的稳定 `operationId`、校验、服务端鉴权、持久化与异步任务；前端从生成类型读取 DTO，不私自猜测字段或填充模拟成功状态。
-3. 业务模块：账号与 App；GitHub 与 Debug 缓存；飞书 SSO / 单机器人 / 群；Actions 与通知；任务 / 审计 / 运维。实现各模块时先契约单元测试，再前后端联调。
+3. 业务模块：账号、角色与 App；GitHub 与 Debug 缓存；正式包、版本、发布与存储；飞书 SSO / 单机器人 / 群；Actions 与通知；任务 / 审计 / 运维。实现各模块时先契约单元测试，再前后端联调。
 4. 临时 URL、一次性 CI token、密码、应用密钥不得写入前端持久存储、普通请求日志、审计 payload 或错误正文。唯一例外是 API 首次成功创建 admin 后，在服务器启动日志中输出一次随机初始密码；重启不重复输出。Secrets 写入字段均 `writeOnly`，查询只返回 `has_token/has_secret` 等状态。
 5. API DTO 与 DB 模型分开。前台 `CatalogEntry` 不含仓库、Connector、内部任务等后台字段。提供方错误转义为标准错误，不直接透传原始响应。
 
@@ -22,7 +22,7 @@
 
 ## 身份、CSRF 与首次租户绑定
 
-- 本地 admin 只管理后台；飞书 session 只用于下载身份。不能用 admin 身份跳过下载资格。当前浏览器会话具有明确 kind，切换登录会轮换 session。
+- 本地 admin 用于初始化和管理；飞书成员按已授予的角色及应用范围使用后台。管理权限与私有下载资格独立，不能用本地 admin 身份跳过飞书资格校验。当前浏览器会话具有明确 kind，切换登录会轮换 session。
 - 生产 Cookie `__Host-fuma_session`（Secure、HttpOnly、SameSite=Lax、Path=/）；本地 HTTP 使用 `fuma_session`。会话数据库只存随机 token hash；过期、退出和改密撤销由服务端检查。
 - API 启动事务自动创建唯一 admin，不再提供 `POST /auth/bootstrap`；`GET /auth/bootstrap-status` 仅保留 initialized / sso_enabled 状态。SessionUser 增加 `must_change_password`，首次登录后只有自身上下文、改密、退出可用；服务端管理依赖拒绝业务访问，前端同步强制改密。改密提交 old_password / new_password，撤销全部旧会话并返回当前浏览器的新 SessionResponse。
 - `GET /auth/browser-context` 返回匿名或已登录上下文及 CSRF；匿名上下文不授予权限。全部 Cookie 写接口要求同源 Origin 与 `X-CSRF-Token`，包括 login、改密、下载授权。前端登录后重新读取上下文并清除旧身份查询缓存。
@@ -34,7 +34,7 @@
 
 ## GitHub、缓存与下载
 
-- App 绑定经过 Connector 验证的 repository_id；PAT 只负责 Contents read，Actions 核对另需 Actions read。Release / asset 查询绝不向前台透传私有下载 URL。
+- App 绑定经过 PAT 或 GitHub App Connector 验证的 repository_id；读取 Release 需要 Contents read，Actions 核对另需 Actions read。Release / asset 查询绝不向前台透传私有下载 URL。
 - Debug 由管理员选择或明确 CI 规则决定；draft 不可分发。版本未填写时 source Tag 只能标记为 Tag，不能伪称包内版本。
 - Debug source snapshot 不可变；源大小、更新时间或 digest 变化需重新选择。并发 cache task 合并，流式暂存、校验、原子就绪；半文件不服务。
 - grant 就绪返回 200 `DownloadGrant`，冷缓存 202 `Preparation`；前端轮询 preparation 就绪后重新 POST grant，再次检查资格。禁止对普通用户暴露 `/tasks/{id}`。
@@ -55,4 +55,4 @@
 
 ## 联调与发布检查
 
-`make idl-check` 只证明生成同步；后端 subset 契约测试只证明现有路由不偏离设计。M1 完成时执行 `python -m app.cli.export_openapi --check --check-implementation`，再以 Schema 响应断言、安全 / 生命周期测试和真实链路覆盖验收。路由存在、返回 200 或测试替身通过都不能代替业务完成证据。
+`make idl-check` 只证明生成同步；后端 subset 契约测试只证明现有路由不偏离设计。交付时执行 `python -m app.cli.export_openapi --check --check-implementation`，再以 Schema 响应断言、安全 / 生命周期测试和真实链路覆盖验收。路由存在、返回 200 或测试替身通过都不能代替业务完成证据。

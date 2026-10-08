@@ -19,14 +19,14 @@ DEFAULT_TEMPLATE = {
     "header_color": "green",
 }
 VARIABLES = [
-    {"name": "app_name", "label": "应用名称", "sample": "Joice"},
+    {"name": "app_name", "label": "应用名称", "sample": "SomeProject"},
     {"name": "version", "label": "Release 版本", "sample": "Tag: android-debug-v1.0.0"},
     {
         "name": "buildNumber",
         "label": "App 构建号（versionCode / CFBundleVersion，缺失时为“未获取”）",
         "sample": "42",
     },
-    {"name": "file_names", "label": "就绪的安装包（每行一个）", "sample": "Joice-v1.0.0.apk"},
+    {"name": "file_names", "label": "就绪的安装包（每行一个）", "sample": "SomeProject-v1.0.0.apk"},
     {"name": "summary", "label": "安装包准备结果", "sample": "已就绪 1/1 个安装包"},
     {"name": "time", "label": "通知时间（北京时间）", "sample": "2026/10/07 15:42"},
 ]
@@ -57,11 +57,11 @@ def sample_card():
     return {
         "title": "Debug 安装包已就绪",
         "summary": "已就绪 1/1 个安装包",
-        "app_name": "Joice",
+        "app_name": "SomeProject",
         "mode": "debug",
         "version_label": "Tag: android-debug-v1.0.0",
         "build_number": "42",
-        "file_names": ["Joice-v1.0.0.apk"],
+        "file_names": ["SomeProject-v1.0.0.apk"],
         "result": "success",
         "occurred_at": "2026-10-07T07:42:00+00:00",
         "page_url": None,

@@ -48,19 +48,12 @@ def package_bytes(content="a"):
 
 
 @pytest.fixture
-def shared(tmp_path):
+def shared(tmp_path, isolated_database_url):
     settings = Settings(
-        database_url="postgresql+psycopg://fuma@127.0.0.1:55432/fuma_shared_cache_test",
+        database_url=isolated_database_url,
         cache_dir=tmp_path,
     )
     engine = build_engine(settings)
-    try:
-        with engine.connect() as connection:
-            connection.exec_driver_sql("SELECT 1")
-    except Exception:
-        engine.dispose()
-        pytest.skip("isolated native PostgreSQL fuma_shared_cache_test unavailable")
-    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     data = package_bytes()
     source = {

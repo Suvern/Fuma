@@ -469,7 +469,7 @@ function ConnectorCard({
                 onChange={(e) => setRepository(e.target.value)}
                 placeholder="owner/repository"
                 pattern="[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+"
-                validationMessage="请填写 owner/repository，例如 Suvern/Joice；不要填写完整网址。"
+                validationMessage="请填写 owner/repository，例如 Suvern/SomeProject；不要填写完整网址。"
                 autoComplete="off"
                 spellCheck={false}
                 help="留空时，仅验证 GitHub 账号身份。"

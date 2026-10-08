@@ -26,7 +26,7 @@ def test_render_is_plain_text_single_pass_bounded_and_keeps_destination():
     template = {**DEFAULT_TEMPLATE, "body": "{{app_name}}\n{{file_names}}", "button_text": "下载"}
     validate_template(template)
     card = render_template(template, original)
-    assert card["summary"] == "{{secret}} <at id=all>\nJoice-v1.0.0.apk"
+    assert card["summary"] == "{{secret}} <at id=all>\nSomeProject-v1.0.0.apk"
     assert card["page_url"] == original["page_url"]
     assert card["button_text"] == "下载"
     assert original["summary"] == "已就绪 1/1 个安装包"
@@ -41,11 +41,11 @@ def test_render_is_plain_text_single_pass_bounded_and_keeps_destination():
 def test_default_preview_matches_real_render_and_beijing_time():
     validate_template(DEFAULT_TEMPLATE)
     card = render_template(DEFAULT_TEMPLATE, sample_card())
-    assert card["title"] == "Joice · 新安装包已就绪"
+    assert card["title"] == "SomeProject · 新安装包已就绪"
     assert "Build：42" in card["summary"]
     assert card["header_color"] == "green"
     assert "2026/10/07 15:42" in card["summary"]
-    assert "Joice-v1.0.0.apk" in card["summary"]
+    assert "SomeProject-v1.0.0.apk" in card["summary"]
 
 
 def test_build_number_is_literal_and_missing_value_is_explicit():

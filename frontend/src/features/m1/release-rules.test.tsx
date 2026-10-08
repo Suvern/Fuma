@@ -47,7 +47,7 @@ const preview = {
       release_id: "1",
       tag_name: "v1.2",
       asset_id: "10",
-      file_name: "joice-arm64.apk",
+      file_name: "SomeProject-arm64.apk",
       platform: "android",
       size_bytes: 1024,
       existing: false,
@@ -89,7 +89,7 @@ it("previews glob rules across all releases and imports the entire preview", asy
   mount();
   fireEvent.click(await screen.findByRole("button", { name: "修改导入规则" }));
   fireEvent.change(await screen.findByLabelText(/安装包文件名/), {
-    target: { value: "joice-*.apk, *.ipa" },
+    target: { value: "SomeProject-*.apk, *.ipa" },
   });
   fireEvent.change(screen.getByLabelText("排除文件名（可选）"), {
     target: { value: "*unsigned*" },
@@ -99,7 +99,7 @@ it("previews glob rules across all releases and imports the entire preview", asy
     name: "批量导入 202 个安装包",
   });
   expect(screen.getByText(/仅展示前 200 个匹配产物/)).toBeTruthy();
-  expect(screen.getByText("joice-arm64.apk")).toBeTruthy();
+  expect(screen.getByText("SomeProject-arm64.apk")).toBeTruthy();
   fireEvent.click(button);
   await waitFor(() =>
     expect(write).toHaveBeenCalledWith(
@@ -108,7 +108,7 @@ it("previews glob rules across all releases and imports the entire preview", asy
       {
         rules: {
           ...rules,
-          asset_patterns: ["joice-*.apk", "*.ipa"],
+          asset_patterns: ["SomeProject-*.apk", "*.ipa"],
           exclude_patterns: ["*unsigned*"],
         },
         snapshot_token: preview.snapshot_token,

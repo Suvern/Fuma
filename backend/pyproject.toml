@@ -1,6 +1,7 @@
 [project]
 name = "fuma-backend"
 version = "0.1.0"
+license = "MIT"
 description = "Fuma mobile package distribution API and workers"
 requires-python = ">=3.13,<3.14"
 dependencies = [

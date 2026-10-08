@@ -19,19 +19,12 @@ from app.infrastructure.database import Base, build_engine
 
 
 @pytest.fixture
-def store(tmp_path):
+def store(tmp_path, isolated_database_url):
     settings = Settings(
-        database_url="postgresql+psycopg://fuma@127.0.0.1:55432/fuma_keys_test",
+        database_url=isolated_database_url,
         state_dir=tmp_path / "state",
     )
     engine = build_engine(settings)
-    try:
-        with engine.connect() as connection:
-            connection.exec_driver_sql("SELECT 1")
-    except Exception:
-        engine.dispose()
-        pytest.skip("isolated native PostgreSQL fuma_keys_test unavailable")
-    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with Session(engine) as db:
         db.add(SystemState(id=1))

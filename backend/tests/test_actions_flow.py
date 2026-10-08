@@ -35,20 +35,13 @@ SHA = "a" * 40
 
 
 @pytest.fixture
-def client(tmp_path):
+def client(tmp_path, isolated_database_url):
     settings = Settings(
         state_dir=tmp_path / "state",
         encryption_key=base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
-        database_url="postgresql+psycopg://fuma@127.0.0.1:55432/fuma_actions_test",
+        database_url=isolated_database_url,
     )
     engine = build_engine(settings)
-    try:
-        with engine.connect() as conn:
-            conn.exec_driver_sql("SELECT 1")
-    except Exception:
-        engine.dispose()
-        pytest.skip("isolated native PostgreSQL fuma_actions_test unavailable")
-    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with Session(engine) as db:
         db.add(SystemState(id=1, initialized_at=utcnow()))

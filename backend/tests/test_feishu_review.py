@@ -29,21 +29,14 @@ from app.main import create_app
 
 
 @pytest.fixture
-def feishu_fixture(monkeypatch, tmp_path):
+def feishu_fixture(monkeypatch, tmp_path, isolated_database_url):
     settings = Settings(
-        database_url="postgresql+psycopg://fuma@127.0.0.1:55432/fuma_feishu_test",
+        database_url=isolated_database_url,
         encryption_key=base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
         cache_dir=tmp_path,
         state_dir=tmp_path / "state",
     )
     engine = build_engine(settings)
-    try:
-        with engine.connect() as connection:
-            connection.exec_driver_sql("SELECT 1")
-    except Exception:
-        engine.dispose()
-        pytest.skip("isolated native PostgreSQL fuma_feishu_test unavailable")
-    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with Session(engine) as db:
         db.add(SystemState(id=1, initialized_at=utcnow()))
@@ -477,7 +470,7 @@ def test_release_template_save_permissions_validation_and_snapshot(feishu_fixtur
         )
         delivery_id = delivery.id
         first_card = dict(delivery.card)
-        assert first_card["title"] == "Joice 上新"
+        assert first_card["title"] == "SomeProject 上新"
         assert first_card["button_text"] == "立即安装"
         failed = create_delivery(
             db, "test-chat", sample_card(), kind="build_failed", enqueue_task=False

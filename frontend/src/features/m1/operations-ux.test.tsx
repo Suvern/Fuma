@@ -27,7 +27,7 @@ const task = {
   progress: 100,
   category: "business",
   app_id: "app",
-  app_name: "Joice",
+  app_name: "SomeProject",
   resource_name: "release.ipa",
   resource_url: "/admin/apps/app/packages",
   result_summary: "安装包已解析并入库；发布仍需单独操作。",
@@ -63,7 +63,7 @@ function mount(children: React.ReactNode, path = "/admin/tasks") {
 
 it("defaults to business tasks and explicitly exposes system/all groups", async () => {
   mount(<TasksPage />);
-  expect(await screen.findByText("Joice · release.ipa")).toBeTruthy();
+  expect(await screen.findByText("SomeProject · release.ipa")).toBeTruthy();
   expect(read).toHaveBeenCalledWith("/api/v1/tasks", {
     query: { page: 1, q: "", category: "business" },
   });
@@ -92,7 +92,7 @@ it("shows a result and business links, then returns to the original filters", as
       <Route path="/admin/tasks" element={<TasksPage />} />
       <Route path="/admin/tasks/:id" element={<TaskPage />} />
     </Routes>,
-    "/admin/tasks?category=all&q=Joice&page=2",
+    "/admin/tasks?category=all&q=SomeProject&page=2",
   );
   fireEvent.click(await screen.findByRole("link", { name: "安装包解析入库" }));
   expect(await screen.findByRole("heading", { name: "处理结果" })).toBeTruthy();
@@ -103,10 +103,10 @@ it("shows a result and business links, then returns to the original filters", as
   expect(screen.getByText("技术信息").closest("details")?.open).toBe(false);
   const back = screen.getByRole("link", { name: "← 返回任务列表" });
   expect(back.getAttribute("href")).toBe(
-    "/admin/tasks?category=all&q=Joice&page=2",
+    "/admin/tasks?category=all&q=SomeProject&page=2",
   );
   fireEvent.click(back);
-  expect(await screen.findByDisplayValue("Joice")).toBeTruthy();
+  expect(await screen.findByDisplayValue("SomeProject")).toBeTruthy();
 });
 
 it("test notification preview omits empty app/version and Debug fields", async () => {
@@ -164,7 +164,7 @@ it("homepage focuses business work while retaining failed maintenance and full h
   );
   mount(<TaskOverview />);
   expect(await screen.findByText("失败待排查")).toBeTruthy();
-  expect(screen.getByText("Joice · release.ipa")).toBeTruthy();
+  expect(screen.getByText("SomeProject · release.ipa")).toBeTruthy();
   expect(
     screen.getByRole("link", { name: "查看全部任务" }).getAttribute("href"),
   ).toBe("/admin/tasks?category=all");

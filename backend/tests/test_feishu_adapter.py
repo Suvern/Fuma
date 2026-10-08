@@ -21,7 +21,7 @@ def test_custom_card_fields_are_sent_as_plain_text_with_fixed_destination():
         api.send_card(
             "test-chat",
             {
-                "title": "Joice 发布",
+                "title": "SomeProject 发布",
                 "summary": "第一行\n<at id=all>",
                 "button_text": "打开安装页",
                 "header_color": "green",
