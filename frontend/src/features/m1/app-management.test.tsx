@@ -17,6 +17,7 @@ import { ErrorBox, size } from "../../shared/ui/common";
 import { AppPage, AppsPage } from "./Apps";
 import { ActionsPage } from "./Actions";
 import { DebugListPage } from "./Debug";
+import * as iconPreparation from "./prepare-icon";
 
 vi.mock("../../shared/api/http", async (original) => ({
   ...(await original<typeof import("../../shared/api/http")>()),
@@ -342,6 +343,30 @@ describe("应用管理走查问题回归", () => {
     fireEvent.click(screen.getByRole("button", { name: "移除图标" }));
     expect(field.validity.valid).toBe(true);
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("选择压缩后的图标可以保存到应用，并退出编辑状态", async () => {
+    const icon = "data:image/webp;base64,aW1hZ2U=";
+    const prepare = vi.spyOn(iconPreparation, "prepareAppIcon").mockResolvedValue(icon);
+    try {
+      vi.mocked(write).mockImplementation(async (_path, _method, body) => ({
+        ...server, ...(body as DTO<"AppUpdate">), revision: 2,
+      }) as never);
+      mount(<AppPage />);
+      fireEvent.click(await screen.findByRole("button", { name: "修改基本信息" }));
+      const field = screen.getByLabelText("应用图标（选填）") as HTMLInputElement;
+      fireEvent.change(field, { target: { files: [new File([new Uint8Array(80000)], "icon.png", { type: "image/png" })] } });
+      await screen.findByRole("button", { name: "更换图标" });
+      expect(field.validity.valid).toBe(true);
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await waitFor(() => expect(write).toHaveBeenCalledWith(
+        "/api/v1/apps/{id}", "patch", expect.objectContaining({ icon_data: icon }),
+        expect.objectContaining({ id: "app", revision: 1 }),
+      ));
+      await screen.findByRole("button", { name: "修改基本信息" });
+    } finally {
+      prepare.mockRestore();
+    }
   });
 
   it("包标识按平台和模式提交，未配置模式可保存", async () => {

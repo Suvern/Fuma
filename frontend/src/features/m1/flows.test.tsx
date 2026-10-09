@@ -278,28 +278,22 @@ describe("M1 页面关键流程", () => {
     ).not.toContain("test-grant");
     expect(localStorage.length).toBe(0);
   });
-  it("管理员会话不能以下载者身份打开包详情", async () => {
-    vi.mocked(read).mockImplementation(async (path) =>
-      path === "/api/v1/auth/bootstrap-status"
-        ? ({ initialized: true, sso_enabled: true } as never)
-        : ({
-            ...session,
-            user: { ...session.user, kind: "local", role: "admin" },
-          } as never),
-    );
+  it.each([true, false])("管理员会话直接打开包详情，无需再次登录飞书（SSO 启用：%s）", async (ssoEnabled) => {
+    downloadReads();
+    const original = vi.mocked(read).getMockImplementation()!;
+    vi.mocked(read).mockImplementation(async (path, options) => {
+      if (path === "/api/v1/auth/bootstrap-status") return {
+        initialized: true, sso_enabled: ssoEnabled,
+      } as never;
+      if (path === "/api/v1/auth/browser-context") return {
+        ...session, user: { ...session.user, kind: "local", role: "admin" },
+      } as never;
+      return original(path, options);
+    });
     mount(<CatalogEntryPage />);
-    expect(
-      await screen.findByRole("link", { name: "使用飞书登录" }),
-    ).toBeTruthy();
-    expect(
-      vi
-        .mocked(read)
-        .mock.calls.every(
-          ([path]) =>
-            path === "/api/v1/auth/browser-context" ||
-            path === "/api/v1/auth/bootstrap-status",
-        ),
-    ).toBe(true);
+    await screen.findByRole("button", { name: "获取下载链接" });
+    expect(screen.queryByRole("link", { name: "使用飞书登录" })).toBeNull();
+    expect(read).toHaveBeenCalledWith("/api/v1/catalog/debug-entries/{id}", expect.anything());
   });
   it("未知投递结果必须勾选可能重复确认后才能重试", async () => {
     const delivery = {

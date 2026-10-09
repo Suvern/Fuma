@@ -145,8 +145,8 @@ def test_upload_parse_publish_download_unpublish_and_restore(client, configured_
     publication = response.json()
     pid = publication["id"]
     assert (
-        client.get(f"/api/v1/catalog/publications/{pid}").status_code == 403
-    )  # admin is not a downloader
+        client.get(f"/api/v1/catalog/publications/{pid}").status_code == 404
+    )  # Authenticated administrators still cannot download unpublished drafts.
     published = client.post(
         f"/api/v1/publications/{pid}/publish", headers={**headers, "If-Match": '"1"'}
     )
@@ -158,8 +158,6 @@ def test_upload_parse_publish_download_unpublish_and_restore(client, configured_
         ).status_code
         == 412
     )
-    monkeypatch.setattr("app.api.library.require_downloader", lambda context: context)
-    monkeypatch.setattr("app.api.library.verify_download_context", lambda db, context: None)
     catalog = client.get(f"/api/v1/catalog/publications/{pid}").json()
     assert catalog["files"][0]["sha256"] == package["sha256"]
     assert "internal_notes" not in catalog["files"][0]

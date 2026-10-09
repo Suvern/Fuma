@@ -9,6 +9,7 @@ import {
 import { Fragment, useEffect, useState } from "react";
 import { canManage, globalOnlyPath, isGlobalAdmin } from "./permissions";
 import { BrandMark, Icon } from "../../shared/ui/Icon";
+import "./auth.css";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
@@ -41,6 +42,7 @@ function passwordPath(returnTo: string) {
 }
 
 export function LoginPage() {
+  const session = useSession();
   const status = useQuery({
     queryKey: ["bootstrap"],
     queryFn: () => read("/api/v1/auth/bootstrap-status"),
@@ -50,8 +52,43 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const returnTo = safeReturnPath(params.get("return_to"));
-  if (status.isPending) return <Loading />;
+  if (session.isPending || status.isPending) return <Loading />;
+  if (session.error) return <ErrorBox error={session.error} />;
   if (status.error) return <ErrorBox error={status.error} />;
+  const loginError = params.has("error") && (
+    <Notice role="alert" className="notice error">
+      飞书验证未完成。请确认账号属于当前部署租户，并重试飞书登录。
+      {returnTo === "/admin/settings/feishu" ? (
+        <Link to={returnTo}>返回接入设置</Link>
+      ) : (
+        status.data?.sso_enabled && (
+          <a href={ssoUrl(returnTo)}>重新验证飞书资格</a>
+        )
+      )}
+    </Notice>
+  );
+  if (session.data?.authenticated) {
+    const manage = canManage(session.data.user);
+    const path = new URL(returnTo, window.location.origin).pathname.replace(/\/+$/, "");
+    const target = !path || path === "/login"
+      ? manage ? "/admin" : "/"
+      : !manage && (path === "/admin" || path.startsWith("/admin/"))
+        ? "/"
+        : returnTo;
+    if (session.data.user?.must_change_password)
+      return <Navigate to={passwordPath(target)} replace />;
+    // A failed account binding must remain actionable without asking the
+    // already authenticated user to enter their password again.
+    if (loginError)
+      return (
+        <Panel className="panel auth-card">
+          <Title>飞书验证未完成</Title>
+          {loginError}
+          <Link to={target}>{manage ? "继续进入后台" : "返回下载首页"}</Link>
+        </Panel>
+      );
+    return <Navigate to={target} replace />;
+  }
   return (
     <Panel className="auth-card panel login-card">
       <header className="login-intro">
@@ -74,18 +111,7 @@ export function LoginPage() {
           </Button>
         </Notice>
       )}
-      {params.has("error") && (
-        <Notice role="alert" className="notice error">
-          飞书验证未完成。请确认账号属于当前部署租户，并重试飞书登录。
-          {returnTo === "/admin/settings/feishu" ? (
-            <Link to={returnTo}>返回接入设置</Link>
-          ) : (
-            status.data?.sso_enabled && (
-              <a href={ssoUrl(returnTo)}>重新验证飞书资格</a>
-            )
-          )}
-        </Notice>
-      )}
+      {loginError}
       {cmd.feedback}
       <Form
         submit={(f) => {
@@ -239,6 +265,7 @@ function ManagementScope({
 
 export function DownloadGuard({ children }: { children: React.ReactNode }) {
   const session = useSession();
+  const location = useLocation();
   const status = useQuery({
     queryKey: ["bootstrap"],
     queryFn: () => read("/api/v1/auth/bootstrap-status"),
@@ -247,28 +274,39 @@ export function DownloadGuard({ children }: { children: React.ReactNode }) {
   if (session.error) return <ErrorBox error={session.error} />;
   if (status.error) return <ErrorBox error={status.error} />;
   if (!status.data?.initialized) return <Navigate to="/login" replace />;
-  if (session.data?.user?.kind !== "feishu")
+  if (session.data?.authenticated && session.data.user?.must_change_password)
+    return <Navigate to={passwordPath(location.pathname + location.search)} replace />;
+  if (!session.data?.authenticated)
     return (
-      <Panel className="panel auth-card">
-        <Title description="仅部署绑定的飞书租户成员可查看和下载安装包。">
-          Debug 下载
-        </Title>
-        {status.data.sso_enabled ? (
-          <a className="button primary" href={ssoUrl()}>
-            使用飞书登录
-          </a>
-        ) : (
-          <Notice className="notice">
-            飞书登录尚未启用，请联系管理员完成接入配置。
-          </Notice>
-        )}
-        {status.data.sso_enabled && session.data?.user?.role === "admin" && (
-          <p className="muted">继续登录将切换当前浏览器的管理员会话。</p>
-        )}
-        <p>
-          <Link to="/login">管理员入口</Link>
-        </p>
-      </Panel>
+      <section className="download-welcome" aria-labelledby="download-login-title">
+        <div className="download-welcome-heading">
+          <span className="download-eyebrow">FUMA / 团队应用分发</span>
+          <h1 id="download-login-title">好版本，即刻体验。</h1>
+          <p>连接团队，获取最新的 Android 与 iOS 测试版。</p>
+        </div>
+        <Panel className="panel download-login-card">
+          <div className="download-brand-mark"><BrandMark /></div>
+          <h2>登录下载测试版</h2>
+          <p className="download-login-description">使用团队飞书账号，查看和下载 Debug 安装包。</p>
+          {status.data.sso_enabled ? (
+            <a className="button primary download-sso-button" href={ssoUrl()}>
+              <Icon name="chat" size={20} />
+              <span>使用飞书登录</span>
+              <Icon name="arrow" size={18} />
+            </a>
+          ) : (
+            <Notice className="notice">
+              飞书登录尚未启用，请联系管理员完成接入配置。
+            </Notice>
+          )}
+          <p className="download-access-note"><Icon name="shield" size={15} />支持组织飞书成员或管理员访问</p>
+          <div className="download-login-footer">
+            <span>需要管理应用与分发？</span>
+            <Link to="/login">管理员入口<Icon name="chevron" size={14} /></Link>
+          </div>
+        </Panel>
+        <Link className="download-release-link" to="/releases">浏览已发布版本<Icon name="arrow" size={16} /></Link>
+      </section>
     );
   return <Fragment key={session.data.viewer_key}>{children}</Fragment>;
 }

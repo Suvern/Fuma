@@ -27,11 +27,11 @@ export function PublicLayout() {
             <Link to="/admin">管理入口</Link>
             {session.data?.authenticated && (
               <>
-                <Avatar size="small">
+                <Avatar size="small" className="public-account-avatar">
                   {session.data.user?.display_name?.[0]}
                 </Avatar>
-                <span>{session.data.user?.display_name}</span>
-                <LogoutButton />
+                <span className="public-account-name">{session.data.user?.display_name}</span>
+                <LogoutButton compact />
               </>
             )}
           </Space>

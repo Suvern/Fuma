@@ -40,6 +40,7 @@ const context = (mustChange = true): DTO<"BrowserContext"> => ({
 let currentContext: DTO<"BrowserContext">;
 let queryClient: QueryClient;
 let initialized: boolean;
+let signedIn: boolean;
 function ProtectedContent() {
   useQuery({
     queryKey: ["protected-apps"],
@@ -62,6 +63,7 @@ function mount(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Location />
         <Routes>
+          <Route path="/" element={<h1>下载首页</h1>} />
           <Route path="/login" element={<LoginPage />} />
           <Route
             path="/admin"
@@ -83,9 +85,12 @@ function mount(path: string) {
 beforeEach(() => {
   vi.resetAllMocks();
   initialized = true;
+  signedIn = true;
   currentContext = context();
   vi.mocked(read).mockImplementation(async (path) => {
-    if (path === "/api/v1/auth/browser-context") return currentContext as never;
+    if (path === "/api/v1/auth/browser-context") return (signedIn
+      ? currentContext
+      : { authenticated: false, viewer_key: "anonymous", user: null }) as never;
     if (path === "/api/v1/auth/bootstrap-status")
       return { initialized, sso_enabled: false } as never;
     if (path === "/api/v1/apps")
@@ -93,6 +98,7 @@ beforeEach(() => {
     throw Error("unexpected request");
   });
   vi.mocked(write).mockImplementation(async (path) => {
+    if (path === "/api/v1/auth/login") signedIn = true;
     if (path === "/api/v1/auth/password") currentContext = context(false);
     return {
       user: currentContext.user,
@@ -109,6 +115,7 @@ afterEach(() => {
 describe("自动管理员初始化与强制改密", () => {
   it("登录页仅提示日志中的初始密码，服务未就绪时不开放登录或手工初始化", async () => {
     initialized = false;
+    signedIn = false;
     mount("/login");
     expect(await screen.findByText(/docker compose .*logs api/)).toBeTruthy();
     expect(
@@ -123,6 +130,7 @@ describe("自动管理员初始化与强制改密", () => {
     expect(write).not.toHaveBeenCalled();
   });
   it("首次登录进入强制改密页，保留后台目标且不提前调用业务接口", async () => {
+    signedIn = false;
     mount("/login?return_to=%2Fadmin%2Fapps");
     fireEvent.change(await screen.findByLabelText("密码 *"), {
       target: { value: "temporary-admin-password" },
@@ -211,6 +219,7 @@ describe("自动管理员初始化与强制改密", () => {
     );
   });
   it("已完成改密的管理员正常登录直达目标页面", async () => {
+    signedIn = false;
     currentContext = context(false);
     mount("/login?return_to=%2Fadmin%2Fapps");
     fireEvent.change(await screen.findByLabelText("密码 *"), {
@@ -226,5 +235,40 @@ describe("自动管理员初始化与强制改密", () => {
         vi.mocked(read).mock.calls.some(([path]) => path === "/api/v1/apps"),
       ).toBe(true),
     );
+  });
+  it.each([
+    ["/login", "/admin"],
+    ["/login?return_to=%2Fadmin%2Fapps", "/admin/apps"],
+    ["/login?return_to=%2Flogin%2F%3Freturn_to%3D%252Fadmin", "/admin"],
+    ["/login?return_to=https%3A%2F%2Fexample.com", "/admin"],
+  ])("已有管理员会话访问 %s 直接进入 %s", async (path, expected) => {
+    currentContext = context(false);
+    mount(path);
+    expect(screen.queryByLabelText("密码 *")).toBeNull();
+    await screen.findByRole("heading", { name: "后台应用页面" });
+    expect(screen.getByLabelText("当前路由").textContent).toBe(expected);
+    expect(screen.queryByLabelText("密码 *")).toBeNull();
+    expect(write).not.toHaveBeenCalled();
+  });
+  it("已有会话但尚未改密时直接进入改密页", async () => {
+    mount("/login?return_to=%2Fadmin%2Fapps");
+    await screen.findByRole("heading", { name: "首次登录：修改密码" });
+    expect(screen.getByLabelText("当前路由").textContent).toBe("/admin/settings/account?return_to=%2Fadmin%2Fapps");
+    expect(screen.queryByRole("button", { name: "登录后台" })).toBeNull();
+    expect(write).not.toHaveBeenCalled();
+  });
+  it("已登录的下载用户返回下载首页，不展示管理员登录表单", async () => {
+    currentContext = { ...context(false), user: { ...user, kind: "feishu", role: "downloader", must_change_password: false } };
+    mount("/login?return_to=%2Fadmin");
+    await screen.findByRole("heading", { name: "下载首页" });
+    expect(screen.queryByLabelText("密码 *")).toBeNull();
+    expect(write).not.toHaveBeenCalled();
+  });
+  it("已有会话的飞书绑定失败保留错误与返回入口，不要求重复登录", async () => {
+    currentContext = context(false);
+    mount("/login?error=AUTH_FAILED&return_to=%2Fadmin%2Fsettings%2Ffeishu");
+    await screen.findByRole("link", { name: "返回接入设置" });
+    expect(screen.getByRole("alert").textContent).toContain("飞书验证未完成");
+    expect(screen.queryByLabelText("密码 *")).toBeNull();
   });
 });

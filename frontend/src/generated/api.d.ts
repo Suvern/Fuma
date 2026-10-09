@@ -853,7 +853,7 @@ export interface paths {
         put?: never;
         /**
          * create download grant
-         * @description Revalidate Feishu eligibility (maximum cached age 300 seconds). Ready cache: 200 short-lived bearer URL. Cold cache: 202 preparation, no token; client must retry grant after ready. Grant is reusable until expiry for HEAD/Range; no-store. A replay of a 202 key remains 202; after ready use a NEW key to request the actual grant. Replayed 200 rechecks current eligibility and never extends expiry; expired grant requires a new key.
+         * @description Accept an active local administrator session after the initial password change, or revalidate Feishu eligibility (maximum cached age 300 seconds). Ready cache: 200 short-lived bearer URL. Cold cache: 202 preparation, no token; client must retry grant after ready. Grant is reusable until expiry for HEAD/Range; no-store. A replay of a 202 key remains 202; after ready use a NEW key to request the actual grant. Replayed 200 rechecks current eligibility and never extends expiry; expired grant requires a new key.
          */
         post: operations["create_download_grant"];
         delete?: never;
