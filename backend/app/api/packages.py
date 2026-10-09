@@ -314,12 +314,19 @@ def grant(
     row = visible_entry(db, id)
     settings = request.app.state.settings
     key, previous = idem_begin(db, f"grant:{downloader.session.id}:{id}", idempotency_key, {})
-    state(db, "feishu", locked=True)
+    if downloader.user.kind == "feishu":
+        state(db, "feishu", locked=True)
     db.refresh(downloader.session)
     if (
         downloader.session.revoked_at
         or downloader.session.expires_at <= utcnow()
-        or downloader.session.eligibility_until <= utcnow()
+        or (
+            downloader.user.kind == "feishu"
+            and (
+                not downloader.session.eligibility_until
+                or downloader.session.eligibility_until <= utcnow()
+            )
+        )
     ):
         raise AppError(403, "ELIGIBILITY_UNVERIFIED", "下载资格已过期，请重新登录")
     verify_download_context(db, downloader)
@@ -378,7 +385,7 @@ def grant(
             action="download.grant",
             resource_type="debug_entry",
             resource_id=str(id),
-            actor_kind="feishu",
+            actor_kind="feishu" if downloader.user.kind == "feishu" else "admin",
             actor_id=str(downloader.user.id),
             request_id=request.state.request_id,
             summary="签发私有云存储下载授权；旧本机链接保持原有效期",
@@ -416,7 +423,7 @@ def grant(
             action="download.grant",
             resource_type="debug_entry",
             resource_id=str(id),
-            actor_kind="feishu",
+            actor_kind="feishu" if downloader.user.kind == "feishu" else "admin",
             actor_id=str(downloader.user.id),
             request_id=request.state.request_id,
             summary="签发临时下载授权",

@@ -553,7 +553,7 @@ export function DebugAdminPage() {
             查看分发页面
           </Link>
         </div>
-        <p className="muted">分享固定分发页面；访问及下载仍需飞书身份验证。</p>
+        <p className="muted">分享固定分发页面；访问及下载需登录飞书或管理员账号。</p>
         <SharePage url={e.page_url} />
       </Panel>
       <LegacyPersistence entry={e} />

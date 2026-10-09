@@ -59,6 +59,11 @@ def client(db, settings, *, active=False):
 
 
 def verify_download_context(db, context):
+    from app.domains.access.authorization import is_rescue_admin, require_global_admin
+
+    if is_rescue_admin(context.user):
+        require_global_admin(db, context)
+        return
     row = state(db, "feishu")
     d = row.data
     if (

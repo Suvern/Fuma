@@ -812,7 +812,7 @@ def authorize_catalog(db, context, row=None):
     if row and row.public_storage_id and row.access_state == "public":
         return
     if context is None or context.user is None:
-        raise AppError(401, "AUTHENTICATION_REQUIRED", "请使用飞书登录查看受限版本")
+        raise AppError(401, "AUTHENTICATION_REQUIRED", "请登录后查看受限版本")
     require_downloader(context)
     verify_download_context(db, context)
 
@@ -945,7 +945,7 @@ def grant_publication(
     row = must_get(db, PublicationRecord, id)
     authorize_catalog(db, downloader, row)
     private = not (row.public_storage_id and row.access_state == "public")
-    if private:
+    if private and downloader and downloader.user.kind == "feishu":
         from app.domains.distribution.service import state
 
         # Match the existing Debug grant lock order: Feishu config, then App.

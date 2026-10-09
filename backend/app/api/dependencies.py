@@ -64,6 +64,14 @@ def require_manager(
 
 
 def require_downloader(context: Annotated[AuthContext, Depends(require_user)]) -> AuthContext:
+    from app.domains.access.authorization import is_rescue_admin
+
+    if is_rescue_admin(context.user):
+        if not context.user.active:
+            raise AppError(401, "AUTHENTICATION_REQUIRED", "账号已停用，请重新登录")
+        if context.user.must_change_password:
+            raise AppError(403, "PASSWORD_CHANGE_REQUIRED", "首次登录必须先修改管理员密码")
+        return context
     if context.user.kind != "feishu":
         raise AppError(403, "FEISHU_LOGIN_REQUIRED", "请使用飞书账号登录下载")
     now = utcnow()
