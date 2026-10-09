@@ -6,11 +6,12 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
-import { CatalogEntryPage } from "./Debug";
+import { CatalogAppPage, CatalogEntryPage } from "./Debug";
 import { NotificationPage } from "./Operations";
 import { LoginPage } from "./Auth";
 import { ReleasesPage } from "./GitHub";
@@ -116,6 +117,61 @@ function downloadReads() {
   });
 }
 describe("M1 页面关键流程", () => {
+  it("最新包独立置顶，历史列表不重复展示且搜索不改变最新包", async () => {
+    const newest = { ...entry, version_label: "Tag: android-debug-v1.0.0+2026100701" };
+    const old = {
+      ...entry,
+      id: "old",
+      file_name: "old.apk",
+      version_label: "v0.9",
+    };
+    vi.mocked(read).mockImplementation(async (path, options) => {
+      if (path === "/api/v1/auth/browser-context") return session as never;
+      if (path === "/api/v1/auth/bootstrap-status")
+        return { initialized: true, sso_enabled: true } as never;
+      if (path === "/api/v1/catalog/apps/{id}") return entry.app as never;
+      if (path === "/api/v1/catalog/debug-entries")
+        return {
+          items:
+            options?.query?.page_size === 1
+              ? [newest]
+              : options?.query?.q
+                ? [old]
+                : [newest, old],
+          page: 1,
+          page_size: 20,
+          total: 2,
+        } as never;
+      throw Error(`unexpected ${path}`);
+    });
+    mount(<CatalogAppPage />, "/apps/app", "/apps/:id");
+    const latest = await screen.findByRole("region", { name: "最新安装包" });
+    expect(within(latest).getByRole("heading", { name: "v1.0.0" })).toBeTruthy();
+    expect(within(latest).getByRole("link", { name: "版本详情" }).getAttribute("title")).toBe("demo.apk");
+    expect(screen.queryByRole("link", { name: "demo.apk" })).toBeNull();
+    expect(screen.getByRole("link", { name: "old.apk" })).toBeTruthy();
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "old" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "搜索" }));
+    await waitFor(() =>
+      expect(read).toHaveBeenCalledWith(
+        "/api/v1/catalog/debug-entries",
+        expect.objectContaining({
+          query: expect.objectContaining({ q: "old" }),
+        }),
+      ),
+    );
+    expect(within(latest).getByRole("heading", { name: "v1.0.0" })).toBeTruthy();
+    expect(read).toHaveBeenCalledWith("/api/v1/catalog/debug-entries", {
+      query: {
+        app_id: "app",
+        sort: "source_updated_at",
+        page: 1,
+        page_size: 1,
+      },
+    });
+  });
   it("首次绑定失败可返回接入设置，不依赖尚未启用的普通SSO", async () => {
     vi.mocked(read).mockResolvedValue({
       initialized: true,
@@ -278,23 +334,33 @@ describe("M1 页面关键流程", () => {
     ).not.toContain("test-grant");
     expect(localStorage.length).toBe(0);
   });
-  it.each([true, false])("管理员会话直接打开包详情，无需再次登录飞书（SSO 启用：%s）", async (ssoEnabled) => {
-    downloadReads();
-    const original = vi.mocked(read).getMockImplementation()!;
-    vi.mocked(read).mockImplementation(async (path, options) => {
-      if (path === "/api/v1/auth/bootstrap-status") return {
-        initialized: true, sso_enabled: ssoEnabled,
-      } as never;
-      if (path === "/api/v1/auth/browser-context") return {
-        ...session, user: { ...session.user, kind: "local", role: "admin" },
-      } as never;
-      return original(path, options);
-    });
-    mount(<CatalogEntryPage />);
-    await screen.findByRole("button", { name: "获取下载链接" });
-    expect(screen.queryByRole("link", { name: "使用飞书登录" })).toBeNull();
-    expect(read).toHaveBeenCalledWith("/api/v1/catalog/debug-entries/{id}", expect.anything());
-  });
+  it.each([true, false])(
+    "管理员会话直接打开包详情，无需再次登录飞书（SSO 启用：%s）",
+    async (ssoEnabled) => {
+      downloadReads();
+      const original = vi.mocked(read).getMockImplementation()!;
+      vi.mocked(read).mockImplementation(async (path, options) => {
+        if (path === "/api/v1/auth/bootstrap-status")
+          return {
+            initialized: true,
+            sso_enabled: ssoEnabled,
+          } as never;
+        if (path === "/api/v1/auth/browser-context")
+          return {
+            ...session,
+            user: { ...session.user, kind: "local", role: "admin" },
+          } as never;
+        return original(path, options);
+      });
+      mount(<CatalogEntryPage />);
+      await screen.findByRole("button", { name: "获取下载链接" });
+      expect(screen.queryByRole("link", { name: "使用飞书登录" })).toBeNull();
+      expect(read).toHaveBeenCalledWith(
+        "/api/v1/catalog/debug-entries/{id}",
+        expect.anything(),
+      );
+    },
+  );
   it("未知投递结果必须勾选可能重复确认后才能重试", async () => {
     const delivery = {
       id: "delivery",

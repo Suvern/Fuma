@@ -8733,6 +8733,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        eligibility_expires_at:
+          type: [string, 'null']
+          format: date-time
+          description: Feishu qualification expiry for automatic OAuth revalidation. Null for local administrators and anonymous sessions.
         authenticated:
           type: boolean
         viewer_key:
@@ -10180,6 +10184,9 @@ components:
         public_slug:
           type: string
         description: *id005
+        icon_data:
+          type: string
+          default: ''
         platforms:
           type: array
           items: *id002

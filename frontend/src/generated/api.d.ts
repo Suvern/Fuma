@@ -2220,6 +2220,11 @@ export interface components {
         BrowserContext: {
             authenticated: boolean;
             csrf_token: string;
+            /**
+             * Format: date-time
+             * @description Feishu qualification expiry for automatic OAuth revalidation. Null for local administrators and anonymous sessions.
+             */
+            eligibility_expires_at?: string | null;
             user: components["schemas"]["SessionUser"] | null;
             viewer_key: string;
         };
@@ -2326,6 +2331,8 @@ export interface components {
         CatalogApp: {
             debug_entry_count: number;
             description: string;
+            /** @default  */
+            icon_data: string;
             /** Format: uuid */
             id: string;
             name: string;

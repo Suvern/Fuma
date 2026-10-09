@@ -79,6 +79,9 @@ def browser_context(
         csrf = csrf_for_token(request.cookies[cookie_name(request.app.state.settings)])
     return BrowserContext(
         authenticated=context.user is not None,
+        eligibility_expires_at=context.session.eligibility_until
+        if context.user and context.user.kind == "feishu"
+        else None,
         viewer_key=str(context.session.id),
         csrf_token=csrf,
         user=user_dto(context.user) if context.user else None,

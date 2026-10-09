@@ -312,6 +312,9 @@ def test_feishu_role_and_expired_qualification(client):
         db.commit()
     cookie = response.headers["set-cookie"].split(";", 1)[0].split("=", 1)[1]
     client.cookies.set("fuma_session", cookie)
+    context = client.get("/api/v1/auth/browser-context").json()
+    assert context["authenticated"] is True
+    assert context["eligibility_expires_at"] is not None
     assert client.get("/api/v1/apps").status_code == 403
     assert client.get("/test-download").status_code == 200
     with Session(client.app.state.engine) as db:

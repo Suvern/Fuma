@@ -312,7 +312,13 @@ export function DownloadGuard({ children }: { children: React.ReactNode }) {
   return <Fragment key={session.data.viewer_key}>{children}</Fragment>;
 }
 
-export function LogoutButton({ compact = false }: { compact?: boolean }) {
+export function LogoutButton({
+  compact = false,
+  onLogout,
+}: {
+  compact?: boolean;
+  onLogout?: () => void;
+}) {
   const cmd = useCommand();
   const client = useQueryClient();
   const navigate = useNavigate();
@@ -329,6 +335,7 @@ export function LogoutButton({ compact = false }: { compact?: boolean }) {
             () => write("/api/v1/auth/logout", "post", undefined),
             () => {
               suppressAutomaticFeishuLogin();
+              onLogout?.();
               client.clear();
               navigate("/login", { replace: true });
             },

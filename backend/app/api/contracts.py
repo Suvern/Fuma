@@ -207,6 +207,10 @@ class BrowserContext(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    eligibility_expires_at: AwareDatetime | None = Field(
+        None,
+        description="Feishu qualification expiry for automatic OAuth revalidation. Null for local administrators and anonymous sessions.",
+    )
     authenticated: bool
     viewer_key: str
     csrf_token: str
@@ -862,6 +866,7 @@ class CatalogApp(BaseModel):
     name: str = Field(..., max_length=100, min_length=1)
     public_slug: str
     description: str = Field(..., max_length=2000)
+    icon_data: str = ""
     platforms: list[Literal["android", "ios"]]
     debug_entry_count: int = Field(..., ge=0)
 

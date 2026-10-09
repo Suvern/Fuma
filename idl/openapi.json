@@ -1048,6 +1048,14 @@
           "csrf_token": {
             "type": "string"
           },
+          "eligibility_expires_at": {
+            "description": "Feishu qualification expiry for automatic OAuth revalidation. Null for local administrators and anonymous sessions.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "user": {
             "anyOf": [
               {
@@ -1646,6 +1654,10 @@
           },
           "description": {
             "maxLength": 2000,
+            "type": "string"
+          },
+          "icon_data": {
+            "default": "",
             "type": "string"
           },
           "id": {
