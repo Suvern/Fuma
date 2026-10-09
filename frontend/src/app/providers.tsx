@@ -3,6 +3,7 @@ import zhCN from "@douyinfe/semi-ui-19/lib/es/locale/source/zh_CN";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import type { PropsWithChildren } from "react";
+import { SessionRenewal } from "../shared/components/SessionRenewal";
 
 export function Providers({ children }: PropsWithChildren) {
   const [client] = useState(
@@ -20,7 +21,10 @@ export function Providers({ children }: PropsWithChildren) {
   );
   return (
     <ConfigProvider locale={zhCN}>
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      <QueryClientProvider client={client}>
+        <SessionRenewal />
+        {children}
+      </QueryClientProvider>
     </ConfigProvider>
   );
 }

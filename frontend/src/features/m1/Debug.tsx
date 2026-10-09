@@ -16,6 +16,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { read, write, type DTO } from "../../shared/api/http";
 import { DownloadGuard } from "./Auth";
+import { AppIcon } from "./AppIcon";
+import { Icon } from "../../shared/ui/Icon";
+import "./catalog.css";
 import { SharePage } from "../../shared/ui/SharePage";
 import {
   Check,
@@ -553,7 +556,9 @@ export function DebugAdminPage() {
             查看分发页面
           </Link>
         </div>
-        <p className="muted">分享固定分发页面；访问及下载需登录飞书或管理员账号。</p>
+        <p className="muted">
+          分享固定分发页面；访问及下载需登录飞书或管理员账号。
+        </p>
         <SharePage url={e.page_url} />
       </Panel>
       <LegacyPersistence entry={e} />
@@ -658,15 +663,87 @@ function CatalogAppContent() {
         },
       }),
   });
-  if (app.error || entries.error)
-    return <ErrorBox error={app.error || entries.error} />;
+  const latest = useQuery({
+    queryKey: ["catalog-latest", session.data?.viewer_key, id, platform],
+    queryFn: () =>
+      read("/api/v1/catalog/debug-entries", {
+        query: {
+          app_id: id,
+          sort: "source_updated_at",
+          page: 1,
+          page_size: 1,
+          ...(platform ? { platform } : {}),
+        },
+      }),
+  });
+  const featured = latest.data?.items[0];
+  const remaining =
+    entries.data?.items.filter((entry) => entry.id !== featured?.id) ?? [];
+  if (app.error || entries.error || latest.error)
+    return <ErrorBox error={app.error || entries.error || latest.error} />;
   return (
-    <>
-      <Title description={app.data?.description}>
+    <div className="catalog-download-page">
+      <Link className="catalog-back" to="/">
+        ← 全部应用
+      </Link>
+      <Title description={app.data?.description || "最新测试版与历史安装包"}>
         {app.data?.name ?? "应用安装包"}
       </Title>
-      <Link to="/">← 全部应用</Link>
-      <div className="toolbar">
+      {latest.isPending ? (
+        <Loading />
+      ) : (
+        featured && (
+          <Panel className="catalog-featured" aria-label="最新安装包">
+            <div className="catalog-featured-main">
+              <div className="catalog-featured-info">
+                <div className="catalog-featured-identity">
+                  <AppIcon
+                    name={featured.app.name}
+                    value={featured.app.icon_data}
+                  />
+                  <div>
+                    <span className="catalog-latest-badge">最新安装包</span>
+                    <div className="catalog-featured-app">
+                      {featured.app.name}
+                      <span>
+                        {featured.platform === "ios" ? "iOS" : "Android"} ·
+                        Debug
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="catalog-featured-version">
+                  <h2>{featuredVersion(featured)}</h2>
+                  {featured.build_number && (
+                    <span>Build {featured.build_number}</span>
+                  )}
+                </div>
+              </div>
+              <div className="catalog-featured-download">
+                <DownloadControl key={featured.id} entry={featured} compact />
+              </div>
+            </div>
+            <div className="catalog-featured-footer">
+              <div className="catalog-featured-meta">
+                <span>{size(featured.size_bytes)}</span>
+                <span>
+                  更新于{" "}
+                  {date(featured.source_updated_at || featured.created_at)}
+                </span>
+              </div>
+              <Link to={`/debug/${featured.id}`} title={featured.file_name}>
+                版本详情
+                <Icon name="arrow" size={14} />
+              </Link>
+            </div>
+          </Panel>
+        )
+      )}
+      <div className="catalog-history-heading">
+        <h2>其他安装包</h2>
+        <span className="muted">查找历史版本</span>
+      </div>
+      <div className="toolbar catalog-filters">
         {filters.search}
         <EntrySortPicker
           value={sort}
@@ -692,45 +769,68 @@ function CatalogAppContent() {
           </Select>
         </label>
       </div>
-      <p className="muted">
-        来源更新时间指 GitHub 附件更新时间；缺失时按导入时间排序。
-      </p>
-      {entries.isPending ? (
+      {entries.isPending || latest.isPending ? (
         <Loading />
       ) : (
         <>
-          <div className="card-grid">
-            {entries.data?.items.map((e) => (
-              <Panel className="panel" key={e.id}>
-                <div className="inline">
-                  <Status value={e.platform} />
-                  <Badge className="badge">Debug</Badge>
+          <List
+            className="catalog-history-list"
+            dataSource={remaining}
+            emptyContent={
+              <Empty>
+                {featured
+                  ? "当前筛选下没有其他安装包。"
+                  : "没有符合条件的 Debug 包。"}
+              </Empty>
+            }
+            renderItem={(entry) => (
+              <List.Item key={entry.id}>
+                <div className="catalog-history-content">
+                  <div className="inline">
+                    <Status value={entry.platform} />
+                    <strong>{catalogVersion(entry)}</strong>
+                    {entry.build_number && (
+                      <span className="muted">Build {entry.build_number}</span>
+                    )}
+                  </div>
+                  <Link
+                    className="catalog-history-filename"
+                    to={`/debug/${entry.id}`}
+                  >
+                    {entry.file_name}
+                  </Link>
+                  <p className="muted">
+                    {size(entry.size_bytes)} ·{" "}
+                    {date(entry.source_updated_at || entry.created_at)}
+                  </p>
                 </div>
-                <h2>
-                  <Link to={`/debug/${e.id}`}>{e.file_name}</Link>
-                </h2>
-                <p>
-                  {e.version_label_source === "tag" ? "Tag：" : "版本："}
-                  {e.version_label}{" "}
-                  {e.build_number && `· Build ${e.build_number}`}
-                </p>
-                <p className="muted">
-                  {size(e.size_bytes)} · 导入：{date(e.created_at)}
-                  <br />
-                  来源更新：{date(e.source_updated_at)}
-                </p>
-                <DownloadControl entry={e} />
-              </Panel>
-            ))}
-          </div>
-          {!entries.data?.items.length && (
-            <Empty>没有符合条件的 Debug 包。</Empty>
-          )}
+                <Link
+                  className="button catalog-history-action"
+                  to={`/debug/${entry.id}`}
+                >
+                  查看并下载
+                  <Icon name="chevron" size={16} />
+                </Link>
+              </List.Item>
+            )}
+          />
           <Pager data={entries.data} {...filters} />
         </>
       )}
-    </>
+    </div>
   );
+}
+function catalogVersion(entry: DTO<"CatalogEntry">) {
+  return entry.version_label.replace(/^Tag[：:]\s*/i, "") || entry.file_name;
+}
+function featuredVersion(entry: DTO<"CatalogEntry">) {
+  if (entry.version_name) return entry.version_name;
+  const label = catalogVersion(entry);
+  // Only simplify the conventional platform/channel tag; arbitrary release names remain intact.
+  const version = label.match(
+    /^(?:android|ios)-(?:debug|release)-v?(\d+\.\d+\.\d+(?:-[\w.-]+)?)(?:\+[\w.-]+)?$/i,
+  );
+  return version ? `v${version[1]}` : label;
 }
 export function CatalogEntryPage() {
   return (
@@ -782,7 +882,13 @@ function CatalogEntryContent() {
     </>
   );
 }
-function DownloadControl({ entry }: { entry: DTO<"CatalogEntry"> }) {
+function DownloadControl({
+  entry,
+  compact = false,
+}: {
+  entry: DTO<"CatalogEntry">;
+  compact?: boolean;
+}) {
   const session = useSession();
   const cmd = useCommand();
   const [preparing, setPreparing] = useState(false);
@@ -911,7 +1017,9 @@ function DownloadControl({ entry }: { entry: DTO<"CatalogEntry"> }) {
         </Button>
       )}
       <p className="muted">
-        临时链接过期后需重新验证权限。首次访问可能需要等待缓存。
+        {compact
+          ? "首次下载可能需要片刻准备"
+          : "临时链接过期后需重新验证权限。首次访问可能需要等待缓存。"}
       </p>
     </div>
   );

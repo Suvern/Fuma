@@ -1,8 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "./client";
 import { ApiError, read, safeReturnPath, write } from "./http";
+import { renewFeishuSession } from "./session-renewal";
+vi.mock("./session-renewal", () => ({
+  renewFeishuSession: vi.fn().mockResolvedValue(false),
+}));
 afterEach(() => vi.restoreAllMocks());
 describe("契约请求边界", () => {
+  it("资格失效会触发续验，同时保留原错误且不重放请求", async () => {
+    const request = vi.spyOn(api, "request").mockResolvedValue({
+      error: {
+        error: {
+          code: "ELIGIBILITY_UNVERIFIED",
+          message: "请续验",
+          retryable: false,
+        },
+      },
+      response: new Response("{}", { status: 403 }),
+    } as never);
+    await expect(read("/api/v1/catalog/apps")).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(renewFeishuSession).toHaveBeenCalledWith(expect.any(Function), {
+      force: true,
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
   it("写请求先获取浏览器上下文，附加 CSRF、版本和幂等标识", async () => {
     const request = vi.spyOn(api, "request");
     request.mockResolvedValueOnce({

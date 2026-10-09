@@ -1,4 +1,5 @@
 import { api } from "./client";
+import { renewFeishuSession } from "./session-renewal";
 import type { components, paths } from "../../generated/api";
 export type DTO<K extends keyof components["schemas"]> =
   components["schemas"][K];
@@ -91,6 +92,15 @@ async function request<P extends keyof paths, M extends Method>(
   );
   if (!result.response.ok) {
     const error = result.error as DTO<"ErrorResponse"> | undefined;
+    if (
+      result.response.status === 403 &&
+      error?.error.code === "ELIGIBILITY_UNVERIFIED" &&
+      path !== "/api/v1/auth/browser-context"
+    ) {
+      void renewFeishuSession(() => read("/api/v1/auth/browser-context"), {
+        force: true,
+      });
+    }
     throw new ApiError(
       result.response.status,
       error?.error ?? {

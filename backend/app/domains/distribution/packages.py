@@ -244,7 +244,8 @@ def catalog_app(db, app):
         )
     )
     return {
-        n: getattr(app, n) for n in ("id", "name", "public_slug", "description", "platforms")
+        n: getattr(app, n)
+        for n in ("id", "name", "public_slug", "description", "platforms", "icon_data")
     } | {"debug_entry_count": count, "platforms": platforms}
 
 

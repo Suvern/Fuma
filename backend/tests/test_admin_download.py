@@ -41,6 +41,7 @@ def admin_session(client, settings, condition=None):
 def test_admin_catalog_and_download_without_feishu(download_fixture):
     client, entry_id, _, settings = download_fixture
     csrf = admin_session(client, settings)
+    assert client.get("/api/v1/auth/browser-context").json()["eligibility_expires_at"] is None
     assert client.get("/api/v1/catalog/apps").json()["total"] == 1
     assert client.get(f"/api/v1/catalog/debug-entries/{entry_id}").status_code == 200
     assert client.get(f"/api/v1/catalog/debug-entries/{entry_id}/preparation").status_code == 200
