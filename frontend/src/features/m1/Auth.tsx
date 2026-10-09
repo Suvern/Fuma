@@ -10,6 +10,7 @@ import { Fragment, useEffect, useState } from "react";
 import { canManage, globalOnlyPath, isGlobalAdmin } from "./permissions";
 import { BrandMark, Icon } from "../../shared/ui/Icon";
 import "./auth.css";
+import { suppressAutomaticFeishuLogin } from "./feishu-auto-login";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
@@ -327,6 +328,7 @@ export function LogoutButton({ compact = false }: { compact?: boolean }) {
             "logout",
             () => write("/api/v1/auth/logout", "post", undefined),
             () => {
+              suppressAutomaticFeishuLogin();
               client.clear();
               navigate("/login", { replace: true });
             },
