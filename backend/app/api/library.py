@@ -862,6 +862,48 @@ def visible_publication(db, id, *, locked=False):
 
 
 @router.get(
+    "/catalog/publication-apps",
+    response_model=dto.PublicationAppPage,
+    operation_id="catalog_publication_apps",
+)
+def catalog_publication_apps(
+    db: DB,
+    downloader: CatalogContext,
+    page_number: Annotated[int, Query(alias="page", ge=1)] = 1,
+    page_size: int = Query(20, ge=1, le=100),
+):
+    try:
+        authorize_catalog(db, downloader)
+        private_allowed = True
+    except AppError:
+        private_allowed = False
+    apps = db.scalars(
+        select(AppRecord)
+        .where(AppRecord.enabled.is_(True), AppRecord.archived_at.is_(None))
+        .order_by(AppRecord.name, AppRecord.id)
+    ).all()
+    if not private_allowed:
+        public_platforms = db.execute(
+            select(PublicationRecord.app_id, PublicationRecord.platform)
+            .where(
+                PublicationRecord.state == "published",
+                PublicationRecord.public_storage_id.is_not(None),
+                PublicationRecord.access_state == "public",
+            )
+            .distinct()
+        ).all()
+        apps = [
+            app
+            for app in apps
+            if any(
+                app.id == app_id and platform_enabled(app, platform)
+                for app_id, platform in public_platforms
+            )
+        ]
+    return page([{"id": app.id, "name": app.name} for app in apps], page_number, page_size)
+
+
+@router.get(
     "/catalog/publications",
     response_model=dto.PublishedReleasePage,
     operation_id="catalog_publications",
@@ -873,6 +915,7 @@ def catalog_publications(
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = None,
     app_name: str | None = Query(None, max_length=100),
+    app_id: UUID | None = None,
     version_name: str | None = Query(None, max_length=100),
     platform: Literal["android", "ios"] | None = None,
     mode: Literal["debug", "release"] | None = None,
@@ -910,6 +953,7 @@ def catalog_publications(
             item
             for item in items
             if (not q or q.casefold() in (item["app_name"] + " " + item["version_name"]).casefold())
+            and (not app_id or item["app_id"] == app_id)
             and (not app_name or app_name.casefold() in item["app_name"].casefold())
             and (not version_name or version_name.casefold() in item["version_name"].casefold())
         ],

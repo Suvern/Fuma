@@ -882,6 +882,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalog/publication-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["catalog_publication_apps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/catalog/publications": {
         parameters: {
             query?: never;
@@ -2892,6 +2908,17 @@ export interface components {
             /** @enum {string} */
             state: "missing" | "queued" | "downloading" | "verifying" | "ready" | "failed" | "evicted";
             total_bytes: number | null;
+        };
+        PublicationApp: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        PublicationAppPage: {
+            items: components["schemas"]["PublicationApp"][];
+            page: number;
+            page_size: number;
+            total: number;
         };
         PublicationCreate: {
             package_ids: string[];
@@ -8342,6 +8369,29 @@ export interface operations {
             };
         };
     };
+    catalog_publication_apps: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前身份可见的应用选项，按名称和 ID 排序。匿名用户仅见有公开版本的应用。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationAppPage"];
+                };
+            };
+        };
+    };
     catalog_publications: {
         parameters: {
             query?: {
@@ -8350,6 +8400,8 @@ export interface operations {
                 q?: components["parameters"]["Query"];
                 /** @description 按应用名称筛选，仅匹配当前身份可见的发布。 */
                 app_name?: string;
+                /** @description 按选中应用的 ID 精确筛选。 */
+                app_id?: string;
                 /** @description 按版本名称筛选，仅匹配当前身份可见的发布。 */
                 version_name?: string;
                 platform?: "android" | "ios";

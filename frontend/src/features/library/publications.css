@@ -1,0 +1,49 @@
+.publication-name-filters {
+  margin-block: 20px;
+}
+.publication-name-filters fieldset {
+  min-width: 0;
+  margin: 0;
+}
+.publication-name-filters legend {
+  margin-bottom: 12px;
+}
+.publication-name-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+}
+.publication-name-fields .field {
+  min-width: 0;
+  margin: 0;
+}
+.publication-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 767px) {
+  .publication-name-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .publication-filter-actions {
+    grid-column: 1 / -1;
+  }
+  .publication-filter-actions .semi-button {
+    min-height: 44px;
+    flex: 1;
+  }
+  .publication-name-fields .semi-input-wrapper,
+  .publication-name-fields .semi-select {
+    height: 44px;
+  }
+  .publication-name-fields .semi-input {
+    font-size: 16px;
+  }
+}
+@media (max-width: 480px) {
+  .publication-name-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

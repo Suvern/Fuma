@@ -6,6 +6,7 @@ import { read, write, type DTO } from "../../shared/api/http";
 import { StorageChoice } from "./Storage";
 import { DefaultReleaseControl, PackageManagement } from "./Management";
 import { Button, Panel, PageTabs, Notice } from "../../shared/ui/controls";
+import "./publications.css";
 import {
   Empty,
   ErrorBox,
@@ -1109,8 +1110,28 @@ function Publication({
 export function PublishedReleasesPage() {
   const session = useSession();
   const [platform, setPlatform] = useState("");
-  const [names, setNames] = useState({ app_name: "", version_name: "" });
-  const [nameDraft, setNameDraft] = useState(names);
+  const [appId, setAppId] = useState("");
+  const [versionName, setVersionName] = useState("");
+  const [versionDraft, setVersionDraft] = useState("");
+  const apps = useQuery({
+    queryKey: ["publication-apps", session.data?.viewer_key],
+    enabled: session.isSuccess,
+    queryFn: async () => {
+      const items: DTO<"PublicationApp">[] = [];
+      for (let page = 1; ; page++) {
+        const result = await read(
+          session.data?.authenticated
+            ? "/api/v1/catalog/apps"
+            : "/api/v1/catalog/publication-apps",
+          { query: { page, page_size: 100 } },
+        );
+        items.push(...result.items);
+        if (!result.items.length || items.length >= result.total) return items;
+      }
+    },
+  });
+  const selectedApp =
+    apps.data?.find((app) => app.id === appId)?.id ?? apps.data?.[0]?.id ?? "";
   const filters = useFilters("搜索应用或版本名称…");
   const q = useQuery({
     queryKey: [
@@ -1119,16 +1140,18 @@ export function PublishedReleasesPage() {
       filters.page,
       filters.q,
       platform,
-      names,
+      selectedApp,
+      versionName,
     ],
+    enabled: apps.isSuccess && !!selectedApp,
     queryFn: () =>
       read("/api/v1/catalog/publications", {
         query: {
           page: filters.page,
           q: filters.q,
           platform: platform || undefined,
-          app_name: names.app_name || undefined,
-          version_name: names.version_name || undefined,
+          app_id: selectedApp,
+          version_name: versionName || undefined,
         },
       }),
   });
@@ -1136,9 +1159,11 @@ export function PublishedReleasesPage() {
     <>
       <Title description="仅展示当前账号有权下载的已发布版本。">版本下载</Title>
       <Link to="/">GitHub Debug 下载</Link>
-      <p>
-        <Link to="/login?return_to=%2Freleases">登录飞书查看受限版本</Link>
-      </p>
+      {session.isSuccess && !session.data?.authenticated && (
+        <p>
+          <Link to="/login?return_to=%2Freleases">登录飞书查看受限版本</Link>
+        </p>
+      )}
       <div className="field">
         <Select
           label="平台"
@@ -1154,54 +1179,69 @@ export function PublishedReleasesPage() {
         </Select>
       </div>
       <Form
+        className="publication-name-filters"
         submit={() => {
-          setNames(nameDraft);
+          setVersionName(versionDraft);
           filters.setPage(1);
         }}
       >
         <fieldset>
           <legend>按应用和版本筛选</legend>
-          <label>
-            应用名称
-            <input
-              name="app_name"
-              type="search"
-              maxLength={100}
-              value={nameDraft.app_name}
-              onChange={(e) =>
-                setNameDraft({ ...nameDraft, app_name: e.target.value })
-              }
-            />
-          </label>
-          <label>
-            版本名称
-            <input
+          <div className="publication-name-fields">
+            <div className="field">
+              <Select
+                label="应用"
+                name="app_id"
+                value={selectedApp}
+                disabled={!apps.data?.length}
+                onChange={(e) => {
+                  setAppId(e.target.value);
+                  filters.setPage(1);
+                }}
+              >
+                {!apps.data?.length && (
+                  <option value="">
+                    {apps.isPending ? "正在加载应用…" : "暂无可选应用"}
+                  </option>
+                )}
+                {apps.data?.map((app) => (
+                  <option key={app.id} value={app.id}>
+                    {app.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Field
+              label="版本名称"
               name="version_name"
               type="search"
+              placeholder="输入版本名称"
               maxLength={100}
-              value={nameDraft.version_name}
-              onChange={(e) =>
-                setNameDraft({ ...nameDraft, version_name: e.target.value })
-              }
+              value={versionDraft}
+              onChange={(e) => setVersionDraft(e.target.value)}
             />
-          </label>
-          <Button>应用筛选</Button>
-          <Button
-            type="button"
-            onClick={() => {
-              setNames({ app_name: "", version_name: "" });
-              setNameDraft({ app_name: "", version_name: "" });
-              setPlatform("");
-              filters.reset();
-            }}
-          >
-            清空筛选
-          </Button>
+            <div className="publication-filter-actions">
+              <Button className="primary">应用筛选</Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setAppId("");
+                  setVersionName("");
+                  setVersionDraft("");
+                  setPlatform("");
+                  filters.reset();
+                }}
+              >
+                清空筛选
+              </Button>
+            </div>
+          </div>
         </fieldset>
       </Form>
       {filters.search}
-      <ErrorBox error={q.error} />
-      {q.isPending && <Loading />}
+      <ErrorBox error={apps.error || q.error} />
+      {(apps.isPending || (selectedApp && q.isPending)) && <Loading />}
+      {apps.isSuccess && !selectedApp && <Empty>暂无可选应用。</Empty>}
       {q.data && !q.data.items.length && <Empty>暂无可下载版本。</Empty>}
       {q.data?.items.map((p) => (
         <Panel key={p.id}>
