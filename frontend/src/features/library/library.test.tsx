@@ -167,12 +167,34 @@ it("refreshes the package list when a polled upload becomes ready", async () => 
   ).toBeTruthy();
 });
 
-it("submits separate app and version catalog filters and clears them", async () => {
-  vi.mocked(read).mockResolvedValue(page as never);
-  mount(<PublishedReleasesPage />, "/releases", "/releases");
-  fireEvent.change(screen.getByLabelText("应用名称"), {
-    target: { value: "Mobile" },
+it("defaults to first app, switches immediately by ID, and resets filters", async () => {
+  vi.mocked(read).mockImplementation(async (path) => {
+    if (path === "/api/v1/auth/browser-context")
+      return { authenticated: true, viewer_key: "admin" } as never;
+    if (path === "/api/v1/catalog/apps")
+      return {
+        ...page,
+        total: 2,
+        items: [
+          { id: "first", name: "Mobile" },
+          { id: "second", name: "Mobile Plus" },
+        ],
+      } as never;
+    return page as never;
   });
+  mount(<PublishedReleasesPage />, "/releases", "/releases");
+  await waitFor(() =>
+    expect(read).toHaveBeenCalledWith("/api/v1/catalog/publications", {
+      query: expect.objectContaining({ app_id: "first" }),
+    }),
+  );
+  fireEvent.click(screen.getByRole("combobox", { name: "应用" }));
+  fireEvent.click(await screen.findByRole("option", { name: /Mobile Plus/ }));
+  await waitFor(() =>
+    expect(read).toHaveBeenCalledWith("/api/v1/catalog/publications", {
+      query: expect.objectContaining({ app_id: "second" }),
+    }),
+  );
   fireEvent.change(screen.getByLabelText("版本名称"), {
     target: { value: "2.0" },
   });
@@ -180,17 +202,34 @@ it("submits separate app and version catalog filters and clears them", async () 
   await waitFor(() =>
     expect(read).toHaveBeenCalledWith("/api/v1/catalog/publications", {
       query: expect.objectContaining({
-        app_name: "Mobile",
+        app_id: "second",
         version_name: "2.0",
         page: 1,
       }),
     }),
   );
   fireEvent.click(screen.getByRole("button", { name: "清空筛选" }));
-  expect((screen.getByLabelText("应用名称") as HTMLInputElement).value).toBe(
-    "",
-  );
+  expect(
+    screen.getByRole("combobox", { name: "应用" }).textContent,
+  ).toBe("Mobile");
   expect((screen.getByLabelText("版本名称") as HTMLInputElement).value).toBe(
     "",
   );
+});
+
+it("does not request releases without an available app", async () => {
+  vi.mocked(read).mockClear();
+  vi.mocked(read).mockResolvedValue(page as never);
+  mount(<PublishedReleasesPage />, "/releases", "/releases");
+  await screen.findByText("暂无可选应用。", { exact: true });
+  expect(
+    screen
+      .getByRole("combobox", { name: "应用" })
+      .getAttribute("aria-disabled"),
+  ).toBe("true");
+  expect(
+    vi
+      .mocked(read)
+      .mock.calls.some(([path]) => path === "/api/v1/catalog/publications"),
+  ).toBe(false);
 });

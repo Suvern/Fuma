@@ -1513,6 +1513,24 @@ class PublishedRelease(BaseModel):
     is_default: bool | None = None
 
 
+class PublicationApp(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    name: str
+
+
+class PublicationAppPage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[PublicationApp]
+    page: int
+    page_size: int
+    total: int
+
+
 class PublishedReleasePage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

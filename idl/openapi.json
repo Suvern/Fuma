@@ -4158,6 +4158,50 @@
         ],
         "type": "object"
       },
+      "PublicationApp": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "PublicationAppPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicationApp"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "type": "object"
+      },
       "PublicationCreate": {
         "additionalProperties": false,
         "properties": {
@@ -12802,6 +12846,36 @@
         "x-access": "feishu"
       }
     },
+    "/api/v1/catalog/publication-apps": {
+      "get": {
+        "operationId": "catalog_publication_apps",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationAppPage"
+                }
+              }
+            },
+            "description": "当前身份可见的应用选项，按名称和 ID 排序。匿名用户仅见有公开版本的应用。"
+          }
+        },
+        "security": [],
+        "tags": [
+          "PackageLibrary"
+        ],
+        "x-access": "public"
+      }
+    },
     "/api/v1/catalog/publications": {
       "get": {
         "operationId": "catalog_publications",
@@ -12821,6 +12895,15 @@
             "name": "app_name",
             "schema": {
               "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "description": "按选中应用的 ID 精确筛选。",
+            "in": "query",
+            "name": "app_id",
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           },

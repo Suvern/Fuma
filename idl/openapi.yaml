@@ -7678,6 +7678,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/catalog/publication-apps:
+    get:
+      operationId: catalog_publication_apps
+      tags:
+      - PackageLibrary
+      x-access: public
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: 当前身份可见的应用选项，按名称和 ID 排序。匿名用户仅见有公开版本的应用。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationAppPage'
   /api/v1/catalog/publications:
     get:
       operationId: catalog_publications
@@ -7696,6 +7713,12 @@ paths:
         schema:
           type: string
           maxLength: 100
+      - name: app_id
+        in: query
+        description: 按选中应用的 ID 精确筛选。
+        schema:
+          type: string
+          format: uuid
       - name: version_name
         in: query
         description: 按版本名称筛选，仅匹配当前身份可见的发布。
@@ -11701,6 +11724,31 @@ components:
       - mode
       - published_at
       - files
+    PublicationApp:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required: [id, name]
+    PublicationAppPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicationApp'
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+      required: [items, page, page_size, total]
     PublishedReleasePage:
       type: object
       additionalProperties: false
