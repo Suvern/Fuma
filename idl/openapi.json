@@ -9891,6 +9891,17 @@
               "maxLength": 32,
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "channel",
+            "schema": {
+              "enum": [
+                "debug",
+                "release"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {

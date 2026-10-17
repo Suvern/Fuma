@@ -87,6 +87,9 @@
   overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
+.cos-release-inbox-item.failed {
+  border-color: color-mix(in srgb, #d14343 30%, transparent);
+}
 @media (max-width: 600px) {
   .cos-release-inbox-item {
     align-items: stretch;

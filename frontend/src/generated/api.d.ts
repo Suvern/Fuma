@@ -5945,6 +5945,7 @@ export interface operations {
                 page?: number;
                 page_size?: number;
                 state?: string;
+                channel?: "debug" | "release";
             };
             header?: never;
             path: {

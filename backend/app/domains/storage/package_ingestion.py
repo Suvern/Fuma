@@ -13,8 +13,8 @@ from app.core.errors import AppError
 from app.domains.applications.models import AppStorageBindingRecord
 from app.domains.auth.service import utcnow
 from app.domains.distribution.models import PackageIngestionRecord
-from app.domains.library.models import PublicationRecord
 from app.domains.distribution.service import enqueue, must_get
+from app.domains.library.models import PublicationRecord
 from app.domains.storage.models import StorageLocation
 from app.domains.storage.service import adapter
 

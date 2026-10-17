@@ -406,7 +406,7 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch, ch
         ingestion_id = ingestion.id
     if channel == "release":
         listing = client.get(
-            f"/api/v1/apps/{app_id}/package-ingestions?state=pending_publish",
+            f"/api/v1/apps/{app_id}/package-ingestions?state=pending_publish&channel=release",
             headers=headers,
         )
         assert listing.status_code == 200, listing.text

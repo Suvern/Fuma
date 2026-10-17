@@ -1,7 +1,7 @@
 """Administrator Actions rules and strictly scoped CI bearer callbacks."""
 
 import secrets
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -130,6 +130,7 @@ def list_package_ingestions(
     page_number: int = Query(1, alias="page", ge=1),
     page_size: int = Query(20, ge=1, le=100),
     state: str | None = Query(None, max_length=32),
+    channel: Literal["debug", "release"] | None = Query(None),
 ):
     must_get(db, AppRecord, id)
     statement = (
@@ -139,6 +140,8 @@ def list_package_ingestions(
     )
     if state:
         statement = statement.where(PackageIngestionRecord.state == state)
+    if channel:
+        statement = statement.where(PackageIngestionRecord.channel == channel)
     rows = db.scalars(statement).all()
     return page([package_ingestion_dto(db, row) for row in rows], page_number, page_size)
 

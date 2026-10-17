@@ -4802,6 +4802,11 @@ paths:
         schema:
           type: string
           maxLength: 32
+      - name: channel
+        in: query
+        schema:
+          type: string
+          enum: [debug, release]
       responses:
         '200':
           description: COS package ingestion records

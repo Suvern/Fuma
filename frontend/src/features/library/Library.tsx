@@ -817,11 +817,13 @@ function CosReleaseInbox({ appId }: { appId: string }) {
     queryFn: () =>
       read("/api/v1/apps/{id}/package-ingestions", {
         id: appId,
-        query: { page: 1, page_size: 20, state: "pending_publish" },
+        query: { page: 1, page_size: 50, channel: "release" },
       }),
     refetchInterval: 5000,
   });
   const items = ingestions.data?.items ?? [];
+  const pending = items.filter((item) => item.state === "pending_publish");
+  const failed = items.filter((item) => item.state === "failed");
   return (
     <Panel className="cos-release-inbox">
       <h2>COS Release 待发布</h2>
@@ -831,10 +833,11 @@ function CosReleaseInbox({ appId }: { appId: string }) {
       {cmd.feedback}
       <ErrorBox error={ingestions.error} />
       {ingestions.isPending && <Loading />}
-      {!ingestions.isPending && !ingestions.isError && !items.length && (
+      {!ingestions.isPending && !ingestions.isError && !pending.length && !failed.length && (
         <p>暂无待发布的 COS Release。</p>
       )}
-      {items.map((item) => (
+      {pending.length > 0 && <h3>待确认发布（{pending.length}）</h3>}
+      {pending.map((item) => (
         <div className="cos-release-inbox-item" key={item.id}>
           <div>
             <strong>{item.build.version}</strong>
@@ -891,6 +894,35 @@ function CosReleaseInbox({ appId }: { appId: string }) {
             }
           >
             确认发布
+          </Button>
+        </div>
+      ))}
+      {failed.length > 0 && <h3>处理失败（{failed.length}）</h3>}
+      {failed.map((item) => (
+        <div className="cos-release-inbox-item failed" key={item.id}>
+          <div>
+            <strong>{item.build.version}</strong>
+            <span>
+              {" "}
+              · build {item.build.build_number} · {item.object_key}
+            </span>
+            <p>
+              {item.error_code || "INGESTION_FAILED"} · {item.error_message || "入库失败，请重试"}
+            </p>
+          </div>
+          <Button
+            type="button"
+            disabled={cmd.pending}
+            onClick={() =>
+              void cmd.run(
+                "retry-cos-release-" + item.id,
+                () => write("/api/v1/package-ingestions/{id}/retry", "post", undefined, { id: item.id }),
+                undefined,
+                "已重新排队 COS Release 入库。",
+              )
+            }
+          >
+            重试入库
           </Button>
         </div>
       ))}
