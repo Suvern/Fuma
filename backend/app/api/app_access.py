@@ -22,6 +22,7 @@ from app.domains.distribution.models import (
     DebugRecord,
     DeliveryRecord,
     EventRecord,
+    PackageIngestionRecord,
     RuleRecord,
     TaskRecord,
 )
@@ -84,6 +85,7 @@ RESOURCE_OPERATIONS = {
     "rotate_actions_token": RuleRecord,
     "revoke_actions_token": RuleRecord,
     "get_build_event": EventRecord,
+    "get_package_ingestion": PackageIngestionRecord,
     "retry_build_event": EventRecord,
     "get_task": TaskRecord,
     "retry_task": TaskRecord,

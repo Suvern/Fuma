@@ -1229,6 +1229,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/github-actions/{id}/cos-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive a COS package event from GitHub Actions
+         * @description Dedicated bearer only. The first migration stage persists an idempotent event and queues a provider HEAD check. The object is not downloadable or publishable until later ingestion stages complete.
+         */
+        post: operations["receive_cos_package_event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/integrations/github-actions/{id}/events": {
         parameters: {
             query?: never;
@@ -1319,6 +1339,23 @@ export interface paths {
          * @description Retry definite failure. Unknown send outcome requires explicit acknowledge_possible_duplicate=true and audit; no silent replay.
          */
         post: operations["retry_notification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/package-ingestions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a COS package ingestion status */
+        get: operations["get_package_ingestion"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2488,6 +2525,48 @@ export interface components {
             name?: string;
             token?: string;
         };
+        CosPackageBuild: {
+            build_number: string;
+            commit_sha: string;
+            /** Format: date-time */
+            created_at: string;
+            version: string;
+            workflow_run_id: string;
+        };
+        CosPackageEventAccepted: {
+            duplicate: boolean;
+            /** Format: uuid */
+            ingestion_id: string;
+            /** @enum {string} */
+            state: "received" | "validating" | "verified" | "ready" | "failed";
+            status_url: string;
+            /** Format: uuid */
+            task_id: string;
+        };
+        CosPackageEventRequest: {
+            /** Format: uuid */
+            app_id: string;
+            build: components["schemas"]["CosPackageBuild"];
+            /** @enum {string} */
+            channel: "debug" | "release";
+            event_id: string;
+            manifest: components["schemas"]["CosPackageManifest"];
+            object: components["schemas"]["CosPackageObject"];
+            /** @enum {string} */
+            schema_version: "2";
+        };
+        CosPackageManifest: {
+            key: string;
+            sha256: string;
+        };
+        CosPackageObject: {
+            content_type: string;
+            etag?: string;
+            key: string;
+            sha256: string;
+            /** Format: int64 */
+            size: number;
+        };
         DebugEntry: {
             /** Format: uuid */
             app_id: string;
@@ -2902,6 +2981,34 @@ export interface components {
             state: "ready" | "deleting" | "deleted" | "processing";
             storage_location_id?: string | null;
             version_name: string;
+        };
+        PackageIngestion: {
+            /** Format: uuid */
+            app_id: string;
+            build: components["schemas"]["CosPackageBuild"];
+            /** @enum {string} */
+            channel: "debug" | "release";
+            /** Format: date-time */
+            created_at: string;
+            error_code: string | null;
+            error_message: string | null;
+            event_id: string;
+            /** Format: uuid */
+            id: string;
+            manifest_key: string;
+            manifest_sha256: string;
+            object_key: string;
+            object_sha256: string;
+            /** Format: int64 */
+            object_size: number;
+            /** @enum {string} */
+            state: "received" | "validating" | "verified" | "ready" | "failed";
+            status_url: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: date-time */
+            updated_at: string;
+            verified_at: string | null;
         };
         PackageNotes: {
             internal_notes: string;
@@ -4791,16 +4898,9 @@ export interface operations {
     };
     list_build_events: {
         parameters: {
-            query?: {
-                page?: components["parameters"]["Page"];
-                page_size?: components["parameters"]["PageSize"];
-                q?: components["parameters"]["Query"];
-                state?: "received" | "verifying" | "waiting_run" | "caching" | "notifying" | "succeeded" | "partial_success" | "failed" | "unknown";
-            };
+            query?: never;
             header?: never;
-            path: {
-                id: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -10089,6 +10189,68 @@ export interface operations {
             };
         };
     };
+    receive_cos_package_event: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CosPackageEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Event accepted or safely deduplicated */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CosPackageEventAccepted"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rule or App is disabled, or event App does not match the rule */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Binding, object or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid event contract */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     receive_actions_event: {
         parameters: {
             query?: never;
@@ -10514,6 +10676,58 @@ export interface operations {
             };
             /** @description Dependency unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_package_ingestion: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                q?: components["parameters"]["Query"];
+                state?: "received" | "verifying" | "waiting_run" | "caching" | "notifying" | "succeeded" | "partial_success" | "failed" | "unknown";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Package ingestion status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageIngestion"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application management permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not available */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

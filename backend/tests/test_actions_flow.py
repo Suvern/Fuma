@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.actions import router
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.domains.applications.models import AppRecord
+from app.domains.applications.models import AppRecord, AppStorageBindingRecord
 from app.domains.auth.models import User
 from app.domains.auth.service import password_hasher, token_hash, utcnow
 from app.domains.distribution.actions import process_event, verify_source
@@ -23,10 +23,12 @@ from app.domains.distribution.models import (
     DebugRecord,
     DeliveryRecord,
     EventRecord,
+    PackageIngestionRecord,
     RuleRecord,
     TaskRecord,
 )
 from app.domains.distribution.service import RetryLater
+from app.domains.storage.models import StorageLocation
 from app.domains.system.models import SystemState
 from app.infrastructure.database import Base, build_engine
 from app.main import create_app
@@ -220,6 +222,100 @@ def test_rule_callback_deduplication_rotation_and_revoke(client):
     assert submit(client, rule).status_code == 401
     assert client.get(f"/api/v1/build-events/{event_id}").status_code == 200
     assert client.get(f"/api/v1/apps/{app_id}/build-events").json()["total"] == 1
+
+
+def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
+    _, rule, app_id = setup_rule(client)
+    storage_id = uuid4()
+    with Session(client.app.state.engine) as db:
+        db.add(
+            StorageLocation(
+                id=storage_id,
+                name="COS Debug",
+                provider="oss",
+                region="cn-hangzhou",
+                bucket="fuma-test",
+                prefix="fuma/test",
+                read_mode="private",
+                encrypted_credentials="{}",
+                enabled=True,
+                is_default=False,
+                status="ready",
+                revision=1,
+                capabilities={},
+            )
+        )
+        db.flush()
+        db.add(
+            AppStorageBindingRecord(
+                app_id=UUID(app_id),
+                channel="debug",
+                storage_location_id=storage_id,
+                object_prefix="debug",
+                revision=1,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            )
+        )
+        db.commit()
+    body = {
+        "schema_version": "2",
+        "event_id": "joice-build-123",
+        "app_id": app_id,
+        "channel": "debug",
+        "build": {
+            "version": "1.2.3",
+            "build_number": "123",
+            "commit_sha": SHA,
+            "workflow_run_id": "456",
+            "created_at": "2026-10-16T10:00:00Z",
+        },
+        "object": {
+            "key": "fuma/test/debug/1.2.3/123/package.apk",
+            "size": 1234,
+            "sha256": "b" * 64,
+            "content_type": "application/vnd.android.package-archive",
+        },
+        "manifest": {
+            "key": "fuma/test/debug/1.2.3/123/manifest.json",
+            "sha256": "c" * 64,
+        },
+    }
+    endpoint = f"/api/v1/integrations/github-actions/{rule['rule']['id']}/cos-events"
+    first = client.post(endpoint, headers={"Authorization": "Bearer " + rule["token"]}, json=body)
+    assert first.status_code == 202, first.text
+    duplicate = client.post(
+        endpoint,
+        headers={"Authorization": "Bearer " + rule["token"]},
+        json={**body, "object": {**body["object"], "etag": "etag-1"}},
+    )
+    assert duplicate.status_code == 202 and duplicate.json()["duplicate"]
+    changed = client.post(
+        endpoint,
+        headers={"Authorization": "Bearer " + rule["token"]},
+        json={**body, "object": {**body["object"], "size": 1235}},
+    )
+    assert changed.status_code == 409
+    with Session(client.app.state.engine) as db:
+        ingestion = db.scalar(select(PackageIngestionRecord))
+        assert ingestion and ingestion.state == "received"
+        assert ingestion.task_id is not None
+        task = db.get(TaskRecord, ingestion.task_id)
+        assert task and task.kind == "cos_package_ingest"
+
+        class HeadOnlyClient:
+            def head(self, key):
+                assert key == body["object"]["key"]
+                return body["object"]["size"], None
+
+        monkeypatch.setattr(
+            "app.domains.storage.package_ingestion.adapter",
+            lambda settings, location: HeadOnlyClient(),
+        )
+        from app.domains.storage.package_ingestion import verify_object
+
+        verify_object(db, client.app.state.settings, task)
+        assert db.get(PackageIngestionRecord, ingestion.id).state == "verified"
 
 
 @pytest.mark.parametrize(

@@ -40,6 +40,7 @@ TaskKind = Literal[
     "notification",
     "cache_cleanup",
     "package_ingest",
+    "cos_package_ingest",
     "package_delete",
     "storage_probe",
     "publication_access",
@@ -53,6 +54,7 @@ TASK_NAMES = {
     "notification": "通知发送",
     "cache_cleanup": "缓存清理",
     "package_ingest": "安装包解析入库",
+    "cos_package_ingest": "COS 安装包对象校验",
     "package_delete": "安装包文件清理",
     "storage_probe": "云存储连接测试",
     "publication_access": "公开副本与访问收回",
@@ -127,6 +129,7 @@ def retry_task(
         "notification",
         "build_event",
         "package_ingest",
+        "cos_package_ingest",
         "storage_probe",
         "publication_access",
     }:

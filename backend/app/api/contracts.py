@@ -1111,6 +1111,84 @@ class ActionsToken(BaseModel):
     created_at: AwareDatetime
 
 
+class CosPackageBuild(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    version: str = Field(..., max_length=100, min_length=1)
+    build_number: str = Field(..., max_length=100, min_length=1)
+    commit_sha: str = Field(..., max_length=100, min_length=7)
+    workflow_run_id: str = Field(..., max_length=100, min_length=1)
+    created_at: AwareDatetime
+
+
+class CosPackageObject(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    key: str = Field(..., max_length=600, min_length=1)
+    size: int = Field(..., ge=1)
+    sha256: str = Field(..., pattern="^[0-9a-fA-F]{64}$")
+    etag: str | None = Field(None, max_length=200)
+    content_type: str = Field(..., max_length=100)
+
+
+class CosPackageManifest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    key: str = Field(..., max_length=600, min_length=1)
+    sha256: str = Field(..., pattern="^[0-9a-fA-F]{64}$")
+
+
+class CosPackageEventRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    schema_version: Literal["2"]
+    event_id: str = Field(..., max_length=128, min_length=1, pattern="^[A-Za-z0-9._:-]+$")
+    app_id: UUID
+    channel: Literal["debug", "release"]
+    build: CosPackageBuild
+    object: CosPackageObject
+    manifest: CosPackageManifest
+
+
+class CosPackageEventAccepted(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    ingestion_id: UUID
+    duplicate: bool
+    state: Literal["received", "validating", "verified", "ready", "failed"]
+    task_id: UUID
+    status_url: str
+
+
+class PackageIngestion(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    app_id: UUID
+    event_id: str
+    channel: Literal["debug", "release"]
+    object_key: str
+    object_size: int = Field(..., ge=1)
+    object_sha256: str = Field(..., pattern="^[0-9a-f]{64}$")
+    manifest_key: str
+    manifest_sha256: str = Field(..., pattern="^[0-9a-f]{64}$")
+    build: CosPackageBuild
+    state: Literal["received", "validating", "verified", "ready", "failed"]
+    task_id: UUID
+    error_code: str | None
+    error_message: str | None
+    verified_at: AwareDatetime | None
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+    status_url: str
+
+
 class AssetId(RootModel[str]):
     root: str = Field(..., pattern="^[0-9]+$")
 

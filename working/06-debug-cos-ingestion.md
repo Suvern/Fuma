@@ -10,6 +10,10 @@ received -> validating -> downloading -> parsing -> ready
 
 Debug 通过所有校验后自动进入 `ready`。重复事件命中同一 `event_id` 或同一 `object sha256` 时返回原记录；若同一 key 的 checksum 变化，必须创建冲突错误，不覆盖已 ready 记录。
 
+当前实现到达 `received -> validating -> verified`（`verified` 仅代表首轮 HEAD/大小/可选
+元数据校验完成），尚未进入 `downloading`、`parsing` 和 `ready`。因此本阶段不会把远端
+对象直接暴露为 Debug 可下载记录。
+
 ## 2. 任务步骤
 
 1. 接收 v2 事件，落库 `PackageIngestion`，返回任务 ID。

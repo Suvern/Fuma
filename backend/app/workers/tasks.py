@@ -15,7 +15,13 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.domains.auth.service import utcnow
-from app.domains.distribution.models import DebugRecord, DeliveryRecord, EventRecord, TaskRecord
+from app.domains.distribution.models import (
+    DebugRecord,
+    DeliveryRecord,
+    EventRecord,
+    PackageIngestionRecord,
+    TaskRecord,
+)
 from app.domains.distribution.service import RetryLater, digest, state
 from app.infrastructure import models  # noqa: F401
 from app.infrastructure.database import build_engine
@@ -110,6 +116,12 @@ def execute_task(engine, settings, task_id):
                         upload = db.get(UploadRecord, UUID(task.resource_id))
                         if upload and upload.task_id == task.id and upload.state == "processing":
                             upload.state, upload.error_message = "failed", task.error_message
+                    if task.kind == "cos_package_ingest":
+                        ingestion = db.get(PackageIngestionRecord, UUID(task.resource_id))
+                        if ingestion:
+                            ingestion.state = "failed"
+                            ingestion.error_code = task.error_code
+                            ingestion.error_message = task.error_message
                     if task.kind == "storage_probe":
                         from app.domains.storage.models import StorageLocation
 
@@ -199,6 +211,10 @@ def dispatch(db, settings, task):
         from app.domains.library.ingestion import ingest
 
         ingest(db, settings, task)
+    elif task.kind == "cos_package_ingest":
+        from app.domains.storage.package_ingestion import verify_object
+
+        verify_object(db, settings, task)
     elif task.kind in {"release_sync", "release_import"}:
         from app.domains.github.releases import execute_release_task
 

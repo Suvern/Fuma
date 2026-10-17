@@ -2264,6 +2264,180 @@
         "required": [],
         "type": "object"
       },
+      "CosPackageBuild": {
+        "additionalProperties": false,
+        "properties": {
+          "build_number": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "commit_sha": {
+            "maxLength": 100,
+            "minLength": 7,
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "workflow_run_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "build_number",
+          "commit_sha",
+          "workflow_run_id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "CosPackageEventAccepted": {
+        "additionalProperties": false,
+        "properties": {
+          "duplicate": {
+            "type": "boolean"
+          },
+          "ingestion_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "received",
+              "validating",
+              "verified",
+              "ready",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "status_url": {
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ingestion_id",
+          "duplicate",
+          "state",
+          "task_id",
+          "status_url"
+        ],
+        "type": "object"
+      },
+      "CosPackageEventRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "build": {
+            "$ref": "#/components/schemas/CosPackageBuild"
+          },
+          "channel": {
+            "enum": [
+              "debug",
+              "release"
+            ],
+            "type": "string"
+          },
+          "event_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/CosPackageManifest"
+          },
+          "object": {
+            "$ref": "#/components/schemas/CosPackageObject"
+          },
+          "schema_version": {
+            "enum": [
+              "2"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "event_id",
+          "app_id",
+          "channel",
+          "build",
+          "object",
+          "manifest"
+        ],
+        "type": "object"
+      },
+      "CosPackageManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 600,
+            "minLength": 1,
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "sha256"
+        ],
+        "type": "object"
+      },
+      "CosPackageObject": {
+        "additionalProperties": false,
+        "properties": {
+          "content_type": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "etag": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 600,
+            "minLength": 1,
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "size",
+          "sha256",
+          "content_type"
+        ],
+        "type": "object"
+      },
       "DebugEntry": {
         "additionalProperties": false,
         "properties": {
@@ -4019,6 +4193,128 @@
           "internal_notes",
           "revision",
           "parser_version"
+        ],
+        "type": "object"
+      },
+      "PackageIngestion": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "build": {
+            "$ref": "#/components/schemas/CosPackageBuild"
+          },
+          "channel": {
+            "enum": [
+              "debug",
+              "release"
+            ],
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "manifest_key": {
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "object_key": {
+            "type": "string"
+          },
+          "object_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "object_size": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "received",
+              "validating",
+              "verified",
+              "ready",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "status_url": {
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "app_id",
+          "event_id",
+          "channel",
+          "object_key",
+          "object_size",
+          "object_sha256",
+          "manifest_key",
+          "manifest_sha256",
+          "build",
+          "state",
+          "task_id",
+          "error_code",
+          "error_message",
+          "verified_at",
+          "created_at",
+          "updated_at",
+          "status_url"
         ],
         "type": "object"
       },
@@ -8147,44 +8443,6 @@
       "get": {
         "description": "list build events",
         "operationId": "list_build_events",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "$ref": "#/components/parameters/Page"
-          },
-          {
-            "$ref": "#/components/parameters/PageSize"
-          },
-          {
-            "$ref": "#/components/parameters/Query"
-          },
-          {
-            "in": "query",
-            "name": "state",
-            "schema": {
-              "enum": [
-                "received",
-                "verifying",
-                "waiting_run",
-                "caching",
-                "notifying",
-                "succeeded",
-                "partial_success",
-                "failed",
-                "unknown"
-              ],
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -15261,6 +15519,95 @@
         ]
       }
     },
+    "/api/v1/integrations/github-actions/{id}/cos-events": {
+      "post": {
+        "description": "Dedicated bearer only. The first migration stage persists an idempotent event and queues a provider HEAD check. The object is not downloadable or publishable until later ingestion stages complete.",
+        "operationId": "receive_cos_package_event",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CosPackageEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CosPackageEventAccepted"
+                }
+              }
+            },
+            "description": "Event accepted or safely deduplicated"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rule or App is disabled, or event App does not match the rule"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Binding, object or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid event contract"
+          }
+        },
+        "security": [
+          {
+            "ActionsToken": []
+          }
+        ],
+        "summary": "Receive a COS package event from GitHub Actions",
+        "tags": [
+          "integrations"
+        ],
+        "x-access": "ci"
+      }
+    },
     "/api/v1/integrations/github-actions/{id}/events": {
       "post": {
         "description": "Dedicated bearer only. Persist unique rule+repository+run+attempt+release+sorted asset IDs before 202; return same event on duplicate. Verify provider run/repo/workflow/ref/SHA/assets asynchronously. Callback must not wait for source run terminal state or cache/notification. Same event identity but a different head_sha/payload returns 409 IDEMPOTENCY_CONFLICT. Reject fork/PR runs and untrusted refs; verify release tag resolves to the run head SHA.",
@@ -15837,6 +16184,93 @@
           "notifications"
         ],
         "x-access": "app-manager"
+      }
+    },
+    "/api/v1/package-ingestions/{id}": {
+      "get": {
+        "operationId": "get_package_ingestion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/Query"
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "enum": [
+                "received",
+                "verifying",
+                "waiting_run",
+                "caching",
+                "notifying",
+                "succeeded",
+                "partial_success",
+                "failed",
+                "unknown"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageIngestion"
+                }
+              }
+            },
+            "description": "Package ingestion status"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Application management permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not available"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Get a COS package ingestion status",
+        "tags": [
+          "integrations"
+        ]
       }
     },
     "/api/v1/packages/{id}": {

@@ -36,15 +36,19 @@
 }
 ```
 
-签名放在 HTTP header，例如 `X-Fuma-Event-Id`、`X-Fuma-Timestamp`、`X-Fuma-Signature`；签名内容必须包含规范化 body，防止重放和字段替换。
+当前本地首轮实现复用每条 Actions Rule 的一次性可轮换 Bearer token，入口为
+`POST /api/v1/integrations/github-actions/{rule_id}/cos-events`。这样可以先验证
+Joice 工作流和 Fuma 状态机，不新增未确认的密钥来源。最终接入前仍需把
+`X-Fuma-Event-Id`、`X-Fuma-Timestamp`、`X-Fuma-Signature` 的 HMAC 方案定稿，并把
+时间窗、重放保护和签名验证加入同一入口。
 
 ## 3. 服务端处理
 
-1. 读取原始 body，校验时间窗、签名和 schema version。
-2. 用 `event_id` 建唯一索引；重复事件返回原处理结果，不重新下载。
-3. 校验 `app_id`、`channel`、key prefix、对象大小上限和允许扩展名。
-4. HEAD/GET 对象并计算 SHA-256；若 manifest 也有 checksum，双向比对。
-5. 创建 `PackageIngestion` 任务，API 返回 `202 Accepted` 和任务 ID。
+1. 校验 Bearer token、规则状态、App 状态和 `schema_version`。
+2. 用 `event_id` 建唯一索引；重复事件返回原处理结果，不重新下载；同事件不同内容返回 409。
+3. 校验 `app_id`、`channel`、已绑定存储的有效状态、key prefix 和包扩展名。
+4. 创建 `PackageIngestion` 记录和 `cos_package_ingest` 任务，API 返回 `202 Accepted` 和任务 ID。
+5. 后台首轮任务只做 provider HEAD、大小和（若有）对象元数据摘要校验；完整 GET/SHA 和 manifest 校验属于下一阶段。
 
 ## 4. 错误语义
 

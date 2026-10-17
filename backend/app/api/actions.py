@@ -21,12 +21,15 @@ from app.api.contracts import (
     BuildEventPage,
     BuildEventRequest,
     BuildRetryRequest,
+    CosPackageEventAccepted,
+    CosPackageEventRequest,
+    PackageIngestion,
     TaskAccepted,
 )
 from app.api.dependencies import DB, Admin, require_csrf, require_revision
 from app.core.errors import AppError
 from app.domains.access.authorization import manageable_app_ids
-from app.domains.applications.models import AppRecord
+from app.domains.applications.models import AppRecord, AppStorageBindingRecord
 from app.domains.audit.service import record_audit
 from app.domains.auth.service import token_hash, utcnow
 from app.domains.distribution.actions import (
@@ -37,7 +40,13 @@ from app.domains.distribution.actions import (
     stages_initial,
     validate_rule,
 )
-from app.domains.distribution.models import DebugRecord, DeliveryRecord, EventRecord, RuleRecord
+from app.domains.distribution.models import (
+    DebugRecord,
+    DeliveryRecord,
+    EventRecord,
+    PackageIngestionRecord,
+    RuleRecord,
+)
 from app.domains.distribution.service import (
     digest,
     enqueue,
@@ -48,6 +57,8 @@ from app.domains.distribution.service import (
     page,
     task_accepted,
 )
+from app.domains.storage.models import StorageLocation
+from app.domains.storage.package_ingestion import assert_object_key, package_ingestion_dto
 
 router = APIRouter(tags=["actions"])
 WRITE = [Depends(require_scoped_manager), Depends(require_csrf)]
@@ -345,6 +356,138 @@ def receive_event(
         "state": row.state,
         "status_url": f"/api/v1/build-events/{row.id}",
     }
+
+
+@router.post(
+    "/integrations/github-actions/{id}/cos-events",
+    response_model=CosPackageEventAccepted,
+    status_code=202,
+    operation_id="receive_cos_package_event",
+)
+def receive_cos_package_event(
+    id: UUID,
+    body: CosPackageEventRequest,
+    request: Request,
+    db: DB,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    rule = db.get(RuleRecord, id)
+    raw = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
+
+    def verify_rule(candidate):
+        if (
+            not raw
+            or len(raw) > 200
+            or candidate is None
+            or not candidate.token_hash
+            or not secrets.compare_digest(token_hash(raw), candidate.token_hash)
+        ):
+            raise AppError(401, "INVALID_CI_TOKEN", "构建回调凭据无效")
+
+    verify_rule(rule)
+    app = get_app(db, rule.app_id, lock=True)
+    lock(db, f"rule:{id}")
+    rule = db.get(RuleRecord, id, populate_existing=True)
+    verify_rule(rule)
+    if not rule.data["enabled"] or not app.enabled or app.archived_at:
+        raise AppError(403, "RULE_DISABLED", "规则或 App 当前不可用")
+    if body.app_id != app.id:
+        raise AppError(403, "APP_MISMATCH", "回调 App 与规则不匹配")
+
+    binding = db.get(
+        AppStorageBindingRecord,
+        {"app_id": app.id, "channel": body.channel},
+    )
+    if binding is None:
+        raise AppError(409, "APP_STORAGE_NOT_BOUND", "该通道尚未绑定存储位置")
+    location = db.get(StorageLocation, binding.storage_location_id)
+    if location is None or not location.enabled or location.status != "ready":
+        raise AppError(409, "STORAGE_NOT_READY", "绑定的存储位置不可用，请重新配置")
+    object_key = body.object.key
+    manifest_key = body.manifest.key
+    if not object_key.lower().endswith((".apk", ".ipa", ".zip")):
+        raise AppError(422, "PACKAGE_FILE_TYPE_INVALID", "安装包对象必须是 APK、IPA 或 ZIP")
+    assert_object_key(location, binding.object_prefix, object_key)
+    assert_object_key(location, binding.object_prefix, manifest_key)
+
+    data = body.model_dump(mode="json")
+    data["object"]["sha256"] = data["object"]["sha256"].lower()
+    data["manifest"]["sha256"] = data["manifest"]["sha256"].lower()
+    lock(db, "cos_event_identity:" + body.event_id)
+    row = db.scalar(
+        select(PackageIngestionRecord).where(PackageIngestionRecord.event_id == body.event_id)
+    )
+    duplicate = row is not None
+    if row:
+        same_payload = (
+            row.app_id == app.id
+            and row.channel == body.channel
+            and row.object_key == object_key
+            and row.object_size == body.object.size
+            and row.object_sha256 == data["object"]["sha256"]
+            and row.manifest_key == manifest_key
+            and row.manifest_sha256 == data["manifest"]["sha256"]
+            and row.build == data["build"]
+        )
+        if not same_payload:
+            raise AppError(409, "IDEMPOTENCY_CONFLICT", "同一 COS 事件的提交内容不一致")
+    if row is None:
+        now = utcnow()
+        row = PackageIngestionRecord(
+            app_id=app.id,
+            rule_id=id,
+            event_id=body.event_id,
+            channel=body.channel,
+            object_key=object_key,
+            object_size=body.object.size,
+            object_sha256=data["object"]["sha256"],
+            manifest_key=manifest_key,
+            manifest_sha256=data["manifest"]["sha256"],
+            build=data["build"],
+            state="received",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(row)
+        db.flush()
+        task = enqueue(
+            db,
+            "cos_package_ingest",
+            resource_id=str(row.id),
+            app_id=app.id,
+            dedupe_key=f"cos_package_ingest:{row.id}",
+        )
+        row.task_id = task.id
+        record_audit(
+            db,
+            action="actions.cos_event.receive",
+            resource_type="package_ingestion",
+            resource_id=str(row.id),
+            app_id=app.id,
+            actor_kind="ci",
+            actor_id=None,
+            request_id=request.state.request_id,
+            outcome="success",
+            summary="接收 COS 安装包事件并排队首轮对象校验",
+        )
+    db.commit()
+    return {
+        "ingestion_id": row.id,
+        "duplicate": duplicate,
+        "state": row.state,
+        "task_id": row.task_id,
+        "status_url": f"/api/v1/package-ingestions/{row.id}",
+    }
+
+
+@router.get(
+    "/package-ingestions/{id}",
+    response_model=PackageIngestion,
+    operation_id="get_package_ingestion",
+    dependencies=READ,
+)
+def get_package_ingestion(id: UUID, db: DB):
+    return package_ingestion_dto(must_get(db, PackageIngestionRecord, id))
 
 
 @router.get(

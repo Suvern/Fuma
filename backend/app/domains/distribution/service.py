@@ -117,6 +117,7 @@ def task_dto(task):
                 "notification",
                 "build_event",
                 "package_ingest",
+                "cos_package_ingest",
                 "storage_probe",
                 "publication_access",
             }

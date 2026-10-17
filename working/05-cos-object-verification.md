@@ -4,6 +4,11 @@
 
 Fuma 只信任：App 的存储 binding、服务端凭证、v2 签名、对象 key 规范、对象 checksum 和解析结果。事件中的 `url`、`bucket`、`endpoint` 不得直接用于下载；如保留字段，只能用于与 binding 严格比对并记录诊断。
 
+当前已落地的第一步是：事件只能引用 App 已绑定且 `ready` 的存储位置，object/manifest
+key 必须落在 `location.prefix + binding.object_prefix` 下，拒绝空路径、`.`、`..` 和目录对象。
+后台任务使用服务端 Adapter 做 HEAD，校验对象大小；若云端返回 `sha256` 元数据则同时比对。
+由于 Joice 上传是否能写入自定义元数据尚未确认，这一步不会把“没有元数据”误判为摘要通过，完整内容 SHA 仍由后续下载阶段负责。
+
 ## 2. 私有桶
 
 - Fuma 使用服务端配置的最小权限读取凭证，至少限制到指定 bucket/prefix 的 `HeadObject`、`GetObject`。

@@ -161,6 +161,27 @@ class EventRecord(Timestamped, Base):
     assets: Mapped[list] = mapped_column(JSON, default=list)
 
 
+class PackageIngestionRecord(Timestamped, Base):
+    __tablename__ = "package_ingestions"
+    __table_args__ = (UniqueConstraint("event_id", name="uq_package_ingestions_event_id"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    app_id: Mapped[UUID] = mapped_column(ForeignKey("applications.id"), index=True)
+    rule_id: Mapped[UUID] = mapped_column(ForeignKey("actions_rules.id"))
+    event_id: Mapped[str] = mapped_column(String(128))
+    channel: Mapped[str] = mapped_column(String(16))
+    object_key: Mapped[str] = mapped_column(String(600))
+    object_size: Mapped[int] = mapped_column(__import__("sqlalchemy").BigInteger)
+    object_sha256: Mapped[str] = mapped_column(String(64))
+    manifest_key: Mapped[str] = mapped_column(String(600))
+    manifest_sha256: Mapped[str] = mapped_column(String(64))
+    build: Mapped[dict] = mapped_column(JSON, default=dict)
+    state: Mapped[str] = mapped_column(String(32), default="received", index=True)
+    task_id: Mapped[UUID | None] = mapped_column(ForeignKey("durable_tasks.id"))
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(String(500))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class DeliveryRecord(Timestamped, Base):
     __tablename__ = "notification_deliveries"
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

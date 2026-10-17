@@ -56,7 +56,13 @@ def scan(engine, sent):
                 "fuma.execute",
                 args=[str(job.id)],
                 queue="files"
-                if job.kind in {"cache_download", "package_ingest", "publication_access"}
+                if job.kind
+                in {
+                    "cache_download",
+                    "package_ingest",
+                    "cos_package_ingest",
+                    "publication_access",
+                }
                 else "general",
             )
             sent[job.id] = time.monotonic()
