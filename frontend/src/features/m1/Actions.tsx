@@ -56,8 +56,8 @@ export function ActionsPage() {
   });
   return (
     <div className="app-tab-page actions-page">
-      <Title description="只接受可信仓库、workflow 和 ref 的回调；构建结束且文件就绪后通知所选群。">
-        GitHub Actions
+      <Title description="GitHub Actions 只负责构建、上传绑定 COS 并发送通知；Fuma 不读取 GitHub Release。">
+        GitHub Actions 通知规则
       </Title>
       <PageTabs className="tabs">
         <Link to={`/admin/apps/${id}`}>应用设置</Link>

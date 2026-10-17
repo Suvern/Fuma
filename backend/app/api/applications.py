@@ -409,14 +409,6 @@ def _normalize_object_prefix(value: str) -> str:
     return prefix
 
 
-def _effective_prefix(location: StorageLocation, prefix: str) -> str:
-    return "/".join(part for part in (location.prefix.strip("/"), prefix) if part)
-
-
-def _prefixes_overlap(left: str, right: str) -> bool:
-    return left == right or left.startswith(right + "/") or right.startswith(left + "/")
-
-
 def _same_bucket(left: StorageLocation, right: StorageLocation) -> bool:
     return (
         left.provider == right.provider
@@ -511,11 +503,12 @@ def update_app_package_storage(
     if "debug" in prepared and "release" in prepared:
         debug_location = prepared["debug"][2]
         release_location = prepared["release"][2]
-        if _same_bucket(debug_location, release_location) and _prefixes_overlap(
-            _effective_prefix(debug_location, prepared["debug"][1]),
-            _effective_prefix(release_location, prepared["release"][1]),
-        ):
-            raise AppError(422, "STORAGE_PREFIX_CONFLICT", "Debug 与 Release 的对象前缀不能重叠")
+        if _same_bucket(debug_location, release_location):
+            raise AppError(
+                422,
+                "STORAGE_BUCKET_CONFLICT",
+                "Debug 与 Release 必须使用不同存储桶",
+            )
     now = utcnow()
     for channel, value in requested.items():
         row = db.get(AppStorageBindingRecord, {"app_id": app.id, "channel": channel})

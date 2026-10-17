@@ -96,7 +96,7 @@ export function NotificationTemplateSection({ appId, readOnly = false }: { appId
     >
       <h2 id="notification-template-title">Release 通知卡片模板</h2>
       <p className="muted">
-        仅用于当前应用经 GitHub Actions 上传 Release、安装包就绪后的飞书通知。
+        仅用于当前应用的 COS 安装包校验完成后的飞书通知。
         独立保存，不影响其他应用；历史通知及其重试保留原内容。
       </p>
       <ErrorBox error={q.error} />

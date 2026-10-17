@@ -42,7 +42,7 @@ export function ActionsGuide({
           <h2>接入 GitHub Actions</h2>
           <Link to="/docs/github-actions">打开独立接入文档</Link>
         </div>
-        <p>先创建规则，再把该规则的接入文档交给 Agent 修改源仓库 workflow。</p>
+        <p>先创建规则并绑定 Debug/Release 存储桶，再把接入文档交给 Agent 修改源仓库 workflow。</p>
         <Disclosure title="查看接入步骤与 YAML 示例">
           <ActionsGuide appId={appId} />
         </Disclosure>
@@ -56,8 +56,8 @@ export function ActionsGuide({
         <a href="/api/v1/docs/github-actions">Agent 可读的 Markdown</a>
       </p>
       <p>
-        仅保存令牌不会触发通知。需要在源应用仓库完成：构建安装包 → 上传 GitHub
-        Release 附件 → 回调 Fuma。
+        仅保存令牌不会触发通知。需要在源应用仓库完成：构建安装包 → 上传绑定的
+        COS 存储桶 → 回调 Fuma。GitHub 只提供 workflow、commit 和 run 的来源审计信息。
       </p>
       <ol>
         <li>
@@ -73,9 +73,9 @@ export function ActionsGuide({
           ，填写下方对应规则的回调 URL。多条规则应分别使用对应的令牌和 URL。
         </li>
         <li>
-          修改源仓库 build YAML：授予发布 job <code>contents: write</code>
-          ，构建后上传 Release 附件，再提交回调。只上传 Actions artifact
-          不会被当前接入读取。
+          修改源仓库 build YAML：给发布 job 配置最小 COS 上传凭证，构建后把安装包和
+          manifest 上传到规则对应的 Debug/Release 存储桶，再提交回调。只上传 Actions
+          artifact 不会被当前接入读取。
         </li>
         <li>
           运行可信分支 / Tag 的 workflow。回调返回 202 后立即结束步骤；Fuma
@@ -84,8 +84,8 @@ export function ActionsGuide({
         </li>
       </ol>
       <p>
-        Fuma 的 GitHub 连接需要 Contents 与 Actions 读取权限；Release
-        写权限由源仓库的 GITHUB_TOKEN 提供。目标群需已加入机器人。
+        Fuma 不读取 GitHub Release，也不要求 GitHub Release 写权限；GitHub Actions
+        只需能运行 workflow，COS 上传凭证由源仓库自行配置。目标群需已加入机器人。
       </p>
       <Disclosure title="复制 build YAML 示例与修改说明">
         <p>
@@ -94,10 +94,9 @@ export function ActionsGuide({
           触发条件也需按可信分支调整。
         </p>
         <p>
-          已有构建流程时，合并 permissions 和最后一个步骤即可。已有 Release
-          上传步骤时，复用它返回的 Release / asset IDs，再执行回调，避免重复创建
-          Release。多 job 构建需把文件传到发布 job。IPA 需使用对应的 macOS
-          构建流程，并将附件筛选改为 .ipa。
+          已有构建流程时，保留构建命令，只需补充 COS 上传和最后的 v2 回调步骤。
+          多 job 构建需把文件传到发布 job。IPA 需使用对应的 macOS 构建流程，并将
+          文件筛选改为 .ipa；不要创建 GitHub Release。
         </p>
         <Copy value={example} label="复制完整 YAML" />
         <pre tabIndex={0} aria-label="GitHub Actions YAML 示例">
@@ -107,9 +106,9 @@ export function ActionsGuide({
       <Disclosure title="接入验证与常见失败">
         <ul>
           <li>
-            GitHub 回调步骤失败：检查 Secret / Variable
+            COS 上传或回调步骤失败：检查 Secret / Variable
             是否存在，令牌和回调是否来自同一规则，规则是否启用，以及
-            run、SHA、Release 与附件是否属于该仓库。
+            run、SHA、对象 key 与规则配置是否属于该仓库。
           </li>
           <li>
             202
@@ -120,8 +119,7 @@ export function ActionsGuide({
             Fuma 的最终状态。
           </li>
           <li>
-            缓存 / 通知失败：检查 GitHub
-            读取权限、附件是否仍存在、机器人及通知群状态。
+            缓存 / 通知失败：检查绑定 COS 对象是否仍存在、对象摘要和 manifest 是否正确，以及机器人及通知群状态。
           </li>
           <li>
             fork PR 无法使用仓库 Secret
@@ -137,7 +135,7 @@ export function ActionsGuide({
 export function RuleConnection({ rule }: { rule: DTO<"ActionsRule"> }) {
   const markdownPath = `/api/v1/docs/github-actions?rule_id=${encodeURIComponent(rule.id)}`;
   const markdownUrl = new URL(markdownPath, window.location.origin).href;
-  const agentInstructions = `请按以下文档修改源仓库的 GitHub Actions workflow。\n\n接入文档：${markdownUrl}\n仓库：${rule.repository_full_name}\nWorkflow：${rule.workflow_path}\n可信分支：${rule.allowed_branches.join(", ") || "未配置"}\n可信 Tag：${rule.allowed_tags.join(", ") || "未配置"}\n文件匹配：${rule.asset_patterns.join(", ")}\nFUMA_CALLBACK_URL：${rule.callback_url}\nFUMA_CI_TOKEN：由管理员填入 GitHub Actions Secret，不写入代码或日志。\n\n保留现有构建环境，在 Release 附件上传后回调；202 后结束该步骤，等待整个 workflow 成功再核对 Fuma 构建事件。`;
+  const agentInstructions = `请按以下文档修改源仓库的 GitHub Actions workflow。\n\n接入文档：${markdownUrl}\n仓库：${rule.repository_full_name}\nWorkflow：${rule.workflow_path}\n可信分支：${rule.allowed_branches.join(", ") || "未配置"}\n可信 Tag：${rule.allowed_tags.join(", ") || "未配置"}\n文件匹配：${rule.asset_patterns.join(", ")}\nFUMA_CALLBACK_URL：${rule.callback_url}\nFUMA_CI_TOKEN：由管理员填入 GitHub Actions Secret，不写入代码或日志。\n\n保留现有构建环境，将安装包和 manifest 上传到 Fuma 已绑定的 COS channel/prefix 后回调；不要创建 GitHub Release。回调返回 202 后结束该步骤，等待整个 workflow 成功再核对 Fuma 构建事件。`;
   return (
     <>
       <div className="toolbar">
@@ -174,19 +172,34 @@ export function RuleConnection({ rule }: { rule: DTO<"ActionsRule"> }) {
           <dd>{rule.asset_patterns.join(", ")}</dd>
         </dl>
         <p>
-          回调使用 Bearer CI 令牌；字段由 GitHub 上下文和 Release
-          上传结果生成，不接受任意下载 URL 或群 ID。
+          回调使用 Bearer CI 令牌；字段由 GitHub 上下文和 COS 上传结果生成，不接受任意下载 URL、bucket 或群 ID。
         </p>
         <pre tabIndex={0} aria-label="回调请求格式">
           <code>
             {JSON.stringify(
               {
-                repository_id: rule.repository_id,
-                run_id: "GitHub run ID",
-                run_attempt: 1,
-                head_sha: "40 位提交 SHA",
-                release_id: "Release ID",
-                asset_ids: ["Asset ID"],
+                schema_version: "2",
+                event_id: "github-${run_id}-${run_attempt}",
+                app_id: "Fuma App UUID",
+                channel: "debug | release",
+                build: {
+                  version: "1.0.0",
+                  build_number: "构建号",
+                  commit_sha: "40 位提交 SHA",
+                  workflow_run_id: "GitHub run ID",
+                  created_at: "ISO-8601 时间",
+                },
+                object: {
+                  key: "绑定 COS 中的对象 key",
+                  size: 123456,
+                  sha256: "64 位 SHA-256",
+                  etag: null,
+                  content_type: "application/vnd.android.package-archive",
+                },
+                manifest: {
+                  key: "同目录 manifest.json",
+                  sha256: "manifest 的 SHA-256",
+                },
               },
               null,
               2,

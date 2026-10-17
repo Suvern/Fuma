@@ -16,8 +16,7 @@
 | 私有 Debug 桶正常对象 | 自动 ready 并通知 |
 | 公开 Debug 桶正常对象 | 仍完成 binding、checksum 校验后 ready |
 | Debug/Release 不同桶 | 各自读取正确桶 |
-| 同桶不同 prefix | 不跨 prefix 读取 |
-| 同桶相同/父子 prefix | 配置保存被拒绝 |
+| 同 bucket 绑定 | 配置保存被拒绝 |
 | 重复 v2 事件 | 返回原结果，不重复建记录 |
 | 同 key checksum 变化 | 进入 conflict，不能覆盖 |
 | COS 对象不存在 | 可重试失败 |

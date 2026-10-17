@@ -2,7 +2,7 @@
 
 ## 1. 配置页
 
-在 App 设置中新增 Debug/Release 两行存储配置：StorageLocation、prefix、桶模式（私有/公开由 location 提供）、连接测试按钮。展示规范化后的 key 示例和同桶冲突提示。
+在 App 设置中新增 Debug/Release 两行存储配置：StorageLocation、prefix、桶模式（私有/公开由 location 提供）、连接测试按钮。新配置要求两个 channel 使用独立 bucket，并展示规范化后的 key 示例。
 
 保存前调用 validate；保存后展示最后校验时间、操作者和失败原因。secret 只能通过已有凭证管理入口配置，页面不回显。
 
@@ -20,7 +20,7 @@
 
 ## 5. 前端本地验证
 
-- mock API 验证配置校验、同桶 prefix 冲突、异步任务轮询和失败重试。
+- mock API 验证独立 bucket 配置校验、异步任务轮询和失败重试。
 - mock `pending_publish`、`published`、`rejected` 验证按钮权限和状态刷新。
 - 用旧 v1 数据验证列表不会因新增字段为空而崩溃。
 

@@ -6,7 +6,7 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   debug:
     runs-on: ubuntu-latest
@@ -18,31 +18,49 @@ jobs:
           java-version: "17"
       - name: Build Debug APK
         run: ./gradlew assembleDebug
-      - name: Publish Release attachment and enqueue Fuma notification
+      - name: Upload package to COS and enqueue Fuma notification
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
           FUMA_CALLBACK_URL: ${{ vars.FUMA_CALLBACK_URL }}
           FUMA_CI_TOKEN: ${{ secrets.FUMA_CI_TOKEN }}
+          FUMA_APP_ID: ${{ vars.FUMA_APP_ID }}
+          FUMA_VERSION: ${{ vars.FUMA_VERSION }}
           APK_PATH: app/build/outputs/apk/debug/app-debug.apk
         run: |
           set -euo pipefail
           test -f "$APK_PATH"
           test -n "$FUMA_CALLBACK_URL"
           test -n "$FUMA_CI_TOKEN"
-          tag="fuma-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          gh release create "$tag" "$APK_PATH" --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --prerelease --title "Debug ${GITHUB_RUN_NUMBER}"
-          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}")"
-          repo_id="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.id | tostring')"
+          test -n "$FUMA_APP_ID"
+          sha256="$(sha256sum "$APK_PATH" | cut -d' ' -f1)"
+          size="$(stat -c '%s' "$APK_PATH")"
+          object_key="debug/${GITHUB_SHA}/$(basename "$APK_PATH")"
+          manifest_key="debug/${GITHUB_SHA}/manifest.json"
+          version="${FUMA_VERSION:-0.0.0}"
+          build_number="${GITHUB_RUN_NUMBER}"
+          created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          jq -n --arg schema_version "1" --arg platform android \
+            --arg file_name "$(basename "$APK_PATH")" \
+            '{schema_version:$schema_version,platform:$platform,file_name:$file_name}' \
+            > "$RUNNER_TEMP/manifest.json"
+          manifest_sha256="$(sha256sum "$RUNNER_TEMP/manifest.json" | cut -d' ' -f1)"
+          # Replace this line with the approved COS CLI/action for your provider.
+          echo "Upload $APK_PATH to $object_key and $RUNNER_TEMP/manifest.json to $manifest_key using the configured COS uploader"
           payload="$(jq -n \
-            --arg repository_id "$repo_id" \
-            --arg run_id "$GITHUB_RUN_ID" \
-            --argjson run_attempt "$GITHUB_RUN_ATTEMPT" \
-            --arg head_sha "$GITHUB_SHA" \
-            --arg release_id "$(jq -r '.id | tostring' <<< "$release_json")" \
-            --argjson asset_ids "$(jq '[.assets[] | select(.name | endswith(".apk")) | (.id | tostring)]' <<< "$release_json")" \
-            '{repository_id:$repository_id,run_id:$run_id,run_attempt:$run_attempt,head_sha:$head_sha,release_id:$release_id,asset_ids:$asset_ids}')"
+            --arg event_id "github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --arg app_id "$FUMA_APP_ID" \
+            --arg version "$version" \
+            --arg build_number "$build_number" \
+            --arg created_at "$created_at" \
+            --arg commit_sha "$GITHUB_SHA" \
+            --arg workflow_run_id "$GITHUB_RUN_ID" \
+            --arg channel debug \
+            --arg object_key "$object_key" \
+            --arg manifest_key "$manifest_key" \
+            --argjson object_size "$size" \
+            --arg object_sha256 "$sha256" \
+            --arg manifest_sha256 "$manifest_sha256" \
+            '{schema_version:"2",event_id:$event_id,app_id:$app_id,channel:$channel,build:{version:$version,build_number:$build_number,commit_sha:$commit_sha,workflow_run_id:$workflow_run_id,created_at:$created_at},object:{key:$object_key,size:$object_size,sha256:$object_sha256,etag:null,content_type:"application/vnd.android.package-archive"},manifest:{key:$manifest_key,sha256:$manifest_sha256}}')"
           status="$(curl --silent --show-error --fail-with-body --retry 3 --retry-delay 2 \
             --connect-timeout 10 --max-time 30 \
             --header "Authorization: Bearer ${FUMA_CI_TOKEN}" \

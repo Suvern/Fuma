@@ -101,12 +101,33 @@ def test_package_storage_binding_isolated_prefixes_and_revision(client, configur
     assert get_result.status_code == 200, get_result.text
     assert get_result.json()["debug"] is None
 
+    second_storage_id = uuid4()
+    with Session(client.app.state.engine) as db:
+        db.add(
+            StorageLocation(
+                id=second_storage_id,
+                name="测试 Release 存储",
+                provider="oss",
+                region="cn-shanghai",
+                bucket="fuma-release-test",
+                prefix="fuma/release",
+                read_mode="private",
+                encrypted_credentials="{}",
+                enabled=True,
+                is_default=False,
+                status="ready",
+                revision=1,
+                capabilities={},
+            )
+        )
+        db.commit()
+
     saved = client.put(
         f"/api/v1/apps/{app['id']}/package-storage",
         headers={**headers, "If-Match": f'"{app["revision"]}"'},
         json={
             "debug": {"storage_location_id": str(storage_id), "object_prefix": "debug"},
-            "release": {"storage_location_id": str(storage_id), "object_prefix": "release"},
+            "release": {"storage_location_id": str(second_storage_id), "object_prefix": "release"},
         },
     )
     assert saved.status_code == 200, saved.text
@@ -125,7 +146,7 @@ def test_package_storage_binding_isolated_prefixes_and_revision(client, configur
         },
     )
     assert conflict.status_code == 422
-    assert conflict.json()["error"]["code"] == "STORAGE_PREFIX_CONFLICT"
+    assert conflict.json()["error"]["code"] == "STORAGE_BUCKET_CONFLICT"
 
     invalid = client.put(
         f"/api/v1/apps/{app['id']}/package-storage",

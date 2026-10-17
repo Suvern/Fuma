@@ -119,4 +119,4 @@ def test_actions_example_matches_page_and_is_valid_yaml():
     workflow = yaml.safe_load(example)
     step = workflow["jobs"]["debug"]["steps"][-1]
     assert step["env"]["FUMA_CI_TOKEN"] == "${{ secrets.FUMA_CI_TOKEN }}"
-    assert workflow["permissions"]["contents"] == "write"
+    assert workflow["permissions"]["contents"] == "read"

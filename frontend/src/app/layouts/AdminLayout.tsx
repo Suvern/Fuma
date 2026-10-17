@@ -100,7 +100,6 @@ function AdminShell() {
   const appSection = {
     packages: "安装包",
     versions: "版本发布",
-    releases: "GitHub Releases",
     debug: "Debug 包",
     actions: "Actions 规则",
     events: "构建事件",

@@ -2,7 +2,7 @@
 
 ## 1. 设计目标
 
-把“包从哪里来”从隐含的 GitHub 配置提升为 App 的显式配置，同时允许 Debug 和 Release 使用不同桶或同桶不同 prefix。配置变更必须可审计、可校验、可回滚。
+把“包从哪里来”从隐含的 GitHub 配置提升为 App 的显式 COS 配置。Debug 和 Release 默认且新配置必须使用不同存储桶，避免把环境隔离寄托在 prefix 约定上。配置变更必须可审计、可校验、可回滚。
 
 ## 2. 建议数据模型
 
@@ -34,9 +34,9 @@ created_by / updated_by
 
 ## 3. 校验规则
 
-- `debug_storage_location_id` 和 `release_storage_location_id` 可相同或不同。
+- `debug_storage_location_id` 和 `release_storage_location_id` 必须不同；两个 channel 的 bucket identity 不能相同。
 - prefix 必须是规范化相对 key 前缀，禁止以 `/` 开头、禁止 `..`、控制字符和空白歧义。
-- 相同 bucket 时，Debug prefix 与 Release prefix 不能相等，也不能互为父前缀；例如 `packages/` 和 `packages/release/` 应拒绝。
+- prefix 仍需规范化，并且只能在对应 channel 的独立 bucket 内使用；不再支持同桶 prefix 隔离。
 - binding 保存前执行一次“列举/HEAD 测试对象”能力检查；生产环境必须避免把真实 secret 回显到错误信息。
 - 变更 binding 不自动重写历史记录；新事件按事件到达时的 binding 处理，历史记录保留 resolved location/key。
 
@@ -60,7 +60,7 @@ created_by / updated_by
 
 ## 6. 本地验证
 
-- 使用内存数据库或测试数据库覆盖：不同桶、同桶不同 prefix、同桶冲突 prefix、缺少 binding、禁用 binding。
+- 使用内存数据库或测试数据库覆盖：不同桶、同桶拒绝、缺少 binding、禁用 binding。
 - 对同一 App 并发更新 binding，确认不会产生两个 active 配置。
 - 用伪造 bucket/URL 的 v2 事件验证 Fuma 仍按服务端 binding 读取。
 
@@ -70,9 +70,9 @@ created_by / updated_by
 
 - 新增 `app_storage_bindings` 表，主键为 `app_id + channel`，`channel` 限定为 `debug/release`；外键关联 App 和 `StorageLocation`。
 - 新增 `GET/PUT /api/v1/apps/{id}/package-storage`，写入使用 `If-Match` 校验 App revision，变更写入审计事件 `app.package_storage.update`。
-- 服务端会 trim 首尾 `/`，拒绝空前缀、`.`、`..`、控制字符；同一 bucket 的 Debug/Release 有相同或父子前缀时拒绝。
+- 服务端会 trim 首尾 `/`，拒绝空前缀、`.`、`..`、控制字符；Debug/Release 绑定相同 bucket 时拒绝。
 - 只允许 `enabled=true` 且 `status=ready` 的 StorageLocation；不回显凭据。
-- App 设置页新增 Debug/Release 两组选择与 prefix 编辑，允许整组解绑；前端只做及时提示，服务端仍是最终校验方。
+- App 设置页新增 Debug/Release 两组选择与 prefix 编辑，明确标注“存储桶”；前端和服务端都拒绝相同 bucket，未绑定 channel 的 COS 操作直接拒绝。
 - 现有分片上传接口在请求未显式指定 `storage_location_id` 时，按上传 `mode` 读取 App 绑定；无绑定才回退系统默认存储，保留旧客户端显式选择行为。
 
 本切片暂未实现：连接测试对象、旧 binding 自动迁移和对象级审计历史。这些能力分别在第 5、11 阶段实现。COS v2 webhook 和“从 COS 导入”均强制要求对应 channel 存在可用 binding；未绑定时直接拒绝，不接受事件或请求中的任意 bucket/URL。现有 GitHub Release v1 和本地上传兼容入口暂不删除，但不属于 COS 主路径。

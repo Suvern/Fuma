@@ -99,7 +99,7 @@ export function PackagesPage() {
   }, [id, uploadStates, queryClient]);
   return (
     <div className="app-tab-page packages-page">
-      <Title description="手工上传 APK / IPA，解析并校验包标识后入库。入库不会自动发布。">
+      <Title description="将 APK / IPA 上传到绑定的 COS 存储桶，解析并校验包标识后入库。入库不会自动发布。">
         安装包
       </Title>
       <PageTabs />
@@ -182,7 +182,7 @@ export function PackagesPage() {
             >
               <option value="">全部来源</option>
               <option value="upload">手工上传</option>
-              <option value="github">GitHub</option>
+              <option value="cos">COS</option>
             </Select>
           </div>
           <div className="field date-filter">
@@ -266,7 +266,11 @@ export function PackagesPage() {
             <p>{p.signature_status}</p>
             <p>
               状态：{states[p.state] || p.state} · 来源：
-              {p.source_kind === "github" ? "GitHub" : "手工上传"}
+              {p.source_kind === "cos"
+                ? "COS"
+                : p.source_kind === "github"
+                  ? "历史 GitHub（兼容）"
+                  : "手工上传"}
             </p>
             <details>
               <summary>完整校验信息</summary>
@@ -526,7 +530,7 @@ function Uploader({
         <div id="package-upload-form">
           <p>
             单文件最多 4 GiB，16 MiB
-            分片。刷新后重新选择原文件可续传；必须先在应用设置配置对应平台和模式的包标识。
+            分片。上传会写入当前模式绑定的 COS 存储桶；刷新后重新选择原文件可续传，且必须先在应用设置配置对应平台和模式的包标识。
           </p>
           <fieldset
             disabled={busy}
@@ -1436,7 +1440,7 @@ export function PublishedReleasesPage() {
   return (
     <>
       <Title description="仅展示当前账号有权下载的已发布版本。">版本下载</Title>
-      <Link to="/">GitHub Debug 下载</Link>
+      <Link to="/">Debug 下载</Link>
       {session.isSuccess && !session.data?.authenticated && (
         <p>
           <Link to="/login?return_to=%2Freleases">登录飞书查看受限版本</Link>

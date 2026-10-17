@@ -1,4 +1,3 @@
-import { LegacyPersistence } from "../library/GitHubImport";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import List from "@douyinfe/semi-ui-19/lib/es/list";
 import Progress from "@douyinfe/semi-ui-19/lib/es/progress";
@@ -56,9 +55,7 @@ function EntrySortPicker({
         value={value}
         onChange={(next) => onChange(next as EntrySort)}
       >
-        <Select.Option value="source_updated_at">
-          来源更新时间从新到旧
-        </Select.Option>
+        <Select.Option value="source_updated_at">COS 更新时间从新到旧</Select.Option>
         <Select.Option value="imported_at">导入时间从新到旧</Select.Option>
       </Select>
     </label>
@@ -224,13 +221,10 @@ export function DebugListPage() {
   }
   return (
     <div className="app-tab-page debug-list-page">
-      <Title description="查看旧版 Debug 分发包、缓存状态与来源更新。">
-        Debug 包管理
+      <Title description="查看来自 Debug 存储桶的分发包、缓存状态与对象更新时间。">
+        COS Debug 包管理
       </Title>
-      <PageTabs className="tabs">
-        <Link to={`/admin/apps/${id}`}>应用设置</Link>
-        <Link to={`/admin/apps/${id}/releases`}>从 Release 导入</Link>
-      </PageTabs>
+      <PageTabs className="tabs" />
       <fieldset className="app-tab-filters" disabled={cmd.pending}>
         {filters.search}
         <EntrySortPicker
@@ -248,7 +242,7 @@ export function DebugListPage() {
         )}
       </fieldset>
       <p className="muted">
-        来源更新时间指 GitHub 附件更新时间；缺失时按导入时间排序。
+        COS 更新时间来自绑定 Debug 存储桶对象；缺失时按入库时间排序。
       </p>
       {cmd.feedback}
       {cmd.pending && progress.total > 0 && (
@@ -399,7 +393,7 @@ export function DebugListPage() {
             >
               {filters.q
                 ? "请修改或清空搜索条件后重试。"
-                : "请从 Release 选择安装包。"}
+                : "请在「安装包」页从绑定的 Debug 存储桶导入安装包。"}
             </Empty>
           }
           renderItem={(entry) => (
@@ -502,13 +496,9 @@ export function DebugAdminPage() {
           <dd>{e.build_number ?? "—"}</dd>
           <dt>文件大小</dt>
           <dd>{size(e.size_bytes)}</dd>
-          <dt>来源仓库</dt>
-          <dd>{e.source.repository_full_name}</dd>
-          <dt>Release / Asset ID</dt>
-          <dd>
-            {e.source.release_id} / {e.source.asset_id}
-          </dd>
-          <dt>来源更新时间</dt>
+          <dt>来源通道</dt>
+          <dd>COS Debug 存储桶</dd>
+          <dt>对象更新时间</dt>
           <dd>{date(e.source.asset_updated_at)}</dd>
           <dt>SHA256</dt>
           <dd className="mono">{e.cache.sha256 ?? "缓存后生成"}</dd>
@@ -561,7 +551,6 @@ export function DebugAdminPage() {
         </p>
         <SharePage url={e.page_url} />
       </Panel>
-      <LegacyPersistence entry={e} />
     </>
   );
 }

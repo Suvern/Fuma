@@ -25,7 +25,7 @@ Fuma Event API
 
 - `debug_storage_location_id`：Debug 默认来源。
 - `release_storage_location_id`：Release 默认来源。
-- `debug_prefix`、`release_prefix`：同桶时隔离；即使分桶也保留显式 prefix。
+- `debug_prefix`、`release_prefix`：分别作用于独立 bucket；即使分桶也保留显式 prefix，便于对象扫描和权限策略。
 - 读权限引用：不在 App 表保存明文 secret，引用 Fuma 的凭证管理机制。
 
 v2 事件只声明 `channel=debug|release` 和对象 key。Fuma 根据 channel 解析目标 StorageLocation；事件中若出现 bucket、endpoint、URL，仅作为诊断信息或严格比对，不作为信任来源。
@@ -58,6 +58,6 @@ v2 事件只声明 `channel=debug|release` 和对象 key。Fuma 根据 channel �
 | GitHub Release v1 | debug | 兼容现有流程 | legacy，仅用于迁移期和回滚 |
 | GitHub Release v1 | release | 兼容现有流程或转为 pending_publish | legacy，不再作为 COS 主路径依赖 |
 | Debug/Release 不同桶 | 对应 channel | 按 channel 绑定读取 | 推荐生产配置 |
-| Debug/Release 同桶 | 对应 channel | 严格 prefix 隔离 | 必须拒绝跨 prefix |
+| Debug/Release 同桶 | 不再支持新配置 | — | 服务端拒绝同 bucket 绑定 |
 | 私有桶 | 任一 | 服务端凭证读取 | 不暴露长期签名 URL |
 | 公开桶 | 任一 | 仍需对象和 prefix 校验 | 不能仅凭 URL 信任 |

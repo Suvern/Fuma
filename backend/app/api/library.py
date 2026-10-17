@@ -417,7 +417,7 @@ def packages(
     platform: Literal["android", "ios"] | None = None,
     mode: Literal["debug", "release"] | None = None,
     state: Literal["processing", "ready", "deleting", "deleted"] | None = None,
-    source_kind: Literal["upload", "github"] | None = None,
+    source_kind: Literal["upload", "github", "cos"] | None = None,
     created_from: AwareDatetime | None = None,
     created_before: AwareDatetime | None = None,
 ):

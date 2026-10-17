@@ -30,19 +30,6 @@ function normalizedPrefix(value: string) {
   return value.trim().replace(/^\/+|\/+$/g, "");
 }
 
-function prefixesOverlap(left: string, right: string) {
-  return (
-    left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`)
-  );
-}
-
-function effectivePrefix(prefix: string) {
-  // The API intentionally omits the location-level prefix from the public
-  // selector DTO. The server remains the source of truth for final overlap
-  // validation; this client check catches the common same-location case.
-  return normalizedPrefix(prefix);
-}
-
 export function AppStorageBinding({ appId }: { appId: string }) {
   const client = useQueryClient();
   const cmd = useCommand();
@@ -84,13 +71,9 @@ export function AppStorageBinding({ appId }: { appId: string }) {
     if (
       currentDraft.debugStorageId &&
       currentDraft.releaseStorageId &&
-      currentDraft.debugStorageId === currentDraft.releaseStorageId &&
-      prefixesOverlap(
-        effectivePrefix(currentDraft.debugPrefix),
-        effectivePrefix(currentDraft.releasePrefix),
-      )
+      currentDraft.debugStorageId === currentDraft.releaseStorageId
     ) {
-      setValidationError("同一存储位置下，Debug 与 Release 的对象前缀不能重叠。");
+      setValidationError("Debug 与 Release 必须使用不同存储桶。");
       return;
     }
 
@@ -145,8 +128,8 @@ export function AppStorageBinding({ appId }: { appId: string }) {
         )}
       </div>
       <p className="muted settings-edit-hint">
-        Debug 与 Release 可使用同一桶，但对象前缀必须完全隔离；留空表示暂不使用 COS
-        上传。
+        Debug 与 Release 默认分别使用独立存储桶；这两个绑定是 COS 上传、通知接收和补导入的唯一来源。
+        尚未配置时，对应 channel 不能接收或导入安装包。
       </p>
       {cmd.feedback}
       <ErrorBox error={bindings.error ?? available.error} />
@@ -161,10 +144,10 @@ export function AppStorageBinding({ appId }: { appId: string }) {
             const storageId = currentDraft[`${channel}StorageId`];
             return (
               <fieldset key={channel} disabled={!editing || cmd.pending}>
-                <legend>{channelLabel(channel)} 存储</legend>
+                <legend>{channelLabel(channel)} 存储桶</legend>
                 <Select
                   name={`${channel}-storage-location`}
-                  label="存储位置"
+                  label="存储桶"
                   value={storageId}
                   onChange={(event) =>
                     setDraftValue(

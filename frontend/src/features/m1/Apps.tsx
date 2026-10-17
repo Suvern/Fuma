@@ -443,7 +443,7 @@ export function AppsPage() {
               {hasFilters
                 ? "试试其他名称、包标识或筛选条件。"
                 : globalAdmin
-                  ? "支持 Android 与 iOS。关联 GitHub 仓库后，即可导入 Release 安装包。"
+                  ? "支持 Android 与 iOS。创建后配置 Debug/Release 存储桶，再接入 GitHub Actions 通知。"
                   : "尚未获得应用授权，请联系管理员分配应用。"}
             </Empty>
           )}
@@ -478,7 +478,7 @@ function CreateAppForm({
   );
   return (
     <>
-      <p className="muted">先添加基本信息，创建后即可关联 GitHub 仓库。</p>
+      <p className="muted">先添加基本信息，创建后配置 Debug/Release 存储桶，再接入 GitHub Actions 通知。</p>
       {cmd.feedback}
       <Form
         submit={(f) =>
@@ -600,13 +600,12 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
   const navigate = useNavigate();
   return (
     <div className="app-settings-page">
-      <Title description="维护基本信息，然后选择 Release 安装包或接入 GitHub Actions。">
+      <Title description="维护基本信息，配置 Debug/Release 存储桶，并接入 GitHub Actions 通知。">
         {app.name}
       </Title>
       <PageTabs className="tabs">
         <Link to={`/admin/apps/${app.id}/packages`}>安装包</Link>
         <Link to={`/admin/apps/${app.id}/versions`}>版本发布</Link>
-        <Link to={`/admin/apps/${app.id}/releases`}>GitHub Releases</Link>
         <Link to={`/admin/apps/${app.id}/debug`}>Debug 包</Link>
         <Link to={`/admin/apps/${app.id}/actions`}>Actions 规则</Link>
         <Link to={`/admin/apps/${app.id}/events`}>构建事件</Link>
@@ -615,8 +614,7 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
       <div className="inline">
         <AppIcon name={app.name} value={app.icon_data} />
         <p>
-          {app.package_count ?? 0} 个安装包 · {app.publication_count ?? 0}{" "}
-          个发布 · {app.debug_entry_count} 个旧版 Debug 包
+          {app.package_count ?? 0} 个安装包 · {app.publication_count ?? 0} 个发布
         </p>
       </div>
       {cmd.feedback}
@@ -898,7 +896,7 @@ function RepositoryBinding({ app }: { app: DTO<"App"> }) {
   return (
     <Panel>
       <div className="settings-section-heading">
-        <h2>绑定 GitHub 仓库</h2>
+        <h2>GitHub Actions 来源（仅通知）</h2>
         {!editing && (
           <Button
             type="button"
@@ -918,8 +916,8 @@ function RepositoryBinding({ app }: { app: DTO<"App"> }) {
       </div>
       <p className="muted settings-edit-hint">
         {editing
-          ? "选择连接与仓库，保存前会验证读取权限。"
-          : "已绑定，点击「修改」后更换连接或仓库。"}
+          ? "选择连接与仓库，保存前会验证读取权限；这里只用于校验 workflow 来源，不读取 GitHub Release。"
+          : "已绑定，仅用于校验 GitHub Actions workflow 来源；点击「修改」后更换连接或仓库。"}
       </p>
       {cmd.feedback}
       <div className="field">

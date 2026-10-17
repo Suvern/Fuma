@@ -3,6 +3,7 @@ import { PublicLayout } from "./layouts/PublicLayout";
 import { RouteError } from "../shared/components/RouteError";
 import { RouteLoading } from "../shared/components/RouteLoading";
 import { LoginPage, AuthErrorPage } from "../features/m1/Auth";
+import { LegacyReleasesRedirect } from "./LegacyReleasesRedirect";
 export const router = createBrowserRouter([
   {
     Component: PublicLayout,
@@ -77,9 +78,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "apps/:id/releases",
-        lazy: async () => ({
-          Component: (await import("../features/m1/GitHub")).ReleasesPage,
-        }),
+        Component: LegacyReleasesRedirect,
       },
       {
         path: "apps/:id/debug",
