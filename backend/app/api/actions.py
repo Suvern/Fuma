@@ -24,6 +24,7 @@ from app.api.contracts import (
     CosPackageEventAccepted,
     CosPackageEventRequest,
     PackageIngestion,
+    PublicationInfo,
     TaskAccepted,
 )
 from app.api.dependencies import DB, Admin, require_csrf, require_revision
@@ -488,6 +489,27 @@ def receive_cos_package_event(
 )
 def get_package_ingestion(id: UUID, db: DB):
     return package_ingestion_dto(must_get(db, PackageIngestionRecord, id))
+
+
+@router.post(
+    "/package-ingestions/{id}/publish",
+    response_model=PublicationInfo,
+    operation_id="publish_package_ingestion",
+    dependencies=WRITE,
+)
+def publish_package_ingestion(
+    id: UUID,
+    request: Request,
+    db: DB,
+    admin: ScopedManager,
+    if_match: Annotated[str | None, Header()] = None,
+):
+    row = must_get(db, PackageIngestionRecord, id)
+    if row.channel != "release" or row.state != "pending_publish" or not row.publication_id:
+        raise AppError(409, "RELEASE_NOT_PENDING", "只有待人工发布的 COS Release 可以确认发布")
+    from app.api.library import transition
+
+    return transition(row.publication_id, "publish", request, db, admin, if_match)
 
 
 @router.post(

@@ -4809,6 +4809,43 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ErrorResponse'}
+  /api/v1/package-ingestions/{id}/publish:
+    post:
+      operationId: publish_package_ingestion
+      tags: [integrations]
+      summary: Confirm a pending COS Release publication
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Publication confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationInfo'
+        '401': {description: Authentication required}
+        '403':
+          description: Application management permission required or invalid CSRF
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: Resource not available
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '409':
+          description: Release is not pending or source verification failed
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
   /api/v1/build-events/{id}:
     get:
       operationId: get_build_event

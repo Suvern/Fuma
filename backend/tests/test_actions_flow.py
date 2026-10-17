@@ -342,6 +342,9 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch, ch
                 path.write_bytes(content)
                 return len(content), hashlib.sha256(content).hexdigest()
 
+            def verify(self, key, size, sha256, *, public=False, full=False):
+                assert key.endswith("package.apk") and size == 7 and len(sha256) == 64
+
         monkeypatch.setattr(
             "app.domains.storage.package_ingestion.adapter",
             lambda settings, location: HeadOnlyClient(),
@@ -400,10 +403,21 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch, ch
             assert ingestion.publication_id is not None
             publication = db.get(PublicationRecord, ingestion.publication_id)
             assert publication and publication.state == "draft"
+        ingestion_id = ingestion.id
+    if channel == "release":
+        monkeypatch.setattr("app.api.library.adapter", lambda settings, location: HeadOnlyClient())
+        published = client.post(
+            f"/api/v1/package-ingestions/{ingestion_id}/publish",
+            headers={**headers, "If-Match": '"1"'},
+        )
+        assert published.status_code == 200, published.text
+        assert published.json()["state"] == "published"
+    with Session(client.app.state.engine) as db:
+        ingestion = db.get(PackageIngestionRecord, ingestion_id)
+        parse_task = db.get(TaskRecord, ingestion.task_id)
         ingestion.state = "failed"
         parse_task.state = "failed"
         db.commit()
-        ingestion_id = ingestion.id
     retry_headers = {**headers, "Idempotency-Key": str(uuid4())}
     retry = client.post(f"/api/v1/package-ingestions/{ingestion_id}/retry", headers=retry_headers)
     assert retry.status_code == 202, retry.text

@@ -81,12 +81,13 @@
 | 2026-10-17 | 开始 Debug COS 解析入库切片 | 增加独立 `cos_package_parse` 任务，消费 manifest 的平台/文件名，复用现有隔离 Parser，创建 `PackageRecord`、`StoredObject` 和 Debug 记录；原件继续以 COS 对象为主，不回传 GitHub Release |
 | 2026-10-17 | 完成 Debug ready 通知切片 | COS 入库事务同时创建带规则归属的 Feishu 投递记录和通知任务；发送前重新校验 App、规则和群目标，新增 `0024_cos_notification_rule` 迁移；通知失败不回滚已 ready 包 |
 | 2026-10-17 | 开始 COS Release 人工发布切片 | Release 解析后创建 `PackageRecord`、`VersionRecord`、草稿 `PublicationRecord`，入库状态为 `pending_publish`；新增 `package_id/publication_id` 关联和 `0025_cos_release_publication` 迁移，未创建 Debug 条目 |
+| 2026-10-17 | 增加 COS Release 确认发布入口 | 新增 `POST /package-ingestions/{id}/publish`，复用 Publication 权限/审计/If-Match，并在发布前重新校验 COS canonical 对象 |
 
 ## 8. 本轮本地验证证据
 
 - `make idl-check`：OpenAPI YAML/JSON、后端生成契约、前端生成类型均同步。
 - `uv run --directory backend alembic upgrade head`：本地开发数据库迁移到 `0025_cos_release_publication`；`alembic current` 确认当前为 head。
-- 后端集成测试：独立临时 PostgreSQL 中 `285 passed`；覆盖 COS Debug/Release 事件首次接收、重复、冲突、对象校验、Parser 结果入库、Debug 自动 ready、Release `pending_publish` 和失败重试。
+- 后端集成测试：独立临时 PostgreSQL 中 `285 passed`；覆盖 COS Debug/Release 事件首次接收、重复、冲突、对象校验、Parser 结果入库、Debug 自动 ready、Release `pending_publish`、发布前复核和失败重试。
 - 前端：既有 `pnpm test --run`（186 passed）、`pnpm lint`、`pnpm typecheck`、`pnpm build` 均通过；本轮生成类型后再次通过 `pnpm typecheck`。
 - 浏览器本地验证：`http://localhost:5174/admin/apps/<本地测试 App>` 已显示“包存储绑定”卡片，验证编辑态及未绑定保存；未连接任何线上 COS。
 - 上传路由集成测试：未指定存储位置的 Release 上传命中 App Release 绑定，独立测试库用例通过。

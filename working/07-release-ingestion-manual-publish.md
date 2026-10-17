@@ -15,6 +15,8 @@ Release 的 ingest 与 publish 必须是两个独立动作。当前 COS Release 
 
 当前切片的关联字段：`PackageIngestion.package_id`、`PackageIngestion.publication_id`。重复执行同一事件会复用相同 Package/Publication，不重复创建 Debug 条目。
 
+新增确认入口：`POST /package-ingestions/{id}/publish`。该入口只接受 `pending_publish` 的 Release，复用 Publication 的权限、`If-Match` 修订校验和审计；发布前会对 `source_kind=cos` 的 canonical 对象重新执行 HEAD/完整摘要校验。校验失败时保持草稿，不改变对外状态。
+
 ## 2. 人工确认页面信息
 
 页面至少展示：App、channel、版本、build number、commit、workflow run、对象 key、bucket/prefix（脱敏）、size、SHA-256、manifest、包解析结果、与上一版本的差异、来源类型、ingest 时间和失败/重试记录。
@@ -38,4 +40,5 @@ Release 的 ingest 与 publish 必须是两个独立动作。当前 COS Release 
 - COS Release 事件只能变为 `pending_publish`，必须由人工调用既有 Publication 发布操作。
 - 无权限用户不能 publish；重复 publish 不产生第二次发布。
 - 对象在确认前被替换时 publish 必须拒绝。
+- `POST /package-ingestions/{id}/publish` 的重复或过期修订请求不能绕过 Publication 状态机。
 - publish 后通知失败可重试，不回退已审计的发布状态。

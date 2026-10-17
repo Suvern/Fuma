@@ -43,6 +43,8 @@ from app.domains.library.models import (
     UploadRecord,
     VersionRecord,
 )
+from app.domains.storage.models import StoredObject
+from app.domains.storage.service import adapter, ready_location
 
 router = APIRouter(tags=["PackageLibrary"])
 CHUNK_SIZE = 16 * 1024 * 1024
@@ -128,6 +130,29 @@ def publication_dto(db, row):
             )
         ),
     }
+
+
+def verify_cos_sources(db, settings, package_ids):
+    for package_id in package_ids:
+        package = must_get(db, PackageRecord, package_id)
+        if package.source_kind != "cos":
+            continue
+        if not package.storage_location_id:
+            raise AppError(409, "STORAGE_NOT_READY", "COS 原件位置缺失，不能发布")
+        location = ready_location(db, package.storage_location_id)
+        stored = db.scalar(
+            select(StoredObject).where(
+                StoredObject.package_id == package.id,
+                StoredObject.location_id == location.id,
+                StoredObject.kind == "canonical",
+                StoredObject.state == "ready",
+            )
+        )
+        if not stored:
+            raise AppError(409, "STORAGE_NOT_READY", "COS 原件尚未就绪，不能发布")
+        adapter(settings, location).verify(
+            stored.object_key, package.size_bytes, package.sha256, full=True
+        )
 
 
 def locked_upload(db, id, *, receiving=False):
@@ -685,6 +710,7 @@ def transition(id, action, request, db, admin, revision):
                 and not package_file(request.app.state.settings, id).is_file()
             ):
                 raise AppError(409, "PACKAGE_NOT_READY", "文件不可用，不能发布")
+        verify_cos_sources(db, request.app.state.settings, items)
         row.file_set_frozen = True
         row.published_at = utcnow()
     row.state, row.revision = after, row.revision + 1
