@@ -2,6 +2,7 @@
 
 import base64
 import copy
+import hashlib
 import json
 import secrets
 from uuid import UUID, uuid4
@@ -272,13 +273,13 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
         },
         "object": {
             "key": "fuma/test/debug/1.2.3/123/package.apk",
-            "size": 1234,
-            "sha256": "b" * 64,
+            "size": 7,
+            "sha256": hashlib.sha256(b"package").hexdigest(),
             "content_type": "application/vnd.android.package-archive",
         },
         "manifest": {
             "key": "fuma/test/debug/1.2.3/123/manifest.json",
-            "sha256": "c" * 64,
+            "sha256": hashlib.sha256(b"manifest").hexdigest(),
         },
     }
     endpoint = f"/api/v1/integrations/github-actions/{rule['rule']['id']}/cos-events"
@@ -293,7 +294,7 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
     changed = client.post(
         endpoint,
         headers={"Authorization": "Bearer " + rule["token"]},
-        json={**body, "object": {**body["object"], "size": 1235}},
+        json={**body, "object": {**body["object"], "size": 8}},
     )
     assert changed.status_code == 409
     with Session(client.app.state.engine) as db:
@@ -305,8 +306,20 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
 
         class HeadOnlyClient:
             def head(self, key):
-                assert key == body["object"]["key"]
-                return body["object"]["size"], None
+                if key == body["object"]["key"]:
+                    return body["object"]["size"], None
+                return 1, None
+
+            def download(self, key, path, *, expected_size=None, max_size=None):
+                import hashlib
+
+                content = b"package" if key == body["object"]["key"] else b"manifest"
+                if expected_size is not None:
+                    assert len(content) == expected_size
+                if max_size is not None:
+                    assert len(content) <= max_size
+                path.write_bytes(content)
+                return len(content), hashlib.sha256(content).hexdigest()
 
         monkeypatch.setattr(
             "app.domains.storage.package_ingestion.adapter",

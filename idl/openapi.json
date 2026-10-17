@@ -2426,6 +2426,7 @@
           },
           "size": {
             "format": "int64",
+            "maximum": 4294967296,
             "minimum": 1,
             "type": "integer"
           }

@@ -5,6 +5,8 @@ parsing and publishing are separate stages so each transition can be retried and
 verified without making an untrusted callback a package release.
 """
 
+import tempfile
+from pathlib import Path
 from uuid import UUID
 
 from app.core.errors import AppError
@@ -60,9 +62,19 @@ def verify_object(db, settings, task) -> None:
         raise AppError(409, "STORAGE_CONTENT_MISMATCH", "对象大小与构建事件不一致")
     if provider_sha256 and provider_sha256.lower() != ingestion.object_sha256:
         raise AppError(409, "STORAGE_CONTENT_MISMATCH", "对象摘要与构建事件不一致")
-    # The provider metadata check is optional because GitHub Actions uploads may
-    # not be allowed to set custom metadata.  Full content hashing is the next
-    # ingestion stage and must happen before the package is marked ready.
+    with tempfile.TemporaryDirectory(prefix="fuma-cos-ingest-") as directory:
+        package_path = Path(directory) / "package.bin"
+        manifest_path = Path(directory) / "manifest.json"
+        _, package_sha256 = client.download(
+            ingestion.object_key, package_path, expected_size=ingestion.object_size
+        )
+        if package_sha256 != ingestion.object_sha256:
+            raise AppError(409, "STORAGE_CONTENT_MISMATCH", "对象内容摘要与构建事件不一致")
+        _, manifest_sha256 = client.download(
+            ingestion.manifest_key, manifest_path, max_size=16 * 1024 * 1024
+        )
+        if manifest_sha256 != ingestion.manifest_sha256:
+            raise AppError(409, "STORAGE_CONTENT_MISMATCH", "manifest 摘要与构建事件不一致")
     ingestion.state = "verified"
     ingestion.verified_at = utcnow()
     ingestion.updated_at = utcnow()

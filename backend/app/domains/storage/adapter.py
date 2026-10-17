@@ -187,6 +187,29 @@ class Adapter:
             expires=timedelta(seconds=seconds),
         ).url
 
+    def download(self, key, path, *, expected_size=None, max_size=None):
+        """Stream a verified provider object to a local temporary path."""
+        key = self.key(key)
+        digest, count = hashlib.sha256(), 0
+        try:
+            with httpx.Client(timeout=30, follow_redirects=False, trust_env=False) as client:
+                with client.stream("GET", self.presign(key, seconds=600)) as response:
+                    response.raise_for_status()
+                    with open(path, "wb") as target:
+                        for chunk in response.iter_bytes(1024**2):
+                            count += len(chunk)
+                            if expected_size is not None and count > expected_size:
+                                raise ValueError("object is larger than declared")
+                            if max_size is not None and count > max_size:
+                                raise ValueError("object is larger than allowed")
+                            digest.update(chunk)
+                            target.write(chunk)
+        except Exception:
+            raise AppError(503, "STORAGE_DOWNLOAD_FAILED", "云端对象下载失败，请稍后重试") from None
+        if expected_size is not None and count != expected_size:
+            raise AppError(409, "STORAGE_CONTENT_MISMATCH", "对象大小与构建事件不一致")
+        return count, digest.hexdigest()
+
     def anonymous_status(self, key):
         try:
             with httpx.Client(timeout=15, follow_redirects=False, trust_env=False) as client:

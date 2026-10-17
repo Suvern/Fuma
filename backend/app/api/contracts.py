@@ -1127,7 +1127,7 @@ class CosPackageObject(BaseModel):
         extra="forbid",
     )
     key: str = Field(..., max_length=600, min_length=1)
-    size: int = Field(..., ge=1)
+    size: int = Field(..., ge=1, le=4294967296)
     sha256: str = Field(..., pattern="^[0-9a-fA-F]{64}$")
     etag: str | None = Field(None, max_length=200)
     content_type: str = Field(..., max_length=100)

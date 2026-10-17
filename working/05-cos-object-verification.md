@@ -6,8 +6,7 @@ Fuma 只信任：App 的存储 binding、服务端凭证、v2 签名、对象 ke
 
 当前已落地的第一步是：事件只能引用 App 已绑定且 `ready` 的存储位置，object/manifest
 key 必须落在 `location.prefix + binding.object_prefix` 下，拒绝空路径、`.`、`..` 和目录对象。
-后台任务使用服务端 Adapter 做 HEAD，校验对象大小；若云端返回 `sha256` 元数据则同时比对。
-由于 Joice 上传是否能写入自定义元数据尚未确认，这一步不会把“没有元数据”误判为摘要通过，完整内容 SHA 仍由后续下载阶段负责。
+后台任务使用服务端 Adapter 做 HEAD，校验对象大小；若云端返回 `sha256` 元数据则同时比对，随后通过短时签名 URL 流式下载对象和 manifest，计算并比对完整 SHA-256。由于 Joice 上传是否能写入自定义元数据尚未确认，元数据只作为加速校验，不能替代内容摘要。
 
 ## 2. 私有桶
 
