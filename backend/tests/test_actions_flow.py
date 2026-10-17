@@ -378,6 +378,14 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
         parse_and_persist(db, client.app.state.settings, parse_task)
         assert db.get(PackageIngestionRecord, ingestion.id).state == "ready"
         assert db.scalar(select(DebugRecord)) is not None
+        delivery = db.scalar(
+            select(DeliveryRecord).where(DeliveryRecord.rule_id == UUID(rule["rule"]["id"]))
+        )
+        assert delivery and delivery.kind == "build_ready" and delivery.state == "queued"
+        notification_task = db.scalar(
+            select(TaskRecord).where(TaskRecord.dedupe_key == f"cos_notification:{ingestion.id}")
+        )
+        assert notification_task and str(delivery.id) in notification_task.payload["delivery_ids"]
         ingestion.state = "failed"
         parse_task.state = "failed"
         db.commit()

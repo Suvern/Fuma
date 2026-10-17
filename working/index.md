@@ -78,16 +78,18 @@
 | 2026-10-17 | 完成 COS v2 事件接入首轮垂直切片 | 新增事件契约、规则令牌鉴权、App/channel/prefix 校验、`event_id` 幂等落库、`cos_package_ingest` 任务及对象 HEAD/大小/已有摘要元数据校验；尚未解析或自动 ready |
 | 2026-10-17 | 完成 COS 对象内容校验切片 | 增加签名 URL 流式下载、对象 SHA-256 与 manifest SHA-256 校验，临时文件只写运行时临时目录；尚未解析或入库 |
 | 2026-10-17 | 开始 Debug COS 解析入库切片 | 增加独立 `cos_package_parse` 任务，消费 manifest 的平台/文件名，复用现有隔离 Parser，创建 `PackageRecord`、`StoredObject` 和 Debug 记录；原件继续以 COS 对象为主，不回传 GitHub Release |
+| 2026-10-17 | 完成 Debug ready 通知切片 | COS 入库事务同时创建带规则归属的 Feishu 投递记录和通知任务；发送前重新校验 App、规则和群目标，新增 `0024_cos_notification_rule` 迁移；通知失败不回滚已 ready 包 |
 
 ## 8. 本轮本地验证证据
 
 - `make idl-check`：OpenAPI YAML/JSON、后端生成契约、前端生成类型均同步。
-- `uv run --directory backend alembic upgrade head`：本地开发数据库迁移到 `0023_cos_debug_ingestion`；`alembic current` 确认当前为 head。
+- `uv run --directory backend alembic upgrade head`：本地开发数据库迁移到 `0024_cos_notification_rule`；`alembic current` 确认当前为 head。
 - 后端集成测试：独立临时 PostgreSQL 中 `284 passed`；覆盖 COS 事件首次接收、重复、冲突、对象校验、Parser 结果入库、Debug 自动 ready 和失败重试。
 - 前端：`pnpm test --run`（186 passed）、`pnpm lint`、`pnpm typecheck`、`pnpm build` 均通过。
 - 浏览器本地验证：`http://localhost:5174/admin/apps/<本地测试 App>` 已显示“包存储绑定”卡片，验证编辑态及未绑定保存；未连接任何线上 COS。
 - 上传路由集成测试：未指定存储位置的 Release 上传命中 App Release 绑定，独立测试库用例通过。
 - COS 事件集成测试：独立临时 PostgreSQL 中覆盖首次接收、重复事件、同事件内容冲突、任务入队、fake adapter HEAD/下载、Parser 结果入库和失败重试；`test_actions_flow.py` 全部通过。
+- COS ready 通知测试：验证入库事务创建 `DeliveryRecord` 与 `notification` 任务、绑定 Actions 规则目标，并由发送前的规则/App/群成员校验保护；通知失败可沿用现有投递重试入口。
 
 ## 9. 每阶段完成定义
 

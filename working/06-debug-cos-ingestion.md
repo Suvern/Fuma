@@ -13,7 +13,7 @@ Debug 通过所有校验后自动进入 `ready`。重复事件命中同一 `even
 当前实现已覆盖 `received -> validating -> verified -> parsing -> ready`：`verified` 代表
 对象和 manifest 已完成 HEAD、流式下载及 SHA-256 校验；`parsing` 会把对象交给现有隔离
 Parser，校验 manifest 平台/文件名和 Parser 输出后创建云端原件 `PackageRecord`、
-`StoredObject` 及 Debug 记录。通知仍未接入，ZIP manifest 的最终字段仍需和 Joice 确认。
+`StoredObject` 及 Debug 记录，并创建可重试的 Feishu ready 投递。ZIP manifest 的最终字段仍需和 Joice 确认。
 
 ## 2. 任务步骤
 
@@ -24,7 +24,7 @@ Parser，校验 manifest 平台/文件名和 Parser 输出后创建云端原件 
 5. 校验 manifest 的 `schema_version/platform/file_name`，生成 Parser 请求。
 6. 将 APK/IPA/可解析 ZIP 交给现有 Parser；校验包名、版本、平台。
 7. 在事务中创建或更新 DebugRecord、PackageRecord、StoredObject 和来源信息，下载授权直接指向绑定的 COS 原件。
-8. 提交后发送 ready 通知；通知失败不回滚包记录，使用独立 outbox 重试。
+8. 同一事务创建带 Actions 规则归属的 `DeliveryRecord` 和 `notification` 任务；通知发送前重新校验 App、规则、目标群和机器人状态，通知失败不回滚包记录，使用现有投递重试入口。
 
 ## 3. API 与异步任务
 
@@ -42,3 +42,4 @@ Parser，校验 manifest 平台/文件名和 Parser 输出后创建云端原件 
 
 - 使用本地 S3/COS 兼容服务或 fake adapter 覆盖：正常 APK、正常 IPA、ZIP、checksum 错误、对象不存在、私有权限失败、重复事件、同 key 不同 checksum。
 - 验证 Debug 自动 ready，通知失败可独立重试，任务失败不会产生半条 ready 记录。
+- 验证规则停用、目标群移除、机器人离开群和飞书配置变化时，通知被拒绝但 Debug 仍保持 ready。

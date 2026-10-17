@@ -186,6 +186,7 @@ class DeliveryRecord(Timestamped, Base):
     __tablename__ = "notification_deliveries"
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     event_id: Mapped[UUID | None] = mapped_column(ForeignKey("build_events.id"))
+    rule_id: Mapped[UUID | None] = mapped_column(ForeignKey("actions_rules.id"))
     app_id: Mapped[UUID | None] = mapped_column(ForeignKey("applications.id"))
     chat_id: Mapped[str] = mapped_column(String(128))
     chat_name: Mapped[str] = mapped_column(String(500))

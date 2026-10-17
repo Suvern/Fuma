@@ -15,8 +15,9 @@ from app.core.errors import AppError
 from app.domains.applications.models import AppRecord
 from app.domains.applications.service import platform_enabled
 from app.domains.auth.service import utcnow
-from app.domains.distribution.models import DebugRecord, PackageIngestionRecord
-from app.domains.distribution.service import RetryLater, digest, must_get
+from app.domains.distribution.feishu import create_delivery
+from app.domains.distribution.models import DebugRecord, PackageIngestionRecord, RuleRecord
+from app.domains.distribution.service import RetryLater, digest, enqueue, must_get
 from app.domains.library.models import PackageRecord
 from app.domains.storage.models import StoredObject
 from app.domains.storage.package_ingestion import binding_for
@@ -217,6 +218,47 @@ def _persist_package(db, ingestion, location, metadata, platform, file_name):
     return entry
 
 
+def _queue_ready_notifications(db, ingestion, entry, metadata):
+    rule = db.get(RuleRecord, ingestion.rule_id)
+    if rule is None or not rule.data.get("enabled"):
+        return
+    chat_ids = list(dict.fromkeys(rule.data.get("chat_ids", [])))
+    if not chat_ids:
+        return
+    app = must_get(db, AppRecord, ingestion.app_id)
+    card = {
+        "title": "Debug 安装包已就绪",
+        "summary": "COS 安装包已校验并解析完成，可在 Fuma 下载。",
+        "app_name": app.name,
+        "mode": ingestion.channel,
+        "version_label": f"Tag: {ingestion.build.get('version', '未提供版本')}",
+        "build_number": metadata.get("build_number"),
+        "file_names": [entry.file_name],
+        "result": "success",
+        "occurred_at": utcnow().isoformat(),
+        "page_url": None,
+    }
+    deliveries = [
+        create_delivery(
+            db,
+            chat_id,
+            card,
+            rule_id=rule.id,
+            app_id=ingestion.app_id,
+            kind="build_ready",
+            enqueue_task=False,
+        )
+        for chat_id in chat_ids
+    ]
+    enqueue(
+        db,
+        "notification",
+        app_id=ingestion.app_id,
+        payload={"delivery_ids": [str(delivery.id) for delivery in deliveries]},
+        dedupe_key=f"cos_notification:{ingestion.id}",
+    )
+
+
 def parse_and_persist(db, settings, task):
     ingestion = must_get(db, PackageIngestionRecord, UUID(task.resource_id))
     if ingestion.state == "ready":
@@ -235,7 +277,8 @@ def parse_and_persist(db, settings, task):
     file_name = task.payload.get("file_name")
     if platform not in {"android", "ios"} or not isinstance(file_name, str):
         raise AppError(422, "INVALID_PACKAGE_MANIFEST", "解析任务缺少 manifest 元数据")
-    _persist_package(db, ingestion, location, metadata, platform, file_name)
+    entry = _persist_package(db, ingestion, location, metadata, platform, file_name)
+    _queue_ready_notifications(db, ingestion, entry, metadata)
     ingestion.state = "ready"
     ingestion.error_code = ingestion.error_message = None
     ingestion.updated_at = utcnow()

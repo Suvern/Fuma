@@ -144,7 +144,15 @@ def validate_chats(db, chat_ids):
 
 
 def create_delivery(
-    db, chat_id, card, *, event_id=None, app_id=None, kind="test", enqueue_task=True
+    db,
+    chat_id,
+    card,
+    *,
+    event_id=None,
+    rule_id=None,
+    app_id=None,
+    kind="test",
+    enqueue_task=True,
 ):
     if kind == "build_ready":
         from app.domains.distribution.notification_templates import apply_release_template
@@ -154,6 +162,7 @@ def create_delivery(
     now = utcnow()
     delivery = DeliveryRecord(
         event_id=event_id,
+        rule_id=rule_id,
         app_id=app_id,
         chat_id=chat_id,
         chat_name=chat.name if chat else "已移除群",
@@ -251,14 +260,13 @@ def _send_delivery(db, settings, delivery_id):
         if cfg.revision != fs_revision or bot.revision != bot_revision:
             raise AppError(409, "CONFIG_CHANGED", "通知准备期间机器人配置已变化")
         validate_chats(db, [row.chat_id])
-        if row.event_id:
-            event = db.get(EventRecord, row.event_id)
+        if row.event_id or row.rule_id:
+            event = db.get(EventRecord, row.event_id) if row.event_id else None
             app = db.scalar(select(AppRecord).where(AppRecord.id == row.app_id).with_for_update())
+            rule_id = event.rule_id if event else row.rule_id
             rule = (
-                db.scalar(
-                    select(RuleRecord).where(RuleRecord.id == event.rule_id).with_for_update()
-                )
-                if event
+                db.scalar(select(RuleRecord).where(RuleRecord.id == rule_id).with_for_update())
+                if rule_id
                 else None
             )
             if (
