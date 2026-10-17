@@ -168,6 +168,57 @@ class Adapter:
         )
         return value.content_length, (value.metadata or {}).get("sha256")
 
+    def list_objects(self, prefix, *, limit=50, cursor=None):
+        """List objects below a validated application prefix.
+
+        Listing is intentionally kept behind the adapter so provider response
+        shapes and continuation tokens never reach the API layer.
+        """
+        prefix = prefix.strip("/")
+        if not prefix or not prefix.startswith(self.location.prefix + "/"):
+            raise AppError(422, "STORAGE_KEY_INVALID", "对象不在本系统专用路径内")
+        if not 1 <= limit <= 100:
+            raise AppError(422, "STORAGE_LIST_LIMIT_INVALID", "对象列表大小无效")
+        if self.location.provider == "cos":
+            arguments = {
+                "Bucket": self.location.bucket,
+                "Prefix": prefix + "/",
+                "MaxKeys": limit,
+            }
+            if cursor:
+                arguments["Marker"] = cursor
+            result = self.call("list_objects", **arguments)
+            contents = result.get("Contents", []) or []
+            items = [
+                {
+                    "key": item.get("Key"),
+                    "size": int(item.get("Size", 0)),
+                    "sha256": item.get("x-cos-meta-sha256"),
+                }
+                for item in contents
+                if item.get("Key")
+            ]
+            return {
+                "items": items,
+                "next_cursor": result.get("NextMarker") if result.get("IsTruncated") else None,
+            }
+        request = self.oss.ListObjectsV2Request(
+            bucket=self.location.bucket,
+            prefix=prefix + "/",
+            max_keys=limit,
+            continuation_token=cursor,
+        )
+        result = self.call("list_objects_v2", request=request)
+        contents = result.contents or []
+        return {
+            "items": [
+                {"key": item.key, "size": int(item.size or 0), "sha256": None}
+                for item in contents
+                if item.key
+            ],
+            "next_cursor": result.next_continuation_token if result.is_truncated else None,
+        }
+
     def presign(self, key, seconds=300, file_name="download.bin"):
         key = self.key(key)
         disposition = "attachment; filename*=UTF-8''" + quote(file_name, safe="")

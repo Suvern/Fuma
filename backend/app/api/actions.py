@@ -21,6 +21,7 @@ from app.api.contracts import (
     BuildEventPage,
     BuildEventRequest,
     BuildRetryRequest,
+    CosObjectCandidatePage,
     CosPackageEventAccepted,
     CosPackageEventRequest,
     CosPackageImportRequest,
@@ -61,7 +62,12 @@ from app.domains.distribution.service import (
     task_accepted,
 )
 from app.domains.storage.models import StorageLocation
-from app.domains.storage.package_ingestion import assert_object_key, package_ingestion_dto
+from app.domains.storage.package_ingestion import (
+    assert_object_key,
+    effective_prefix,
+    package_ingestion_dto,
+)
+from app.domains.storage.service import adapter
 
 router = APIRouter(tags=["actions"])
 WRITE = [Depends(require_scoped_manager), Depends(require_csrf)]
@@ -145,6 +151,72 @@ def list_package_ingestions(
         statement = statement.where(PackageIngestionRecord.channel == channel)
     rows = db.scalars(statement).all()
     return page([package_ingestion_dto(db, row) for row in rows], page_number, page_size)
+
+
+@router.get(
+    "/apps/{id}/package-ingestions/cos-objects",
+    response_model=CosObjectCandidatePage,
+    operation_id="list_cos_package_objects",
+    dependencies=READ,
+)
+def list_cos_package_objects(
+    id: UUID,
+    request: Request,
+    db: DB,
+    channel: Literal["debug", "release"] = Query(...),
+    page_size: int = Query(50, ge=1, le=100),
+    cursor: str | None = Query(None, max_length=600),
+):
+    app = must_get(db, AppRecord, id)
+    if not app.enabled or app.archived_at:
+        raise AppError(409, "APP_NOT_READY", "App 已停用或已归档")
+    binding = db.get(AppStorageBindingRecord, {"app_id": app.id, "channel": channel})
+    if binding is None:
+        raise AppError(409, "APP_STORAGE_NOT_BOUND", "该通道尚未绑定存储位置")
+    location = db.get(StorageLocation, binding.storage_location_id)
+    if location is None or not location.enabled or location.status != "ready":
+        raise AppError(409, "STORAGE_NOT_READY", "绑定的存储位置不可用，请重新配置")
+    client = adapter(request.app.state.settings, location)
+    prefix = effective_prefix(location, binding.object_prefix)
+    listed = client.list_objects(prefix, limit=page_size, cursor=cursor)
+    objects = {item["key"]: item for item in listed["items"] if item.get("key")}
+    candidates = []
+    for item in listed["items"]:
+        key = item.get("key")
+        if not key or not key.lower().endswith((".apk", ".ipa", ".zip")):
+            continue
+        assert_object_key(location, binding.object_prefix, key)
+        size = int(item.get("size", 0))
+        sha256 = item.get("sha256")
+        try:
+            head_size, head_sha256 = client.head(key)
+            size = head_size
+            sha256 = head_sha256 or sha256
+        except AppError:
+            # Keep a listed object visible; import remains disabled until its
+            # metadata can be resolved by the next request.
+            pass
+        parent = key.rsplit("/", 1)[0]
+        manifest_key = parent + "/manifest.json"
+        manifest_size = manifest_sha256 = None
+        if manifest_key in objects or not objects:
+            try:
+                manifest_size, manifest_sha256 = client.head(manifest_key)
+            except AppError:
+                manifest_key = None
+        else:
+            manifest_key = None
+        candidates.append(
+            {
+                "key": key,
+                "size": size,
+                "sha256": sha256,
+                "manifest_key": manifest_key,
+                "manifest_size": manifest_size,
+                "manifest_sha256": manifest_sha256,
+            }
+        )
+    return {"items": candidates, "next_cursor": listed["next_cursor"]}
 
 
 @router.post(

@@ -23,7 +23,7 @@
 | 6 | [Debug COS 接入](./06-debug-cos-ingestion.md) | 进行中 | 已校验对象进入 Parser 并创建云端原件 Debug 记录；支持 webhook 和手工补导入 | 通知、ZIP manifest 细节与真实 Parser 联调待完成 |
 | 7 | [Release 接入](./07-release-ingestion-manual-publish.md) | 进行中 | COS Release 入库到 `pending_publish`，版本发布页确认发布，复用 Publication 草稿与既有发布权限 | 需补拒绝/重新校验动作、发布后通知和真实 COS 联调 |
 | 8 | [Fuma 后端改造](./08-fuma-backend-implementation.md) | 进行中 | App 存储绑定 API、迁移、审计和并发版本校验 | 依赖 4-7 的事件/对象流程 |
-| 9 | [Fuma 前端与 OpenAPI](./09-fuma-frontend-and-openapi.md) | 进行中 | 应用设置绑定卡片、COS Release 待发布/补导入表单、确认发布按钮、OpenAPI 类型同步 | 需补充 COS 对象扫描、真实连接测试和事件记录 |
+| 9 | [Fuma 前端与 OpenAPI](./09-fuma-frontend-and-openapi.md) | 进行中 | 应用设置绑定卡片、COS Release 待发布/补导入表单、绑定前缀对象扫描、确认发布按钮、OpenAPI 类型同步 | 需补充跨页扫描、真实连接测试和事件记录 |
 | 10 | [Joice Actions 迁移](./10-joice-github-actions-migration.md) | 未开始 | 仅保留现状审计，不改 Joice 工作区 | Fuma 主路径验收完成后再单独排期 |
 | 11 | [旧 Release 迁移](./11-legacy-release-migration.md) | 未开始 | 历史包同步、清单、校验与重试 | 依赖 5、7 |
 | 12 | [灰度与回滚](./12-rollout-and-rollback.md) | 未开始 | 分阶段开关、回滚策略 | 依赖 8-11 |
@@ -90,6 +90,7 @@
 | 2026-10-17 | 审计 Joice 本地 Android workflow | 确认现有 workflow 已上传 COS 但仍上传 GitHub Release；旧 webhook 不符合 Fuma v2；当前 COS ZIP 产物不能直接被 Fuma Android Parser 解析，需先确认并改为 APK/IPA 对象契约 |
 | 2026-10-17 | Fuma 增加 COS 通知丢失补导入能力 | 新增管理员 `POST /api/v1/apps/{id}/package-ingestions/import`；要求 App/channel binding 和 COS 对象/manifest 摘要，复用异步校验、解析、Debug ready、Release pending_publish 状态机；`package_ingestions.rule_id` 改为可空以支持无 CI 通知规则的导入 |
 | 2026-10-17 | Fuma 管理页接入 COS 补导入表单 | 安装包页提供 Debug、版本发布页提供 Release；表单只提交 COS key/摘要和构建元数据，不上传文件，提交后统一刷新入库状态 |
+| 2026-10-18 | Fuma 接入绑定 COS 对象扫描 | 新增 Adapter 统一列举 COS/OSS 对象和 continuation cursor；新增按 App/channel binding 限定范围的对象列表 API；前端选择对象后自动带入大小、摘要和同目录 manifest，缺少校验元数据时禁止直接提交 |
 
 ## 8. 本轮本地验证证据
 
@@ -104,6 +105,7 @@
 - COS Release 管理页本地验证：登录本地 `http://localhost:5174` 后进入 App「版本发布」，可看到“COS Release 待发布”面板；无待发布记录时显示空态，未连接线上 COS。
 - 本轮新增接口验证：`GET /api/v1/apps/{id}/package-ingestions?state=pending_publish` 返回 `publication_revision`，发布操作沿用 `If-Match`；COS Release 流程测试通过。
 - 本轮新增接口验证：管理员可在本地为已绑定 Release channel 提交 COS 对象补导入；无 CI rule 时 `rule_id` 为空，接口返回 202，重复 payload 幂等，绑定缺失/越界对象被拒绝；定向测试通过。
+- 本轮新增接口验证：绑定 COS 对象列表只返回 APK/IPA/ZIP，排除 TXT 等无关对象，匹配同目录 manifest 并返回摘要；COS/OSS 分页响应归一化测试通过。
 
 ## 9. 每阶段完成定义
 

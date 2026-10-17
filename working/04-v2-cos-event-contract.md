@@ -77,3 +77,5 @@ Joice 工作流和 Fuma 状态机，不新增未确认的密钥来源。最终�
 - 同一导入标识和相同 payload 返回 `duplicate=true`；相同标识但 payload 不同返回 409。
 - Debug 导入最终进入 `ready` 并按现有规则通知；Release 导入最终进入 `pending_publish`，仍需人工确认。
 - 该入口不读取 GitHub Release，不接受任意下载 URL，也不允许通过伪造 metadata 绕过 COS 内容校验。
+
+管理员也可先调用 `GET /api/v1/apps/{id}/package-ingestions/cos-objects?channel=debug|release` 浏览绑定前缀下的对象。接口只列出 APK/IPA/ZIP，按 COS continuation token 分页，并尝试匹配同目录 `manifest.json`；对象摘要缺失时仍展示对象但前端不会允许直接提交，避免把未确认的元数据写入入库记录。

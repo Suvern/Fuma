@@ -4,7 +4,7 @@
 新流程：构建 APK / IPA → 上传已绑定的 COS bucket/prefix → 回调 Fuma v2 → workflow 结束 → Fuma 校验对象并处理。
 GitHub Release 不再是 Fuma 的主数据源，也不要求 workflow 创建或上传 Release 资产。
 
-如果通知丢失，管理员可在 Fuma 中按 COS 对象元数据补提交一次导入；导入接口仍会重新 HEAD、下载、校验 manifest 和解析，不能绕过对象校验。
+如果通知丢失，管理员可在 Fuma 中先扫描绑定 prefix，再选择 COS 对象补提交一次导入；导入接口仍会重新 HEAD、下载、校验 manifest 和解析，不能绕过对象校验。
 
 ## 当前部署的回调 URL
 
@@ -58,6 +58,7 @@ HTTP 202 仅表示已接收，不等于已通知。响应含 event_id、duplicat
 - 等待构建：检查整个 workflow 是否仍在运行或失败；不要形成等待 Fuma 的循环。
 - 文件失败：检查对象存在、绑定 prefix、对象扩展名、大小、SHA-256 和 manifest 内容。
 - 通知丢失：在 Fuma 版本页按相同 channel 选择“从 COS 导入”，填写对象 key、size、SHA-256、manifest key/SHA-256 和构建元数据；不要创建虚假的 GitHub Release。
+- 对象扫描为空或摘要缺失：确认对象已上传到 App/channel binding 的 prefix，且上传端写入了对象 SHA-256 metadata；也可以继续手工填写并由 Fuma 异步复核。
 - 通知失败：检查机器人、目标群可发送状态，在事件详情按允许的阶段恢复。
 - 投递结果待确认：可能已发送，先核对群消息；不要盲目重发导致重复卡片。
 - fork PR 没有仓库 Secret：从已配置的可信分支触发发布，不绕过隔离。

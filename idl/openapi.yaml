@@ -4870,6 +4870,53 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ErrorResponse'}
+  /api/v1/apps/{id}/package-ingestions/cos-objects:
+    get:
+      operationId: list_cos_package_objects
+      tags: [integrations]
+      summary: List package objects from a bound COS location
+      description: >-
+        Lists only APK, IPA and ZIP objects below the App/channel binding.
+        The response may include a sibling manifest.json when it can be resolved.
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - name: channel
+        in: query
+        required: true
+        schema:
+          type: string
+          enum: [debug, release]
+      - name: page_size
+        in: query
+        required: false
+        schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+      - name: cursor
+        in: query
+        required: false
+        schema: {type: string, maxLength: 600}
+      responses:
+        '200':
+          description: Objects under the App/channel COS binding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CosObjectCandidatePage'
+        '401': {description: Authentication required}
+        '403':
+          description: Application management permission required
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '409':
+          description: App or COS binding is not ready
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
   /api/v1/package-ingestions/{id}/retry:
     post:
       operationId: retry_package_ingestion
@@ -11101,6 +11148,35 @@ components:
       - state
       - task_id
       - status_url
+    CosObjectCandidate:
+      type: object
+      additionalProperties: false
+      properties:
+        key: {type: string}
+        size: {type: integer, minimum: 1}
+        sha256: {type: [string, 'null']}
+        manifest_key: {type: [string, 'null']}
+        manifest_size: {type: [integer, 'null']}
+        manifest_sha256: {type: [string, 'null']}
+      required:
+      - key
+      - size
+      - sha256
+      - manifest_key
+      - manifest_size
+      - manifest_sha256
+    CosObjectCandidatePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CosObjectCandidate'
+        next_cursor: {type: [string, 'null']}
+      required:
+      - items
+      - next_cursor
     PackageIngestion:
       type: object
       additionalProperties: false

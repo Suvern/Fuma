@@ -222,6 +222,60 @@ def test_official_sdk_signatures_use_https_provider_origin(provider, bucket):
         client.key("other/file.bin")
 
 
+def test_list_objects_normalizes_cos_and_oss_pagination():
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    import alibabacloud_oss_v2 as oss
+
+    credentials = {"access_key_id": "fixture", "access_key_secret": "fixture-not-live"}
+    cos = Adapter(
+        SimpleNamespace(
+            provider="cos",
+            region="ap-guangzhou",
+            bucket="test-123456789",
+            prefix="fuma",
+            read_mode="private",
+        ),
+        credentials,
+    )
+    cos.client = Mock()
+    cos.client.list_objects.return_value = {
+        "Contents": [{"Key": "fuma/debug/app.apk", "Size": 7}],
+        "IsTruncated": True,
+        "NextMarker": "fuma/debug/app.apk",
+    }
+    assert cos.list_objects("fuma/debug", limit=10, cursor="start") == {
+        "items": [{"key": "fuma/debug/app.apk", "size": 7, "sha256": None}],
+        "next_cursor": "fuma/debug/app.apk",
+    }
+    kwargs = cos.client.list_objects.call_args.kwargs
+    assert kwargs["Prefix"] == "fuma/debug/" and kwargs["Marker"] == "start"
+
+    oss_client = Adapter(
+        SimpleNamespace(
+            provider="oss",
+            region="cn-hangzhou",
+            bucket="test-bucket",
+            prefix="fuma",
+            read_mode="private",
+        ),
+        credentials,
+    )
+    oss_client.client = Mock()
+    oss_client.client.list_objects_v2.return_value = oss.ListObjectsV2Result(
+        contents=[oss.ObjectProperties(key="fuma/debug/app.ipa", size=9)],
+        is_truncated=True,
+        next_continuation_token="next",
+    )
+    assert oss_client.list_objects("fuma/debug") == {
+        "items": [{"key": "fuma/debug/app.ipa", "size": 9, "sha256": None}],
+        "next_cursor": "next",
+    }
+    request = oss_client.client.list_objects_v2.call_args.kwargs["request"]
+    assert request.prefix == "fuma/debug/"
+
+
 def test_sdk_specific_metadata_versioning_and_nested_delete_errors(tmp_path, monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import Mock

@@ -39,6 +39,6 @@
 - 版本发布页新增“COS Release 待发布”面板，展示版本、build、对象 key、事件 ID 和入库时间；确认发布前带二次确认，使用 `If-Match` 调用 `POST /api/v1/package-ingestions/{id}/publish`。
 - 面板同时展示失败的 Release 及错误码/错误信息，使用幂等重试按钮调用 `POST /api/v1/package-ingestions/{id}/retry`；发布或重试成功后由统一查询失效机制刷新列表和版本列表；无记录、加载失败和 publication revision 缺失均有安全态。
 - OpenAPI 新增 `POST /api/v1/apps/{id}/package-ingestions/import`，用于通知丢失时从已绑定 COS 对象补导入；请求必须携带对象/manifest 摘要和构建元数据，服务端异步复核后按 Debug/Release 状态机处理。
-- 安装包页和版本发布页均提供“通知丢失？从已绑定 COS 导入”折叠表单，分别提交 Debug/Release 元数据；表单不上传文件、不接收 URL，提交后复用统一任务查询和错误态。
+- 安装包页和版本发布页均提供“通知丢失？从已绑定 COS 导入”折叠表单，分别提交 Debug/Release 元数据；表单不上传文件、不接收 URL，打开时会列举绑定前缀下的 APK/IPA/ZIP，并在 manifest 和摘要齐全时自动带入表单。
 
-待后续补齐：管理页中的 COS 对象扫描（自动列举 bucket 并选择对象）、连接测试结果、对象 key 示例、v2 事件记录/重试、Release 拒绝/重新校验、发布后通知和迁移进度展示。当前手工补导入已可通过表单或 OpenAPI 验证。
+待后续补齐：跨页 COS 对象分页浏览、连接测试结果、对象 key 示例、v2 事件记录/重试、Release 拒绝/重新校验、发布后通知和迁移进度展示。当前手工补导入已可通过表单或 OpenAPI 验证。

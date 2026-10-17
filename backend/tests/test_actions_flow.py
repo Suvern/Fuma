@@ -496,6 +496,91 @@ def test_admin_can_import_bound_cos_object_without_ci_notification(client):
         assert ingestion.channel == "release"
 
 
+def test_admin_can_list_bound_cos_package_objects(client, monkeypatch):
+    headers, _rule, app_id = setup_rule(client)
+    storage_id = uuid4()
+    with Session(client.app.state.engine) as db:
+        db.add(
+            StorageLocation(
+                id=storage_id,
+                name="COS Debug",
+                provider="oss",
+                region="cn-hangzhou",
+                bucket="fuma-test",
+                prefix="fuma/test",
+                read_mode="private",
+                encrypted_credentials="{}",
+                enabled=True,
+                is_default=False,
+                status="ready",
+                revision=1,
+                capabilities={},
+            )
+        )
+        db.flush()
+        db.add(
+            AppStorageBindingRecord(
+                app_id=UUID(app_id),
+                channel="debug",
+                storage_location_id=storage_id,
+                object_prefix="debug",
+                revision=1,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            )
+        )
+        db.commit()
+
+    class ListingClient:
+        def list_objects(self, prefix, *, limit, cursor):
+            assert prefix == "fuma/test/debug"
+            assert limit == 50 and cursor is None
+            return {
+                "items": [
+                    {
+                        "key": "fuma/test/debug/1.2.3/123/app.apk",
+                        "size": 7,
+                        "sha256": None,
+                    },
+                    {
+                        "key": "fuma/test/debug/1.2.3/123/manifest.json",
+                        "size": 68,
+                        "sha256": None,
+                    },
+                    {"key": "fuma/test/debug/1.2.3/123/readme.txt", "size": 3, "sha256": None},
+                ],
+                "next_cursor": None,
+            }
+
+        def head(self, key):
+            values = {
+                "fuma/test/debug/1.2.3/123/app.apk": (7, "a" * 64),
+                "fuma/test/debug/1.2.3/123/manifest.json": (68, "b" * 64),
+            }
+            return values[key]
+
+    monkeypatch.setattr("app.api.actions.adapter", lambda settings, location: ListingClient())
+    result = client.get(
+        f"/api/v1/apps/{app_id}/package-ingestions/cos-objects",
+        headers=headers,
+        params={"channel": "debug"},
+    )
+    assert result.status_code == 200, result.text
+    assert result.json() == {
+        "items": [
+            {
+                "key": "fuma/test/debug/1.2.3/123/app.apk",
+                "size": 7,
+                "sha256": "a" * 64,
+                "manifest_key": "fuma/test/debug/1.2.3/123/manifest.json",
+                "manifest_size": 68,
+                "manifest_sha256": "b" * 64,
+            }
+        ],
+        "next_cursor": None,
+    }
+
+
 @pytest.mark.parametrize(
     "change",
     [

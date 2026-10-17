@@ -940,8 +940,24 @@ function CosPackageImportForm({
   channel: "debug" | "release";
 }) {
   const cmd = useCommand();
+  const [open, setOpen] = useState(false);
+  const [selectedKey, setSelectedKey] = useState("");
+  const objects = useQuery({
+    queryKey: ["cos-package-objects", appId, channel],
+    queryFn: () =>
+      read("/api/v1/apps/{id}/package-ingestions/cos-objects", {
+        id: appId,
+        query: { channel, page_size: 50 },
+      }),
+    enabled: open,
+    staleTime: 15_000,
+  });
+  const selected = objects.data?.items.find((item) => item.key === selectedKey);
   return (
-    <details className="cos-package-import">
+    <details
+      className="cos-package-import"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary>
         通知丢失？从已绑定 COS 导入 {channel === "debug" ? "Debug" : "Release"}
       </summary>
@@ -949,8 +965,40 @@ function CosPackageImportForm({
         仅填写已上传到当前 App/{channel} 存储绑定的对象元数据。Fuma 会重新读取对象、校验摘要和 manifest，不能通过此表单上传或绕过校验。
       </p>
       {cmd.feedback}
+      <div className="cos-package-object-picker">
+        <strong>绑定对象</strong>
+        <ErrorBox error={objects.error} />
+        {objects.isPending && <Loading />}
+        {!objects.isPending && !objects.isError && !objects.data?.items.length && (
+          <p>当前绑定前缀下没有找到 APK、IPA 或 ZIP。</p>
+        )}
+        {objects.data?.items.map((item) => {
+          const usable = Boolean(
+            item.sha256 && item.manifest_key && item.manifest_sha256,
+          );
+          return (
+            <div className="cos-package-object" key={item.key}>
+              <div>
+                <code>{item.key}</code>
+                <small>
+                  {item.size.toLocaleString()} B
+                  {usable ? " · manifest 已找到" : " · 缺少摘要或 manifest"}
+                </small>
+              </div>
+              <Button
+                type="button"
+                disabled={!usable || cmd.pending}
+                onClick={() => setSelectedKey(item.key)}
+              >
+                {selectedKey === item.key ? "已选择" : "选择"}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
       <Form
         className="cos-package-import-fields"
+        key={selected?.key ?? "manual"}
         submit={(f) => {
           const objectSize = Number(text(f, "object_size"));
           const body: DTO<"CosPackageImportRequest"> = {
@@ -981,19 +1029,40 @@ function CosPackageImportForm({
           );
         }}
       >
-        <Field name="object_key" label="安装包对象 key" required maxLength={600} />
-        <Field name="object_size" label="对象大小（字节）" type="number" min={1} required />
+        <Field
+          name="object_key"
+          label="安装包对象 key"
+          defaultValue={selected?.key}
+          required
+          maxLength={600}
+        />
+        <Field
+          name="object_size"
+          label="对象大小（字节）"
+          type="number"
+          min={1}
+          defaultValue={selected?.size}
+          required
+        />
         <Field
           name="object_sha256"
           label="对象 SHA-256"
+          defaultValue={selected?.sha256 ?? undefined}
           required
           pattern="^[0-9a-fA-F]{64}$"
           validationMessage="请输入 64 位十六进制 SHA-256。"
         />
-        <Field name="manifest_key" label="Manifest 对象 key" required maxLength={600} />
+        <Field
+          name="manifest_key"
+          label="Manifest 对象 key"
+          defaultValue={selected?.manifest_key ?? undefined}
+          required
+          maxLength={600}
+        />
         <Field
           name="manifest_sha256"
           label="Manifest SHA-256"
+          defaultValue={selected?.manifest_sha256 ?? undefined}
           required
           pattern="^[0-9a-fA-F]{64}$"
           validationMessage="请输入 64 位十六进制 SHA-256。"

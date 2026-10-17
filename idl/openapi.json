@@ -2264,6 +2264,73 @@
         "required": [],
         "type": "object"
       },
+      "CosObjectCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "manifest_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manifest_sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manifest_size": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "size",
+          "sha256",
+          "manifest_key",
+          "manifest_size",
+          "manifest_sha256"
+        ],
+        "type": "object"
+      },
+      "CosObjectCandidatePage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CosObjectCandidate"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "type": "object"
+      },
       "CosPackageBuild": {
         "additionalProperties": false,
         "properties": {
@@ -10007,6 +10074,99 @@
           }
         ],
         "summary": "List COS package ingestions for an App",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/apps/{id}/package-ingestions/cos-objects": {
+      "get": {
+        "description": "Lists only APK, IPA and ZIP objects below the App/channel binding. The response may include a sibling manifest.json when it can be resolved.",
+        "operationId": "list_cos_package_objects",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "channel",
+            "required": true,
+            "schema": {
+              "enum": [
+                "debug",
+                "release"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 600,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CosObjectCandidatePage"
+                }
+              }
+            },
+            "description": "Objects under the App/channel COS binding"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Application management permission required"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "App or COS binding is not ready"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "List package objects from a bound COS location",
         "tags": [
           "integrations"
         ]

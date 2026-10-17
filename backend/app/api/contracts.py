@@ -1185,6 +1185,26 @@ class CosPackageEventAccepted(BaseModel):
     status_url: str
 
 
+class CosObjectCandidate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    key: str
+    size: int = Field(..., ge=1)
+    sha256: str | None
+    manifest_key: str | None
+    manifest_size: int | None
+    manifest_sha256: str | None
+
+
+class CosObjectCandidatePage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[CosObjectCandidate]
+    next_cursor: str | None
+
+
 class PublicationRevision(RootModel[int]):
     root: int = Field(..., ge=1)
 

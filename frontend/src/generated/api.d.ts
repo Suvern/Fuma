@@ -397,6 +397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/apps/{id}/package-ingestions/cos-objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List package objects from a bound COS location
+         * @description Lists only APK, IPA and ZIP objects below the App/channel binding. The response may include a sibling manifest.json when it can be resolved.
+         */
+        get: operations["list_cos_package_objects"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/apps/{id}/package-ingestions/import": {
         parameters: {
             query?: never;
@@ -2595,6 +2615,18 @@ export interface components {
             enabled?: boolean;
             name?: string;
             token?: string;
+        };
+        CosObjectCandidate: {
+            key: string;
+            manifest_key: string | null;
+            manifest_sha256: string | null;
+            manifest_size: number | null;
+            sha256: string | null;
+            size: number;
+        };
+        CosObjectCandidatePage: {
+            items: components["schemas"]["CosObjectCandidate"][];
+            next_cursor: string | null;
         };
         CosPackageBuild: {
             build_number: string;
@@ -6014,6 +6046,57 @@ export interface operations {
             };
             /** @description Resource not available */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_cos_package_objects: {
+        parameters: {
+            query: {
+                channel: "debug" | "release";
+                page_size?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Objects under the App/channel COS binding */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CosObjectCandidatePage"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application management permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description App or COS binding is not ready */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
