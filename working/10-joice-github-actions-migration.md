@@ -35,3 +35,14 @@ GitHub Release 创建和资产上传步骤删除或置为显式 legacy workflow�
 3. 开启 Fuma v2 Debug ready，观察一个完整版本周期。
 4. Release 切换为 v2 ingest + 人工 publish。
 5. 删除主 workflow 中 GitHub Release 上传步骤；保留独立 legacy 回滚 workflow。
+
+## 6. 对现有 Joice workflow 的本地审计（2026-10-17）
+
+当前 `../Joice/.github/workflows/android-release.yml` 的 `publish` job 已经执行 COS 上传和 webhook，但仍包含以下旧链路：
+
+- `gh release upload/create` 继续写 GitHub Release，和迁移目标冲突；应移到显式手动 legacy workflow，主 workflow 删除该步骤。
+- `npm run release:webhook` 发送 `release.published` v1 兼容 payload，不是 Fuma v2 `schema_version=2` 的 COS 对象事件；应改为带 `Authorization: Bearer <rule token>` 的 `/api/v1/integrations/github-actions/{rule_id}/cos-events` 请求。
+- 现有 `upload-release-assets.ts` 把 APK、校验文件和 `build-info.json` 打成 `${versionCode}.zip` 上传。Fuma Parser 会直接把 COS package 对象当 APK/IPA ZIP 解析，Android 包要求对象根部包含 `AndroidManifest.xml`；因此 v2 package 对象应直接上传 APK（IPA 同理），manifest 作为独立 JSON 对象上传。
+- 事件必须引用上传后的 package key、size、SHA-256 与 manifest key、SHA-256；先上传 package，再上传 manifest，最后发送事件。事件失败时不删除对象，使用 event_id 重试。
+
+下一次 Joice 改造只修改 workflow/scripts，不覆盖当前 `../Joice` 工作区中与聊天功能相关的未提交改动；改造前需要确认 Fuma App ID、Actions rule ID、COS Debug/Release binding prefix 以及 GitHub Environment secret 名称。

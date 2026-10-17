@@ -24,7 +24,7 @@
 | 7 | [Release 接入](./07-release-ingestion-manual-publish.md) | 进行中 | COS Release 入库到 `pending_publish`，版本发布页确认发布，复用 Publication 草稿与既有发布权限 | 需补拒绝/重新校验动作、发布后通知和真实 COS 联调 |
 | 8 | [Fuma 后端改造](./08-fuma-backend-implementation.md) | 进行中 | App 存储绑定 API、迁移、审计和并发版本校验 | 依赖 4-7 的事件/对象流程 |
 | 9 | [Fuma 前端与 OpenAPI](./09-fuma-frontend-and-openapi.md) | 进行中 | 应用设置绑定卡片、COS Release 待发布列表、确认发布按钮、OpenAPI 类型同步 | 需补充真实连接测试、事件记录和发布页失败态 |
-| 10 | [Joice Actions 迁移](./10-joice-github-actions-migration.md) | 未开始 | COS 上传与通知流程 | 依赖 4、6 |
+| 10 | [Joice Actions 迁移](./10-joice-github-actions-migration.md) | 待确认 | 已发现现有 COS 上传步骤，但仍有 GitHub Release 上传和旧 webhook | 需确认 APK/IPA 直传对象格式、Fuma App/规则映射后再改 Joice workflow |
 | 11 | [旧 Release 迁移](./11-legacy-release-migration.md) | 未开始 | 历史包同步、清单、校验与重试 | 依赖 5、7 |
 | 12 | [灰度与回滚](./12-rollout-and-rollback.md) | 未开始 | 分阶段开关、回滚策略 | 依赖 8-11 |
 | 13 | [测试与验收](./13-test-and-acceptance.md) | 未开始 | 测试矩阵、验收证据 | 依赖 8-12 |
@@ -85,6 +85,7 @@
 | 2026-10-17 | 接入 COS Release 管理页待发布列表 | 新增按 App 查询 `pending_publish` 入库记录的接口，版本发布页展示构建信息并带 Publication revision 确认发布；确认后自动刷新列表与版本数据 |
 | 2026-10-17 | 补齐 Release 人工核验信息 | 待发布卡片增加 commit、workflow run、对象大小/SHA-256、manifest key/摘要等字段，便于确认前对照构建产物 |
 | 2026-10-17 | 补齐 Release 失败恢复入口 | 入库列表支持按 channel 过滤，管理页展示失败记录和错误信息，并用幂等重试按钮重新排队 COS 校验 |
+| 2026-10-17 | 审计 Joice 本地 Android workflow | 确认现有 workflow 已上传 COS 但仍上传 GitHub Release；旧 webhook 不符合 Fuma v2；当前 COS ZIP 产物不能直接被 Fuma Android Parser 解析，需先确认并改为 APK/IPA 对象契约 |
 
 ## 8. 本轮本地验证证据
 
