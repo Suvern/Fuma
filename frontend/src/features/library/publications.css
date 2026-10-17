@@ -69,6 +69,24 @@
   color: var(--color-text-2, #666);
   font-size: 13px;
 }
+.cos-release-inbox-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 20px;
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+.cos-release-inbox-details > div {
+  min-width: 0;
+}
+.cos-release-inbox-details dt {
+  color: var(--color-text-2, #666);
+}
+.cos-release-inbox-details dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 @media (max-width: 600px) {
   .cos-release-inbox-item {
     align-items: stretch;
@@ -76,6 +94,9 @@
   }
   .cos-release-inbox-item .semi-button {
     width: 100%;
+  }
+  .cos-release-inbox-details {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 480px) {

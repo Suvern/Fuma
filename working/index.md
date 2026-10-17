@@ -83,6 +83,7 @@
 | 2026-10-17 | 开始 COS Release 人工发布切片 | Release 解析后创建 `PackageRecord`、`VersionRecord`、草稿 `PublicationRecord`，入库状态为 `pending_publish`；新增 `package_id/publication_id` 关联和 `0025_cos_release_publication` 迁移，未创建 Debug 条目 |
 | 2026-10-17 | 增加 COS Release 确认发布入口 | 新增 `POST /package-ingestions/{id}/publish`，复用 Publication 权限/审计/If-Match，并在发布前重新校验 COS canonical 对象 |
 | 2026-10-17 | 接入 COS Release 管理页待发布列表 | 新增按 App 查询 `pending_publish` 入库记录的接口，版本发布页展示构建信息并带 Publication revision 确认发布；确认后自动刷新列表与版本数据 |
+| 2026-10-17 | 补齐 Release 人工核验信息 | 待发布卡片增加 commit、workflow run、对象大小/SHA-256、manifest key/摘要等字段，便于确认前对照构建产物 |
 
 ## 8. 本轮本地验证证据
 

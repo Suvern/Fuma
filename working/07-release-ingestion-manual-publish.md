@@ -21,7 +21,7 @@ Release 的 ingest 与 publish 必须是两个独立动作。当前 COS Release 
 
 ## 2. 人工确认页面信息
 
-当前管理页首版展示：版本、build number、对象 key、事件 ID、入库时间和确认发布按钮。后续补齐 App、commit、workflow run、bucket/prefix（脱敏）、size、SHA-256、manifest、包解析结果、与上一版本差异及失败/重试记录。
+当前管理页首版展示：版本、build number、commit、workflow run、对象 key、对象大小与 SHA-256、manifest key/摘要、事件 ID、入库时间和确认发布按钮。后续补齐 App、bucket/prefix（脱敏）、包解析结果、与上一版本差异及失败/重试记录。
 
 操作按钮：`确认发布`、`拒绝`、`重新校验`。确认发布前再次 HEAD 对象并比对 checksum，防止对象被替换。
 

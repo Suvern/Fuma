@@ -845,6 +845,32 @@ function CosReleaseInbox({ appId }: { appId: string }) {
             <p>
               事件 {item.event_id} · 上传于 {date(item.created_at)}
             </p>
+            <dl className="cos-release-inbox-details">
+              <div>
+                <dt>Commit</dt>
+                <dd>{item.build.commit_sha}</dd>
+              </div>
+              <div>
+                <dt>Workflow run</dt>
+                <dd>{item.build.workflow_run_id}</dd>
+              </div>
+              <div>
+                <dt>对象大小</dt>
+                <dd>{item.object_size.toLocaleString()} B</dd>
+              </div>
+              <div>
+                <dt>对象 SHA-256</dt>
+                <dd>{item.object_sha256}</dd>
+              </div>
+              <div>
+                <dt>Manifest</dt>
+                <dd>{item.manifest_key}</dd>
+              </div>
+              <div>
+                <dt>Manifest SHA-256</dt>
+                <dd>{item.manifest_sha256}</dd>
+              </div>
+            </dl>
           </div>
           <Button
             type="button"
