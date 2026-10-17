@@ -5,7 +5,7 @@ setup:
 	pnpm --dir frontend install --frozen-lockfile
 
 backend:
-	uv run --directory backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --no-access-log
+	FUMA_SITE_URL=http://localhost:5174 uv run --directory backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --no-access-log
 
 frontend:
 	pnpm --dir frontend dev:local

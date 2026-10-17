@@ -447,17 +447,17 @@ export function PasswordPage() {
             name="new_password"
             required
             type="password"
-            minLength={12}
+            minLength={6}
             maxLength={128}
             autoComplete="new-password"
-            help="至少 12 位，且不能与当前密码相同。"
+            help="至少 6 位，且不能与当前密码相同。"
           />
           <Field
             label="确认新密码"
             name="confirm_password"
             required
             type="password"
-            minLength={12}
+            minLength={6}
             maxLength={128}
             autoComplete="new-password"
           />

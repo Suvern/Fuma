@@ -18,6 +18,7 @@ from test_core_auth_apps import core_app as core_app
 from app.domains.applications.models import AllowedPackageIdRecord, AppCreation
 from app.domains.auth.service import utcnow
 from app.domains.distribution.models import DebugRecord, TaskRecord
+from app.domains.storage.models import StorageLocation
 
 
 def identifier(platform="android", mode="debug", value="com.example.app"):
@@ -71,6 +72,79 @@ def test_package_ids_scope_deduplication_and_idempotency(client):
     replay = client.post("/api/v1/apps", headers=headers, json=body)
     assert replay.json() == first.json()
     assert client.get("/api/v1/audit-events?action=app.create").json()["total"] == 1
+
+
+def test_package_storage_binding_isolated_prefixes_and_revision(client, configured_app):
+    headers, app = configured_app
+    storage_id = uuid4()
+    with Session(client.app.state.engine) as db:
+        db.add(
+            StorageLocation(
+                id=storage_id,
+                name="测试包存储",
+                provider="oss",
+                region="cn-hangzhou",
+                bucket="fuma-test",
+                prefix="fuma/test",
+                read_mode="private",
+                encrypted_credentials="{}",
+                enabled=True,
+                is_default=False,
+                status="ready",
+                revision=1,
+                capabilities={},
+            )
+        )
+        db.commit()
+
+    get_result = client.get(f"/api/v1/apps/{app['id']}/package-storage", headers=headers)
+    assert get_result.status_code == 200, get_result.text
+    assert get_result.json()["debug"] is None
+
+    saved = client.put(
+        f"/api/v1/apps/{app['id']}/package-storage",
+        headers={**headers, "If-Match": f'"{app["revision"]}"'},
+        json={
+            "debug": {"storage_location_id": str(storage_id), "object_prefix": "debug"},
+            "release": {"storage_location_id": str(storage_id), "object_prefix": "release"},
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["debug"]["object_prefix"] == "debug"
+    assert saved.json()["app_revision"] == app["revision"] + 1
+
+    conflict = client.put(
+        f"/api/v1/apps/{app['id']}/package-storage",
+        headers={**headers, "If-Match": f'"{saved.json()["app_revision"]}"'},
+        json={
+            "debug": {"storage_location_id": str(storage_id), "object_prefix": "packages"},
+            "release": {
+                "storage_location_id": str(storage_id),
+                "object_prefix": "packages/release",
+            },
+        },
+    )
+    assert conflict.status_code == 422
+    assert conflict.json()["error"]["code"] == "STORAGE_PREFIX_CONFLICT"
+
+    invalid = client.put(
+        f"/api/v1/apps/{app['id']}/package-storage",
+        headers={**headers, "If-Match": f'"{saved.json()["app_revision"]}"'},
+        json={
+            "debug": {"storage_location_id": str(storage_id), "object_prefix": "../debug"},
+            "release": None,
+        },
+    )
+    assert invalid.status_code == 422
+    assert invalid.json()["error"]["code"] == "INVALID_STORAGE_PREFIX"
+
+    cleared = client.put(
+        f"/api/v1/apps/{app['id']}/package-storage",
+        headers={**headers, "If-Match": f'"{saved.json()["app_revision"]}"'},
+        json={"debug": None, "release": None},
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["debug"] is None and cleared.json()["release"] is None
 
 
 def test_legacy_create_request_hash_and_explicit_null(client):

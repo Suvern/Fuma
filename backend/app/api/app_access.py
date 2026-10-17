@@ -90,6 +90,8 @@ RESOURCE_OPERATIONS = {
     "get_notification": DeliveryRecord,
     "retry_notification": DeliveryRecord,
     "list_available_storage": AppRecord,
+    "get_app_package_storage": AppRecord,
+    "update_app_package_storage": AppRecord,
 }
 
 

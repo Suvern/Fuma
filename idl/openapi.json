@@ -4065,12 +4065,136 @@
         ],
         "type": "object"
       },
+      "PackageStorageBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "enum": [
+              "debug",
+              "release"
+            ],
+            "type": "string"
+          },
+          "object_prefix": {
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/AvailableStorageItem"
+          },
+          "storage_location_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel",
+          "storage_location_id",
+          "object_prefix",
+          "revision",
+          "storage"
+        ],
+        "type": "object"
+      },
+      "PackageStorageBindingInput": {
+        "additionalProperties": false,
+        "properties": {
+          "object_prefix": {
+            "description": "App-relative object prefix without a leading or trailing slash.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "storage_location_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "storage_location_id",
+          "object_prefix"
+        ],
+        "type": "object"
+      },
+      "PackageStorageBindings": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "app_revision": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "debug": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageStorageBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "release": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageStorageBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "app_id",
+          "app_revision",
+          "debug",
+          "release"
+        ],
+        "type": "object"
+      },
+      "PackageStorageBindingsUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "debug": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageStorageBindingInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "release": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageStorageBindingInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "debug",
+          "release"
+        ],
+        "type": "object"
+      },
       "PasswordRequest": {
         "additionalProperties": false,
         "properties": {
           "new_password": {
             "maxLength": 128,
-            "minLength": 12,
+            "minLength": 6,
             "type": "string",
             "writeOnly": true
           },
@@ -9359,6 +9483,180 @@
         ],
         "tags": [
           "PackageLibrary"
+        ],
+        "x-access": "app-manager"
+      }
+    },
+    "/api/v1/apps/{id}/package-storage": {
+      "get": {
+        "operationId": "get_app_package_storage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageStorageBindings"
+                }
+              }
+            },
+            "description": "Current per-channel storage bindings"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Application management permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not available"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Get Debug and Release storage bindings for an application",
+        "tags": [
+          "apps"
+        ],
+        "x-access": "app-manager"
+      },
+      "put": {
+        "operationId": "update_app_package_storage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackageStorageBindingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageStorageBindings"
+                }
+              }
+            },
+            "description": "Updated per-channel storage bindings",
+            "headers": {
+              "ETag": {
+                "description": "Quoted application revision",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not allowed or invalid CSRF"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not available"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Storage location is unavailable"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision mismatch"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid prefix or overlapping same-bucket bindings"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Replace Debug and Release storage bindings for an application",
+        "tags": [
+          "apps"
         ],
         "x-access": "app-manager"
       }

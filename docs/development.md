@@ -30,7 +30,7 @@ make infra-up
 | `FUMA_REDIS_HOST` / `FUMA_REDIS_PORT` | `127.0.0.1` / `56379` |
 | `FUMA_REDIS_DB` | `0` |
 | `FUMA_REDIS_USERNAME` / `FUMA_REDIS_PASSWORD` | 默认空，按所使用的 Redis 配置填写 |
-| `FUMA_SITE_URL` | `http://127.0.0.1:5173`，须与浏览器 Origin 一致 |
+| `FUMA_SITE_URL` | `http://localhost:5174`，须与浏览器 Origin 一致；本地前端默认运行在 5174 |
 | `FUMA_COOKIE_SECURE` | 默认 `false`，仅允许回环地址；非本机站点必须使用 HTTPS 和 Secure Cookie |
 | `FUMA_STATE_DIR` | `~/.local/share/fuma/state`；持久密钥、正式包和上传暂存 |
 | `FUMA_CACHE_DIR` | `~/.local/share/fuma/cache`；GitHub 附件缓存 |
@@ -45,7 +45,7 @@ API 和 Worker 必须使用相同的数据库、状态、缓存和 parser 目录
 
 ```sh
 uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --no-access-log
+FUMA_SITE_URL=http://localhost:5174 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
 确认 API 已初始化后，分别在另外两个 `backend/` 终端运行：
@@ -61,7 +61,7 @@ uv run python -m app.workers.scheduler
 pnpm --dir frontend dev:local
 ```
 
-访问 `http://127.0.0.1:5173/login`。首次成功初始化时，API 日志只输出一次 `admin` 随机密码；登录后必须先改密。重启不会重置密码。忘记密码时，在 `backend/` 运行交互命令 `uv run python -m app.cli.reset_admin`。
+访问 `http://localhost:5174/login`。首次成功初始化时，API 日志只输出一次 `admin` 随机密码；登录后必须先改密。重启不会重置密码。忘记密码时，在 `backend/` 运行交互命令 `uv run python -m app.cli.reset_admin`。
 
 **本地后端开发使用 `dev:local`，始终连接本机 API。** 普通 `dev` 会从 `frontend/.env` 读取 `FUMA_API_PROXY_TARGET`，未配置时同样连接本机。可以从 `frontend/.env.example` 创建本地配置；实际 `.env` 被 Git 忽略，仅示例文件随项目分发。进程环境变量优先于文件配置，远程地址须由开发者显式指定，详见[前端说明](../frontend/README.md)。
 

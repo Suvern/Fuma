@@ -380,6 +380,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/apps/{id}/package-storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Debug and Release storage bindings for an application */
+        get: operations["get_app_package_storage"];
+        /** Replace Debug and Release storage bindings for an application */
+        put: operations["update_app_package_storage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/apps/{id}/packages": {
         parameters: {
             query?: never;
@@ -2893,6 +2911,32 @@ export interface components {
             page: number;
             page_size: number;
             total: number;
+        };
+        PackageStorageBinding: {
+            /** @enum {string} */
+            channel: "debug" | "release";
+            object_prefix: string;
+            revision: number;
+            storage: components["schemas"]["AvailableStorageItem"];
+            /** Format: uuid */
+            storage_location_id: string;
+        };
+        PackageStorageBindingInput: {
+            /** @description App-relative object prefix without a leading or trailing slash. */
+            object_prefix: string;
+            /** Format: uuid */
+            storage_location_id: string;
+        };
+        PackageStorageBindings: {
+            /** Format: uuid */
+            app_id: string;
+            app_revision: number;
+            debug: components["schemas"]["PackageStorageBinding"] | null;
+            release: components["schemas"]["PackageStorageBinding"] | null;
+        };
+        PackageStorageBindingsUpdate: {
+            debug: components["schemas"]["PackageStorageBindingInput"] | null;
+            release: components["schemas"]["PackageStorageBindingInput"] | null;
         };
         PasswordRequest: {
             new_password: string;
@@ -5724,6 +5768,137 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadSession"];
+                };
+            };
+        };
+    };
+    get_app_package_storage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current per-channel storage bindings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageStorageBindings"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application management permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_app_package_storage: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CSRF"];
+                /** @description ETag revision obtained from the resource; stale value returns 412. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageStorageBindingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated per-channel storage bindings */
+            200: {
+                headers: {
+                    /** @description Quoted application revision */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageStorageBindings"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not allowed or invalid CSRF */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Storage location is unavailable */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Revision mismatch */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid prefix or overlapping same-bucket bindings */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

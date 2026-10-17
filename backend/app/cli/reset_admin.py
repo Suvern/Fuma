@@ -16,9 +16,9 @@ from app.infrastructure.database import build_engine
 def main() -> None:
     if not sys.stdin.isatty():
         raise SystemExit("请在服务器交互终端执行，不支持管道输入密码。")
-    password = getpass.getpass("输入新管理员密码（12–128 字符）：")
+    password = getpass.getpass("输入新管理员密码（6–128 字符）：")
     confirmation = getpass.getpass("确认密码：")
-    if not 12 <= len(password) <= 128 or password != confirmation:
+    if not 6 <= len(password) <= 128 or password != confirmation:
         raise SystemExit("密码长度或确认不符合要求。")
     engine = build_engine(Settings())
     try:

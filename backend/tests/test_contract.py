@@ -1,3 +1,7 @@
+import pytest
+from pydantic import ValidationError
+
+from app.api.contracts import PasswordRequest
 from app.cli.export_openapi import (
     DEFAULT_OUTPUT,
     check_implementation,
@@ -5,6 +9,12 @@ from app.cli.export_openapi import (
     operations,
     render_schema,
 )
+
+
+def test_password_change_accepts_six_characters_and_rejects_shorter_values():
+    PasswordRequest(old_password="old-password", new_password="sixsix")
+    with pytest.raises(ValidationError):
+        PasswordRequest(old_password="old-password", new_password="short")
 
 
 def test_checked_in_json_matches_authoritative_yaml():

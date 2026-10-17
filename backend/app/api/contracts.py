@@ -28,6 +28,48 @@ class AvailableStorage(BaseModel):
     items: list[AvailableStorageItem]
 
 
+class PackageStorageBindingInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    storage_location_id: UUID
+    object_prefix: str = Field(
+        ...,
+        description="App-relative object prefix without a leading or trailing slash.",
+        max_length=200,
+        min_length=1,
+    )
+
+
+class PackageStorageBinding(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    channel: Literal["debug", "release"]
+    storage_location_id: UUID
+    object_prefix: str
+    revision: int = Field(..., ge=1)
+    storage: AvailableStorageItem
+
+
+class PackageStorageBindings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    app_id: UUID
+    app_revision: int = Field(..., ge=1)
+    debug: PackageStorageBinding | None
+    release: PackageStorageBinding | None
+
+
+class PackageStorageBindingsUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    debug: PackageStorageBindingInput | None
+    release: PackageStorageBindingInput | None
+
+
 class OwnSession(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -136,7 +178,7 @@ class PasswordRequest(BaseModel):
         extra="forbid",
     )
     old_password: str = Field(..., max_length=128, min_length=1)
-    new_password: str = Field(..., max_length=128, min_length=12)
+    new_password: str = Field(..., max_length=128, min_length=6)
 
 
 class MemberRolesUpdate(BaseModel):

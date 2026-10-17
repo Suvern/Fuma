@@ -1,7 +1,15 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database import Base
@@ -20,6 +28,23 @@ class AppRecord(Base):
     enabled: Mapped[bool] = mapped_column(default=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     repository: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AppStorageBindingRecord(Base):
+    __tablename__ = "app_storage_bindings"
+    __table_args__ = (
+        CheckConstraint("channel IN ('debug', 'release')", name="ck_app_storage_bindings_channel"),
+    )
+
+    app_id: Mapped[UUID] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), primary_key=True
+    )
+    channel: Mapped[str] = mapped_column(String(16), primary_key=True)
+    storage_location_id: Mapped[UUID] = mapped_column(ForeignKey("storage_locations.id"))
+    object_prefix: Mapped[str] = mapped_column(String(200))
     revision: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

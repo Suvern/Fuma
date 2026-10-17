@@ -11,7 +11,7 @@ pnpm install --frozen-lockfile
 pnpm dev:local
 ```
 
-访问 `http://127.0.0.1:5173`，API 代理到本机 `127.0.0.1:8000`。数据库、API、Worker、Scheduler 和 parser 的启动方式见[开发指南](../docs/development.md)。
+访问 `http://localhost:5174`，API 代理到本机 `127.0.0.1:8000`。数据库、API、Worker、Scheduler 和 parser 的启动方式见[开发指南](../docs/development.md)。本地 API 的 `FUMA_SITE_URL` 必须与此浏览器 Origin 一致，否则写请求会被 CSRF 校验拒绝。
 
 普通 `pnpm dev` 从 `frontend/.env` 读取 `FUMA_API_PROXY_TARGET`，未配置时连接本机后端。可将 `frontend/.env.example` 复制为 `frontend/.env` 后修改地址；`.env` 仅留本地，示例文件不包含实际实例地址。修改后重启开发服务。
 

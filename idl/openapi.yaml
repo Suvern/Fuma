@@ -53,6 +53,94 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/apps/{id}/package-storage:
+    get:
+      operationId: get_app_package_storage
+      summary: Get Debug and Release storage bindings for an application
+      x-access: app-manager
+      tags: [apps]
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Current per-channel storage bindings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageStorageBindings'
+        '401': {description: Authentication required}
+        '403':
+          description: Application management permission required
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: Resource not available
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+    put:
+      operationId: update_app_package_storage
+      summary: Replace Debug and Release storage bindings for an application
+      x-access: app-manager
+      tags: [apps]
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - $ref: '#/components/parameters/CSRF'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackageStorageBindingsUpdate'
+      responses:
+        '200':
+          description: Updated per-channel storage bindings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageStorageBindings'
+          headers:
+            ETag:
+              schema: {type: string}
+              description: Quoted application revision
+        '401': {description: Authentication required}
+        '403':
+          description: Not allowed or invalid CSRF
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: Resource not available
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '409':
+          description: Storage location is unavailable
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '412':
+          description: Revision mismatch
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '422':
+          description: Invalid prefix or overlapping same-bucket bindings
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
   /api/v1/health/live:
     get:
       description: Process liveness only; does not imply integrations or business features are ready.
@@ -8395,6 +8483,56 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AvailableStorageItem'
+    PackageStorageBindingInput:
+      type: object
+      additionalProperties: false
+      required: [storage_location_id, object_prefix]
+      properties:
+        storage_location_id: {type: string, format: uuid}
+        object_prefix:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: App-relative object prefix without a leading or trailing slash.
+    PackageStorageBinding:
+      type: object
+      additionalProperties: false
+      required: [channel, storage_location_id, object_prefix, revision, storage]
+      properties:
+        channel: {type: string, enum: [debug, release]}
+        storage_location_id: {type: string, format: uuid}
+        object_prefix: {type: string}
+        revision: {type: integer, minimum: 1}
+        storage:
+          $ref: '#/components/schemas/AvailableStorageItem'
+    PackageStorageBindings:
+      type: object
+      additionalProperties: false
+      required: [app_id, app_revision, debug, release]
+      properties:
+        app_id: {type: string, format: uuid}
+        app_revision: {type: integer, minimum: 1}
+        debug:
+          anyOf:
+          - $ref: '#/components/schemas/PackageStorageBinding'
+          - type: 'null'
+        release:
+          anyOf:
+          - $ref: '#/components/schemas/PackageStorageBinding'
+          - type: 'null'
+    PackageStorageBindingsUpdate:
+      type: object
+      additionalProperties: false
+      required: [debug, release]
+      properties:
+        debug:
+          anyOf:
+          - $ref: '#/components/schemas/PackageStorageBindingInput'
+          - type: 'null'
+        release:
+          anyOf:
+          - $ref: '#/components/schemas/PackageStorageBindingInput'
+          - type: 'null'
     OwnSession:
       type: object
       additionalProperties: false
@@ -8616,7 +8754,7 @@ components:
           writeOnly: true
         new_password:
           type: string
-          minLength: 12
+          minLength: 6
           maxLength: 128
           writeOnly: true
       required:

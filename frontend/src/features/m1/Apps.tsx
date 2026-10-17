@@ -2,6 +2,7 @@ import { RepositorySelect } from "../../shared/ui/RepositorySelect";
 import { AppLifecycle } from "./AppLifecycle";
 import { AppIcon, AppIconField } from "./AppIcon";
 import { Statistics } from "./Statistics";
+import { AppStorageBinding } from "./AppStorageBinding";
 import { isGlobalAdmin } from "./permissions";
 import Select from "@douyinfe/semi-ui-19/lib/es/select";
 import {
@@ -820,6 +821,7 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
             </Panel>
           ))}
       </div>
+      {!app.archived_at && <AppStorageBinding appId={app.id} />}
       <Disclosure title="分发统计">
         <Statistics appId={app.id} />
       </Disclosure>

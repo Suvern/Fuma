@@ -29,7 +29,7 @@ export default defineConfig(({ command, mode, isPreview }) => {
     plugins: [react()],
     // API requests stay same-origin; do not expose third-party secrets via VITE_*.
     server: {
-      port: 5173,
+      port: 5174,
       strictPort: true,
       proxy: {
         '/api': {

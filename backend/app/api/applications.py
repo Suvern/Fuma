@@ -9,11 +9,26 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 
 from app.api.app_access import ScopedManager, require_scoped_manager
-from app.api.contracts import App, AppArchiveImpact, AppCreate, AppPage, AppUpdate, AvailableStorage
+from app.api.contracts import (
+    App,
+    AppArchiveImpact,
+    AppCreate,
+    AppPage,
+    AppUpdate,
+    AvailableStorage,
+    PackageStorageBinding,
+    PackageStorageBindings,
+    PackageStorageBindingsUpdate,
+)
 from app.api.dependencies import DB, require_admin, require_csrf, require_revision
 from app.core.errors import AppError
 from app.domains.access.authorization import manageable_app_ids
-from app.domains.applications.models import AllowedPackageIdRecord, AppCreation, AppRecord
+from app.domains.applications.models import (
+    AllowedPackageIdRecord,
+    AppCreation,
+    AppRecord,
+    AppStorageBindingRecord,
+)
 from app.domains.applications.service import (
     archive_impact,
     check_platform_pause,
@@ -381,3 +396,154 @@ def available_storage(id: UUID, db: DB, context: ScopedManager):
             for row in rows
         ]
     }
+
+
+def _normalize_object_prefix(value: str) -> str:
+    prefix = value.strip().strip("/")
+    if (
+        not prefix
+        or any(ord(char) < 32 or ord(char) == 127 for char in prefix)
+        or any(part in {"", ".", ".."} for part in prefix.split("/"))
+    ):
+        raise AppError(422, "INVALID_STORAGE_PREFIX", "对象前缀不合法")
+    return prefix
+
+
+def _effective_prefix(location: StorageLocation, prefix: str) -> str:
+    return "/".join(part for part in (location.prefix.strip("/"), prefix) if part)
+
+
+def _prefixes_overlap(left: str, right: str) -> bool:
+    return left == right or left.startswith(right + "/") or right.startswith(left + "/")
+
+
+def _same_bucket(left: StorageLocation, right: StorageLocation) -> bool:
+    return (
+        left.provider == right.provider
+        and left.region == right.region
+        and left.bucket == right.bucket
+    )
+
+
+def _package_storage_dto(db, app: AppRecord) -> PackageStorageBindings:
+    rows = {
+        row.channel: row
+        for row in db.scalars(
+            select(AppStorageBindingRecord).where(AppStorageBindingRecord.app_id == app.id)
+        )
+    }
+    locations = {
+        location.id: location
+        for location in db.scalars(
+            select(StorageLocation).where(
+                StorageLocation.enabled.is_(True), StorageLocation.status == "ready"
+            )
+        )
+    }
+
+    def item(channel: str) -> PackageStorageBinding | None:
+        row = rows.get(channel)
+        if row is None:
+            return None
+        location = locations.get(row.storage_location_id)
+        if location is None:
+            raise AppError(409, "STORAGE_NOT_READY", "已绑定的存储位置不再可用，请重新配置")
+        return PackageStorageBinding(
+            channel=channel,
+            storage_location_id=row.storage_location_id,
+            object_prefix=row.object_prefix,
+            revision=row.revision,
+            storage={
+                "id": location.id,
+                "name": location.name,
+                "provider": location.provider,
+                "read_mode": location.read_mode,
+                "is_default": location.is_default,
+            },
+        )
+
+    return PackageStorageBindings(
+        app_id=app.id,
+        app_revision=app.revision,
+        debug=item("debug"),
+        release=item("release"),
+    )
+
+
+@router.get(
+    "/{id}/package-storage",
+    response_model=PackageStorageBindings,
+    operation_id="get_app_package_storage",
+)
+def get_app_package_storage(id: UUID, db: DB, context: ScopedManager):
+    return _package_storage_dto(db, get_app(db, id))
+
+
+@router.put(
+    "/{id}/package-storage",
+    response_model=PackageStorageBindings,
+    operation_id="update_app_package_storage",
+    dependencies=[Depends(require_csrf)],
+)
+def update_app_package_storage(
+    id: UUID,
+    body: PackageStorageBindingsUpdate,
+    request: Request,
+    response: Response,
+    db: DB,
+    context: ScopedManager,
+    if_match: Annotated[str | None, Header()] = None,
+):
+    app = get_app(db, id, lock=True)
+    require_revision(if_match, app.revision)
+    requested = {"debug": body.debug, "release": body.release}
+    prepared: dict[str, tuple[UUID, str, StorageLocation]] = {}
+    for channel, value in requested.items():
+        if value is None:
+            continue
+        prefix = _normalize_object_prefix(value.object_prefix)
+        location = db.scalar(
+            select(StorageLocation).where(StorageLocation.id == value.storage_location_id)
+        )
+        if location is None or not location.enabled or location.status != "ready":
+            raise AppError(409, "STORAGE_NOT_READY", "请选择已启用且测试通过的存储位置")
+        prepared[channel] = (value.storage_location_id, prefix, location)
+    if "debug" in prepared and "release" in prepared:
+        debug_location = prepared["debug"][2]
+        release_location = prepared["release"][2]
+        if _same_bucket(debug_location, release_location) and _prefixes_overlap(
+            _effective_prefix(debug_location, prepared["debug"][1]),
+            _effective_prefix(release_location, prepared["release"][1]),
+        ):
+            raise AppError(422, "STORAGE_PREFIX_CONFLICT", "Debug 与 Release 的对象前缀不能重叠")
+    now = utcnow()
+    for channel, value in requested.items():
+        row = db.get(AppStorageBindingRecord, {"app_id": app.id, "channel": channel})
+        if value is None:
+            if row is not None:
+                db.delete(row)
+            continue
+        location_id, prefix, _ = prepared[channel]
+        if row is None:
+            db.add(
+                AppStorageBindingRecord(
+                    app_id=app.id,
+                    channel=channel,
+                    storage_location_id=location_id,
+                    object_prefix=prefix,
+                    revision=1,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+        else:
+            row.storage_location_id = location_id
+            row.object_prefix = prefix
+            row.revision += 1
+            row.updated_at = now
+    app.revision += 1
+    app.updated_at = now
+    audit(db, request, context, "app.package_storage.update", app)
+    db.commit()
+    etag(response, app)
+    return _package_storage_dto(db, app)
