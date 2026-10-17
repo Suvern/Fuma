@@ -397,6 +397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/apps/{id}/package-ingestions/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a package from a bound COS location
+         * @description Administrator fallback when the CI notification was lost. The worker still verifies the object and manifest before parsing or publishing.
+         */
+        post: operations["import_cos_package"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/apps/{id}/package-storage": {
         parameters: {
             query?: never;
@@ -2605,6 +2625,18 @@ export interface components {
             object: components["schemas"]["CosPackageObject"];
             /** @enum {string} */
             schema_version: "2";
+        };
+        CosPackageImportRequest: {
+            build: components["schemas"]["CosPackageBuild"];
+            /** @enum {string} */
+            channel: "debug" | "release";
+            event_id?: string | null;
+            manifest_key: string;
+            manifest_sha256: string;
+            object_key: string;
+            object_sha256: string;
+            /** Format: int64 */
+            object_size: number;
         };
         CosPackageManifest: {
             key: string;
@@ -5982,6 +6014,68 @@ export interface operations {
             };
             /** @description Resource not available */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    import_cos_package: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CSRF"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CosPackageImportRequest"];
+            };
+        };
+        responses: {
+            /** @description COS import accepted or safely deduplicated */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CosPackageEventAccepted"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application management permission required or invalid CSRF */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Binding, object or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid COS import contract */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

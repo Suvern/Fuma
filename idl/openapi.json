@@ -2387,6 +2387,68 @@
         ],
         "type": "object"
       },
+      "CosPackageImportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "build": {
+            "$ref": "#/components/schemas/CosPackageBuild"
+          },
+          "channel": {
+            "enum": [
+              "debug",
+              "release"
+            ],
+            "type": "string"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._:-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manifest_key": {
+            "maxLength": 600,
+            "minLength": 1,
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "type": "string"
+          },
+          "object_key": {
+            "maxLength": 600,
+            "minLength": 1,
+            "type": "string"
+          },
+          "object_sha256": {
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "type": "string"
+          },
+          "object_size": {
+            "format": "int64",
+            "maximum": 4294967296,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "channel",
+          "object_key",
+          "object_size",
+          "object_sha256",
+          "manifest_key",
+          "manifest_sha256",
+          "build"
+        ],
+        "type": "object"
+      },
       "CosPackageManifest": {
         "additionalProperties": false,
         "properties": {
@@ -9945,6 +10007,90 @@
           }
         ],
         "summary": "List COS package ingestions for an App",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/apps/{id}/package-ingestions/import": {
+      "post": {
+        "description": "Administrator fallback when the CI notification was lost. The worker still verifies the object and manifest before parsing or publishing.",
+        "operationId": "import_cos_package",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CSRF"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CosPackageImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CosPackageEventAccepted"
+                }
+              }
+            },
+            "description": "COS import accepted or safely deduplicated"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Application management permission required or invalid CSRF"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Binding, object or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid COS import contract"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Import a package from a bound COS location",
         "tags": [
           "integrations"
         ]

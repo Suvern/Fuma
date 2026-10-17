@@ -23,6 +23,7 @@ from app.api.contracts import (
     BuildRetryRequest,
     CosPackageEventAccepted,
     CosPackageEventRequest,
+    CosPackageImportRequest,
     PackageIngestion,
     PackageIngestionPage,
     PublicationInfo,
@@ -144,6 +145,98 @@ def list_package_ingestions(
         statement = statement.where(PackageIngestionRecord.channel == channel)
     rows = db.scalars(statement).all()
     return page([package_ingestion_dto(db, row) for row in rows], page_number, page_size)
+
+
+@router.post(
+    "/apps/{id}/package-ingestions/import",
+    response_model=CosPackageEventAccepted,
+    status_code=202,
+    operation_id="import_cos_package",
+    dependencies=WRITE,
+)
+def import_cos_package(
+    id: UUID,
+    body: CosPackageImportRequest,
+    request: Request,
+    db: DB,
+    admin: ScopedManager,
+):
+    app = get_app(db, id, lock=True)
+    if not app.enabled or app.archived_at:
+        raise AppError(409, "APP_NOT_READY", "App 已停用或已归档")
+    binding = db.get(
+        AppStorageBindingRecord,
+        {"app_id": app.id, "channel": body.channel},
+    )
+    if binding is None:
+        raise AppError(409, "APP_STORAGE_NOT_BOUND", "该通道尚未绑定存储位置")
+    location = db.get(StorageLocation, binding.storage_location_id)
+    if location is None or not location.enabled or location.status != "ready":
+        raise AppError(409, "STORAGE_NOT_READY", "绑定的存储位置不可用，请重新配置")
+    if not body.object_key.lower().endswith((".apk", ".ipa", ".zip")):
+        raise AppError(422, "PACKAGE_FILE_TYPE_INVALID", "安装包对象必须是 APK、IPA 或 ZIP")
+    assert_object_key(location, binding.object_prefix, body.object_key)
+    assert_object_key(location, binding.object_prefix, body.manifest_key)
+    object_sha256 = body.object_sha256.lower()
+    manifest_sha256 = body.manifest_sha256.lower()
+    requested_event_id = body.event_id.root if body.event_id is not None else None
+    event_id = requested_event_id or (
+        f"manual-cos:{body.channel}:{object_sha256[:32]}:{manifest_sha256[:32]}"
+    )
+    lock(db, "cos_event_identity:" + event_id)
+    row = db.scalar(
+        select(PackageIngestionRecord).where(PackageIngestionRecord.event_id == event_id)
+    )
+    duplicate = row is not None
+    if row:
+        same_payload = (
+            row.app_id == app.id
+            and row.channel == body.channel
+            and row.object_key == body.object_key
+            and row.object_size == body.object_size
+            and row.object_sha256 == object_sha256
+            and row.manifest_key == body.manifest_key
+            and row.manifest_sha256 == manifest_sha256
+            and row.build == body.build.model_dump(mode="json")
+        )
+        if not same_payload:
+            raise AppError(409, "IDEMPOTENCY_CONFLICT", "同一 COS 导入标识的提交内容不一致")
+    if row is None:
+        now = utcnow()
+        row = PackageIngestionRecord(
+            app_id=app.id,
+            rule_id=None,
+            event_id=event_id,
+            channel=body.channel,
+            object_key=body.object_key,
+            object_size=body.object_size,
+            object_sha256=object_sha256,
+            manifest_key=body.manifest_key,
+            manifest_sha256=manifest_sha256,
+            build=body.build.model_dump(mode="json"),
+            state="received",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(row)
+        db.flush()
+        task = enqueue(
+            db,
+            "cos_package_ingest",
+            resource_id=str(row.id),
+            app_id=app.id,
+            dedupe_key=f"cos_package_ingest:{row.id}",
+        )
+        row.task_id = task.id
+        audit(db, request, admin, "actions.cos_import.receive", row.id)
+    db.commit()
+    return {
+        "ingestion_id": row.id,
+        "duplicate": duplicate,
+        "state": row.state,
+        "task_id": row.task_id,
+        "status_url": f"/api/v1/package-ingestions/{row.id}",
+    }
 
 
 @router.post(

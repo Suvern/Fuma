@@ -1,7 +1,10 @@
-# 接入 Fuma GitHub Actions
+# 接入 Fuma GitHub Actions（COS 主路径）
 
 本说明可直接交给修改源应用仓库的 agent。仅配置 FUMA_CI_TOKEN 不会触发通知。
-流程：构建 APK / IPA → 上传 GitHub Release 附件 → 回调 Fuma → workflow 结束 → Fuma 准备文件并发卡片。
+新流程：构建 APK / IPA → 上传已绑定的 COS bucket/prefix → 回调 Fuma v2 → workflow 结束 → Fuma 校验对象并处理。
+GitHub Release 不再是 Fuma 的主数据源，也不要求 workflow 创建或上传 Release 资产。
+
+如果通知丢失，管理员可在 Fuma 中按 COS 对象元数据补提交一次导入；导入接口仍会重新 HEAD、下载、校验 manifest 和解析，不能绕过对象校验。
 
 ## 当前部署的回调 URL
 
@@ -15,16 +18,16 @@
 
 - 管理员在 Fuma 创建并启用规则，选择通知群；机器人已加入目标群。
 - 规则的源仓库、Workflow 路径、可信分支 / Tag 和文件匹配规则与实际构建一致。
-- Fuma GitHub 连接具备 Contents 与 Actions 读取权限。
-- 源仓库的发布 job 使用 GITHUB_TOKEN，授予 contents: write。
-- 当前接入读取 Release 附件，不读取仅存在于 Actions artifact 的文件。
+- Fuma 中已为 App 配置并启用对应 channel（Debug/Release）的 COS 存储绑定。
+- workflow 使用最小权限的 COS 上传凭证；bucket、prefix、区域和 endpoint 必须与 Fuma 绑定一致。
+- Release channel 仍会进入 Fuma 的人工发布确认，不因上传到 COS 而自动公开。
 
 ## 配置源仓库
 
 1. Settings → Secrets and variables → Actions → Secrets：添加 FUMA_CI_TOKEN，值为对应规则签发的令牌。
 2. 同页 Variables：添加 FUMA_CALLBACK_URL，值为上方完整回调 URL。
-3. 修改实际 build workflow：保留原构建环境和命令，在构建产物就绪后上传 Release 附件，再执行回调。
-4. 多 job 构建应先把文件传到发布 job。已有 Release 上传步骤时复用其 Release / asset IDs，不重复创建 Release。
+3. 修改实际 build workflow：保留原构建环境和命令，在构建产物就绪后将 APK/IPA 和 manifest 上传到与 channel 对应的 COS prefix，再执行 v2 回调。
+4. 多 job 构建应先把文件传到发布 job；回调中的 object key、size、sha256、manifest key 和 build 元数据必须来自实际上传结果。
 5. 以下 Android 示例的 JDK、Gradle 命令、文件路径、分支和 workflow 保存路径必须按源仓库调整。IPA 使用对应 macOS 构建流程并筛选 .ipa。
 
 ## 完整 Android 示例
@@ -36,8 +39,8 @@
 ## 回调协议与完成条件
 
 POST 上方 URL；Authorization: Bearer <FUMA_CI_TOKEN>；Content-Type: application/json。
-字段 repository_id、run_id、head_sha 来自当前 GitHub 上下文；run_attempt 为整数；release_id、asset_ids 来自实际上传结果，数字 ID 以字符串传输。
-不接受任意下载 URL 或群 ID。多条规则分别使用对应的令牌与 URL。
+字段 repository_id、run_id、head_sha 来自当前 GitHub 上下文；run_attempt 为整数；object key、size、sha256 和 manifest 摘要来自 COS 上传结果。
+不接受任意下载 URL、bucket 或群 ID；Fuma 只使用服务端 App/channel 绑定。多条规则分别使用对应的令牌与 URL。
 
 HTTP 202 仅表示已接收，不等于已通知。响应含 event_id、duplicate、state；重复回调可能返回原事件。
 回调步骤返回后立即结束，不要在同一 workflow 中轮询等待 Fuma 完成：Fuma 会等待整个 run 成功。
@@ -45,17 +48,22 @@ HTTP 202 仅表示已接收，不等于已通知。响应含 event_id、duplicat
 
 ## 验收与排障
 
-1. 从规则允许的可信分支 / Tag 触发 workflow，确认 APK / IPA 出现在 Release 附件中。
+1. 从规则允许的可信分支 / Tag 触发 workflow，确认 APK / IPA 与 manifest 出现在绑定的 COS prefix 中。
 2. 回调获得 202，workflow 最终成功。
 3. Fuma「构建事件」依次完成来源核验、等待构建、准备文件和通知投递；验证目标群实际收到卡片。
 4. 确认固定分发页面可访问；下载仍按 Fuma 的身份和权限规则执行。
 
 - 401/403：检查 Secret 是否存在、规则是否启用、令牌是否撤销，以及令牌 / URL 是否来自同一规则。
-- 来源核验失败：核对仓库、Workflow 路径、分支 / Tag、SHA、run、Release 与附件归属。
+- 来源核验失败：核对仓库、Workflow 路径、分支 / Tag、SHA、run 以及 COS 对象元数据。
 - 等待构建：检查整个 workflow 是否仍在运行或失败；不要形成等待 Fuma 的循环。
-- 文件失败：检查附件存在、文件规则和 GitHub 读取权限。
+- 文件失败：检查对象存在、绑定 prefix、对象扩展名、大小、SHA-256 和 manifest 内容。
+- 通知丢失：在 Fuma 版本页按相同 channel 选择“从 COS 导入”，填写对象 key、size、SHA-256、manifest key/SHA-256 和构建元数据；不要创建虚假的 GitHub Release。
 - 通知失败：检查机器人、目标群可发送状态，在事件详情按允许的阶段恢复。
 - 投递结果待确认：可能已发送，先核对群消息；不要盲目重发导致重复卡片。
 - fork PR 没有仓库 Secret：从已配置的可信分支触发发布，不绕过隔离。
 
 Token 只能在 GitHub Secret 中保存；本页和链接不会包含 Token，也不会读取规则的仓库、群聊或私有配置。
+
+## GitHub Release 兼容入口（legacy）
+
+历史 v1 GitHub Release 回调暂时保留，用于旧构建和回滚，不是 COS 主路径的前置条件。新 workflow 不应依赖 `release_id`、`asset_ids` 或 `contents: write`；在确认所有调用方完成迁移后，再单独评估关闭 legacy 入口。

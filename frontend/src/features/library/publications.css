@@ -46,6 +46,29 @@
 .cos-release-inbox {
   margin-block: 20px;
 }
+.cos-package-import {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--color-border, #e8e8e8);
+  border-radius: 6px;
+}
+.cos-package-import summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.cos-package-import > p {
+  color: var(--color-text-2, #666);
+  font-size: 13px;
+}
+.cos-package-import-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+.cos-package-import-fields .semi-button {
+  align-self: end;
+  justify-self: start;
+}
 .cos-release-inbox > .semi-card {
   border: 1px solid var(--color-border, #d9d9d9);
 }
@@ -91,6 +114,9 @@
   border-color: color-mix(in srgb, #d14343 30%, transparent);
 }
 @media (max-width: 600px) {
+  .cos-package-import-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .cos-release-inbox-item {
     align-items: stretch;
     flex-direction: column;

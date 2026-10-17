@@ -87,6 +87,7 @@ RESOURCE_OPERATIONS = {
     "get_build_event": EventRecord,
     "get_package_ingestion": PackageIngestionRecord,
     "list_package_ingestions": AppRecord,
+    "import_cos_package": AppRecord,
     "retry_package_ingestion": PackageIngestionRecord,
     "publish_package_ingestion": PackageIngestionRecord,
     "retry_build_event": EventRecord,

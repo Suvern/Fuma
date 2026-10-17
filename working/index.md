@@ -4,7 +4,7 @@
 
 ## 1. 目标与边界
 
-目标：Joice 的 GitHub Release 仅负责打包，不再上传 Release 资产；构建产物上传 COS 后通知 Fuma。Fuma 以 COS 作为 Debug 包的主来源，同时兼容现有 GitHub Release 流程、Release 包流程，以及 Debug/Release 使用不同桶或同桶不同前缀的情况。
+目标：先完成 Fuma 改造。Fuma 以 COS 作为 Debug/Release 包的主来源，COS webhook 是正常入口，通知丢失时可从已绑定 COS 对象手工补导入；GitHub Release 仅作为 legacy 兼容入口，不再是 COS 主流程依赖。Joice 的 workflow 改造暂不在本阶段实施。
 
 分阶段原则：每个阶段都有明确输入、输出、验收条件和回滚办法；Fuma 先改造并保持 v1 兼容，再改造 Joice 接入。
 
@@ -18,13 +18,13 @@
 | 1 | [现状基线](./01-current-state-baseline.md) | 已完成 | Fuma/Joice 当前行为与代码入口 | 需在实施前确认线上配置 |
 | 2 | [目标架构](./02-target-architecture.md) | 已完成 | 端到端流程与兼容矩阵 | 无 |
 | 3 | [App 存储绑定](./03-app-storage-binding.md) | 进行中 | Debug/Release 存储配置模型、同桶 prefix 隔离 | 需补充连接测试与历史 binding 迁移策略 |
-| 4 | [v2 事件契约](./04-v2-cos-event-contract.md) | 进行中 | COS 通知协议、规则令牌鉴权与幂等落库 | 需确认 Joice 最终签名/通知通道 |
+| 4 | [v2 事件契约](./04-v2-cos-event-contract.md) | 进行中 | COS 通知协议、规则令牌鉴权、幂等落库和通知丢失补导入 | 需确认最终签名/通知通道 |
 | 5 | [COS 对象校验](./05-cos-object-verification.md) | 进行中 | 绑定前缀校验、对象 HEAD/流式 SHA 校验任务 | 需确认真实 COS SDK、网络超时与下载上限 |
-| 6 | [Debug COS 接入](./06-debug-cos-ingestion.md) | 进行中 | 已校验对象进入 Parser 并创建云端原件 Debug 记录 | 通知、ZIP manifest 细节与真实 Parser 联调待完成 |
+| 6 | [Debug COS 接入](./06-debug-cos-ingestion.md) | 进行中 | 已校验对象进入 Parser 并创建云端原件 Debug 记录；支持 webhook 和手工补导入 | 通知、ZIP manifest 细节与真实 Parser 联调待完成 |
 | 7 | [Release 接入](./07-release-ingestion-manual-publish.md) | 进行中 | COS Release 入库到 `pending_publish`，版本发布页确认发布，复用 Publication 草稿与既有发布权限 | 需补拒绝/重新校验动作、发布后通知和真实 COS 联调 |
 | 8 | [Fuma 后端改造](./08-fuma-backend-implementation.md) | 进行中 | App 存储绑定 API、迁移、审计和并发版本校验 | 依赖 4-7 的事件/对象流程 |
-| 9 | [Fuma 前端与 OpenAPI](./09-fuma-frontend-and-openapi.md) | 进行中 | 应用设置绑定卡片、COS Release 待发布列表、确认发布按钮、OpenAPI 类型同步 | 需补充真实连接测试、事件记录和发布页失败态 |
-| 10 | [Joice Actions 迁移](./10-joice-github-actions-migration.md) | 待确认 | 已发现现有 COS 上传步骤，但仍有 GitHub Release 上传和旧 webhook | 需确认 APK/IPA 直传对象格式、Fuma App/规则映射后再改 Joice workflow |
+| 9 | [Fuma 前端与 OpenAPI](./09-fuma-frontend-and-openapi.md) | 进行中 | 应用设置绑定卡片、COS Release 待发布/补导入表单、确认发布按钮、OpenAPI 类型同步 | 需补充 COS 对象扫描、真实连接测试和事件记录 |
+| 10 | [Joice Actions 迁移](./10-joice-github-actions-migration.md) | 未开始 | 仅保留现状审计，不改 Joice 工作区 | Fuma 主路径验收完成后再单独排期 |
 | 11 | [旧 Release 迁移](./11-legacy-release-migration.md) | 未开始 | 历史包同步、清单、校验与重试 | 依赖 5、7 |
 | 12 | [灰度与回滚](./12-rollout-and-rollback.md) | 未开始 | 分阶段开关、回滚策略 | 依赖 8-11 |
 | 13 | [测试与验收](./13-test-and-acceptance.md) | 未开始 | 测试矩阵、验收证据 | 依赖 8-12 |
@@ -36,17 +36,18 @@
 2. 支持私有桶和公开桶；Fuma 不能信任通知中的任意下载 URL，应依据已配置的存储位置生成或校验对象地址。
 3. Debug v2 事件自动入库、自动 ready 并通知；Release v2 自动入库，但发布前保留人工确认。
 4. 保留现有 GitHub Release v1 兼容路径，迁移期间可以回退到 v1。
-5. GitHub 只负责打包；Joice 工作流负责上传 COS 并通知 Fuma，不再创建或上传 GitHub Release 资产。
+5. Fuma 先强绑定 COS：COS webhook 和手工补导入必须命中 App/channel binding；GitHub Release 仅保留兼容入口。
+6. Joice 后续再改为“GitHub 只负责打包，Actions 上传 COS 后通知 Fuma”；本阶段不修改 Joice。
 
 ## 4. 待确认问题
 
 - COS 厂商、SDK 版本、区域、Endpoint、私有桶鉴权方式，以及 Fuma 运行环境是否能访问 COS。
-- COS 通知使用 Fuma API、消息队列、Webhook 还是定时扫描；通知重试和签名方案。
+- COS 通知使用 Fuma API、消息队列、Webhook 还是定时扫描；通知重试和签名方案。当前已具备 webhook 和手工补导入两条 Fuma 入口。
 - Debug/Release 的默认保留期、覆盖策略、同一版本多构建的命名规则。
 - Joice 当前发布工作流、产物命名、版本号和构建元数据字段。
 - 历史 GitHub Release 是否允许覆盖已有 COS 对象；缺少 commit/构建号的历史包如何归档。
 - Release 人工确认人的权限、审批界面、审计字段和发布后通知渠道。
-- COS `channel=release` 已进入 `pending_publish`，但尚未自动发布；现有 GitHub Release 流程不受影响。
+- COS `channel=release` 已进入 `pending_publish`，但尚未自动发布；手工补导入也遵循同一状态机。
 
 ## 5. 问题记录
 
@@ -66,6 +67,7 @@
 | ADR-001 | Debug/Release 按 App 绑定存储，同桶使用不同 prefix | 2026-10-16 | 已确认 |
 | ADR-002 | v1 GitHub Release 与 v2 COS 事件并行兼容 | 2026-10-16 | 已确认 |
 | ADR-003 | Debug 自动 ready，Release 需要人工 publish | 2026-10-16 | 已确认 |
+| ADR-004 | COS webhook/手工补导入强制使用 App/channel binding；GitHub Release 仅作 legacy 兼容 | 2026-10-17 | 已确认 |
 
 ## 7. 变更日志
 
@@ -86,11 +88,13 @@
 | 2026-10-17 | 补齐 Release 人工核验信息 | 待发布卡片增加 commit、workflow run、对象大小/SHA-256、manifest key/摘要等字段，便于确认前对照构建产物 |
 | 2026-10-17 | 补齐 Release 失败恢复入口 | 入库列表支持按 channel 过滤，管理页展示失败记录和错误信息，并用幂等重试按钮重新排队 COS 校验 |
 | 2026-10-17 | 审计 Joice 本地 Android workflow | 确认现有 workflow 已上传 COS 但仍上传 GitHub Release；旧 webhook 不符合 Fuma v2；当前 COS ZIP 产物不能直接被 Fuma Android Parser 解析，需先确认并改为 APK/IPA 对象契约 |
+| 2026-10-17 | Fuma 增加 COS 通知丢失补导入能力 | 新增管理员 `POST /api/v1/apps/{id}/package-ingestions/import`；要求 App/channel binding 和 COS 对象/manifest 摘要，复用异步校验、解析、Debug ready、Release pending_publish 状态机；`package_ingestions.rule_id` 改为可空以支持无 CI 通知规则的导入 |
+| 2026-10-17 | Fuma 管理页接入 COS 补导入表单 | 安装包页提供 Debug、版本发布页提供 Release；表单只提交 COS key/摘要和构建元数据，不上传文件，提交后统一刷新入库状态 |
 
 ## 8. 本轮本地验证证据
 
 - `make idl-check`：OpenAPI YAML/JSON、后端生成契约、前端生成类型均同步。
-- `uv run --directory backend alembic upgrade head`：本地开发数据库迁移到 `0025_cos_release_publication`；`alembic current` 确认当前为 head。
+- `uv run --directory backend alembic upgrade head`：本地开发数据库迁移到 `0026_cos_manual_import`；`alembic current` 确认当前为 head。
 - 后端集成测试：独立临时 PostgreSQL 中 `285 passed`；覆盖 COS Debug/Release 事件首次接收、重复、冲突、对象校验、Parser 结果入库、Debug 自动 ready、Release `pending_publish`、发布前复核和失败重试。
 - 前端：既有 `pnpm test --run`（186 passed）、`pnpm lint`、`pnpm typecheck`、`pnpm build` 均通过；本轮生成类型后再次通过 `pnpm typecheck`。
 - 浏览器本地验证：`http://localhost:5174/admin/apps/<本地测试 App>` 已显示“包存储绑定”卡片，验证编辑态及未绑定保存；未连接任何线上 COS。
@@ -99,6 +103,7 @@
 - COS ready 通知测试：验证入库事务创建 `DeliveryRecord` 与 `notification` 任务、绑定 Actions 规则目标，并由发送前的规则/App/群成员校验保护；通知失败可沿用现有投递重试入口。
 - COS Release 管理页本地验证：登录本地 `http://localhost:5174` 后进入 App「版本发布」，可看到“COS Release 待发布”面板；无待发布记录时显示空态，未连接线上 COS。
 - 本轮新增接口验证：`GET /api/v1/apps/{id}/package-ingestions?state=pending_publish` 返回 `publication_revision`，发布操作沿用 `If-Match`；COS Release 流程测试通过。
+- 本轮新增接口验证：管理员可在本地为已绑定 Release channel 提交 COS 对象补导入；无 CI rule 时 `rule_id` 为空，接口返回 202，重复 payload 幂等，绑定缺失/越界对象被拒绝；定向测试通过。
 
 ## 9. 每阶段完成定义
 

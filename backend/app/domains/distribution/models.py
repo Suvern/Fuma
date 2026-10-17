@@ -166,7 +166,7 @@ class PackageIngestionRecord(Timestamped, Base):
     __table_args__ = (UniqueConstraint("event_id", name="uq_package_ingestions_event_id"),)
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     app_id: Mapped[UUID] = mapped_column(ForeignKey("applications.id"), index=True)
-    rule_id: Mapped[UUID] = mapped_column(ForeignKey("actions_rules.id"))
+    rule_id: Mapped[UUID | None] = mapped_column(ForeignKey("actions_rules.id"), nullable=True)
     event_id: Mapped[str] = mapped_column(String(128))
     channel: Mapped[str] = mapped_column(String(16))
     object_key: Mapped[str] = mapped_column(String(600))

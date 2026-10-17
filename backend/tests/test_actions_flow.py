@@ -432,6 +432,70 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch, ch
     assert replay.status_code == 202 and replay.json() == retry.json()
 
 
+def test_admin_can_import_bound_cos_object_without_ci_notification(client):
+    headers, _rule, app_id = setup_rule(client)
+    storage_id = uuid4()
+    with Session(client.app.state.engine) as db:
+        db.add(
+            StorageLocation(
+                id=storage_id,
+                name="COS Release",
+                provider="oss",
+                region="cn-hangzhou",
+                bucket="fuma-test",
+                prefix="fuma/test",
+                read_mode="private",
+                encrypted_credentials="{}",
+                enabled=True,
+                is_default=False,
+                status="ready",
+                revision=1,
+                capabilities={},
+            )
+        )
+        db.flush()
+        db.add(
+            AppStorageBindingRecord(
+                app_id=UUID(app_id),
+                channel="release",
+                storage_location_id=storage_id,
+                object_prefix="release",
+                revision=1,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            )
+        )
+        db.commit()
+    object_sha256 = hashlib.sha256(b"package").hexdigest()
+    manifest_sha256 = hashlib.sha256(b"manifest").hexdigest()
+    result = client.post(
+        f"/api/v1/apps/{app_id}/package-ingestions/import",
+        headers=headers,
+        json={
+            "channel": "release",
+            "object_key": "fuma/test/release/1.2.3/123/app.apk",
+            "object_size": 7,
+            "object_sha256": object_sha256,
+            "manifest_key": "fuma/test/release/1.2.3/123/manifest.json",
+            "manifest_sha256": manifest_sha256,
+            "event_id": "manual-release-001",
+            "build": {
+                "version": "1.2.3",
+                "build_number": "123",
+                "commit_sha": SHA,
+                "workflow_run_id": "456",
+                "created_at": "2026-10-16T10:00:00Z",
+            },
+        },
+    )
+    assert result.status_code == 202, result.text
+    assert result.json()["duplicate"] is False
+    with Session(client.app.state.engine) as db:
+        ingestion = db.get(PackageIngestionRecord, UUID(result.json()["ingestion_id"]))
+        assert ingestion and ingestion.rule_id is None
+        assert ingestion.channel == "release"
+
+
 @pytest.mark.parametrize(
     "change",
     [

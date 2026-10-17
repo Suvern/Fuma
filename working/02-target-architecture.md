@@ -51,10 +51,12 @@ v2 事件只声明 `channel=debug|release` 和对象 key。Fuma 根据 channel �
 
 | 来源 | channel | 行为 | 备注 |
 |---|---|---|---|
-| GitHub Release v1 | debug | 现有流程 | 迁移期间保留 |
-| GitHub Release v1 | release | 现有流程或转为 pending_publish | 由兼容层映射 |
-| COS v2 | debug | 自动 ready | 新主路径 |
-| COS v2 | release | 自动 ingest，人工 publish | 新主路径 |
+| COS v2 webhook | debug | 自动 ready | 新主路径，必须命中 Debug binding |
+| COS v2 webhook | release | 自动 ingest，人工 publish | 新主路径，必须命中 Release binding |
+| COS 手工补导入 | debug | 自动 ready | 通知丢失时的管理员兜底，仍需 binding 和异步对象校验 |
+| COS 手工补导入 | release | 自动 ingest，人工 publish | 通知丢失时的管理员兜底，仍需 binding 和人工确认 |
+| GitHub Release v1 | debug | 兼容现有流程 | legacy，仅用于迁移期和回滚 |
+| GitHub Release v1 | release | 兼容现有流程或转为 pending_publish | legacy，不再作为 COS 主路径依赖 |
 | Debug/Release 不同桶 | 对应 channel | 按 channel 绑定读取 | 推荐生产配置 |
 | Debug/Release 同桶 | 对应 channel | 严格 prefix 隔离 | 必须拒绝跨 prefix |
 | 私有桶 | 任一 | 服务端凭证读取 | 不暴露长期签名 URL |

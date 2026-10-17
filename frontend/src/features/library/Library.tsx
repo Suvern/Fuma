@@ -109,6 +109,7 @@ export function PackagesPage() {
         loading={uploads.isPending}
         failed={uploads.isError}
       />
+      <CosPackageImportForm appId={id} channel="debug" />
       <Pager data={uploads.data} page={uploadPage} setPage={setUploadPage} />
       <ErrorBox error={uploads.error} />
       {uploads.isError && (
@@ -830,6 +831,7 @@ function CosReleaseInbox({ appId }: { appId: string }) {
       <p>
         GitHub Actions 只负责构建并上传 COS。校验通过的 Release 会停在这里，确认后才会进入版本发布列表。
       </p>
+      <CosPackageImportForm appId={appId} channel="release" />
       {cmd.feedback}
       <ErrorBox error={ingestions.error} />
       {ingestions.isPending && <Loading />}
@@ -927,6 +929,92 @@ function CosReleaseInbox({ appId }: { appId: string }) {
         </div>
       ))}
     </Panel>
+  );
+}
+
+function CosPackageImportForm({
+  appId,
+  channel,
+}: {
+  appId: string;
+  channel: "debug" | "release";
+}) {
+  const cmd = useCommand();
+  return (
+    <details className="cos-package-import">
+      <summary>
+        通知丢失？从已绑定 COS 导入 {channel === "debug" ? "Debug" : "Release"}
+      </summary>
+      <p>
+        仅填写已上传到当前 App/{channel} 存储绑定的对象元数据。Fuma 会重新读取对象、校验摘要和 manifest，不能通过此表单上传或绕过校验。
+      </p>
+      {cmd.feedback}
+      <Form
+        className="cos-package-import-fields"
+        submit={(f) => {
+          const objectSize = Number(text(f, "object_size"));
+          const body: DTO<"CosPackageImportRequest"> = {
+            channel,
+            object_key: text(f, "object_key"),
+            object_size: objectSize,
+            object_sha256: text(f, "object_sha256"),
+            manifest_key: text(f, "manifest_key"),
+            manifest_sha256: text(f, "manifest_sha256"),
+            event_id: text(f, "event_id") || undefined,
+            build: {
+              version: text(f, "version"),
+              build_number: text(f, "build_number"),
+              commit_sha: text(f, "commit_sha"),
+              workflow_run_id: text(f, "workflow_run_id"),
+              created_at: text(f, "created_at"),
+            },
+          };
+          void cmd.run(
+            `cos-import-${channel}`,
+            (key) =>
+              write("/api/v1/apps/{id}/package-ingestions/import", "post", body, {
+                id: appId,
+                key,
+              }),
+            undefined,
+            `${channel === "debug" ? "Debug" : "Release"} COS 导入已排队。`,
+          );
+        }}
+      >
+        <Field name="object_key" label="安装包对象 key" required maxLength={600} />
+        <Field name="object_size" label="对象大小（字节）" type="number" min={1} required />
+        <Field
+          name="object_sha256"
+          label="对象 SHA-256"
+          required
+          pattern="^[0-9a-fA-F]{64}$"
+          validationMessage="请输入 64 位十六进制 SHA-256。"
+        />
+        <Field name="manifest_key" label="Manifest 对象 key" required maxLength={600} />
+        <Field
+          name="manifest_sha256"
+          label="Manifest SHA-256"
+          required
+          pattern="^[0-9a-fA-F]{64}$"
+          validationMessage="请输入 64 位十六进制 SHA-256。"
+        />
+        <Field name="version" label="版本号" required maxLength={100} />
+        <Field name="build_number" label="Build number" required maxLength={100} />
+        <Field name="commit_sha" label="Commit SHA" required minLength={7} maxLength={100} />
+        <Field name="workflow_run_id" label="Workflow run ID" required maxLength={100} />
+        <Field
+          name="created_at"
+          label="构建时间（ISO 8601）"
+          required
+          defaultValue={new Date().toISOString()}
+          help="例如 2026-10-17T10:00:00Z。"
+        />
+        <Field name="event_id" label="事件 ID（可选）" maxLength={128} />
+        <Button type="submit" className="primary" disabled={cmd.pending}>
+          提交 COS 导入
+        </Button>
+      </Form>
+    </details>
   );
 }
 

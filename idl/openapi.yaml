@@ -4825,6 +4825,51 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ErrorResponse'}
+  /api/v1/apps/{id}/package-ingestions/import:
+    post:
+      operationId: import_cos_package
+      tags: [integrations]
+      summary: Import a package from a bound COS location
+      description: >-
+        Administrator fallback when the CI notification was lost. The worker
+        still verifies the object and manifest before parsing or publishing.
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CosPackageImportRequest'
+      responses:
+        '202':
+          description: COS import accepted or safely deduplicated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CosPackageEventAccepted'
+        '401': {description: Authentication required}
+        '403':
+          description: Application management permission required or invalid CSRF
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '409':
+          description: Binding, object or idempotency conflict
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '422':
+          description: Invalid COS import contract
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
   /api/v1/package-ingestions/{id}/retry:
     post:
       operationId: retry_package_ingestion
@@ -10994,6 +11039,49 @@ components:
       - build
       - object
       - manifest
+    CosPackageImportRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        channel:
+          type: string
+          enum: [debug, release]
+        object_key:
+          type: string
+          minLength: 1
+          maxLength: 600
+        object_size:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 4294967296
+        object_sha256:
+          type: string
+          pattern: ^[0-9a-fA-F]{64}$
+        manifest_key:
+          type: string
+          minLength: 1
+          maxLength: 600
+        manifest_sha256:
+          type: string
+          pattern: ^[0-9a-fA-F]{64}$
+        build:
+          $ref: '#/components/schemas/CosPackageBuild'
+        event_id:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 128
+            pattern: '^[A-Za-z0-9._:-]+$'
+          - type: 'null'
+      required:
+      - channel
+      - object_key
+      - object_size
+      - object_sha256
+      - manifest_key
+      - manifest_sha256
+      - build
     CosPackageEventAccepted:
       type: object
       additionalProperties: false

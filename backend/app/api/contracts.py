@@ -1154,6 +1154,24 @@ class CosPackageEventRequest(BaseModel):
     manifest: CosPackageManifest
 
 
+class EventId(RootModel[str]):
+    root: str = Field(..., max_length=128, min_length=1, pattern="^[A-Za-z0-9._:-]+$")
+
+
+class CosPackageImportRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    channel: Literal["debug", "release"]
+    object_key: str = Field(..., max_length=600, min_length=1)
+    object_size: int = Field(..., ge=1, le=4294967296)
+    object_sha256: str = Field(..., pattern="^[0-9a-fA-F]{64}$")
+    manifest_key: str = Field(..., max_length=600, min_length=1)
+    manifest_sha256: str = Field(..., pattern="^[0-9a-fA-F]{64}$")
+    build: CosPackageBuild
+    event_id: EventId | None = None
+
+
 class CosPackageEventAccepted(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

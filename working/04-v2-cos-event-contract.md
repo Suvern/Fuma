@@ -68,3 +68,12 @@ Joice 工作流和 Fuma 状态机，不新增未确认的密钥来源。最终�
 - v1 处理结果增加 `source_type=github_release_v1`，v2 使用 `source_type=cos_v2`。
 - 同一 GitHub Release 资产若已由 v2 入库，v1 回调到达时以 checksum/object identity 去重。
 - 兼容期结束前保留 v1 监控和回滚开关，删除前先统计调用方。
+
+## 6. 通知丢失时的 COS 手工补导入
+
+管理员可调用 `POST /api/v1/apps/{id}/package-ingestions/import`，提交 `channel`、对象 key/size/SHA-256、manifest key/SHA-256 和构建元数据；`event_id` 可选，未提供时由这些摘要生成稳定幂等标识。该入口不是上传接口：对象必须已经存在于 App/channel 绑定的 COS prefix 下，Fuma 仍会异步执行 HEAD、流式 SHA-256、manifest 校验和 APK/IPA 解析。
+
+- 没有 binding、binding 不可用、对象 key 越界或扩展名不支持时，API 立即拒绝。
+- 同一导入标识和相同 payload 返回 `duplicate=true`；相同标识但 payload 不同返回 409。
+- Debug 导入最终进入 `ready` 并按现有规则通知；Release 导入最终进入 `pending_publish`，仍需人工确认。
+- 该入口不读取 GitHub Release，不接受任意下载 URL，也不允许通过伪造 metadata 绕过 COS 内容校验。
