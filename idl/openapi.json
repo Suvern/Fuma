@@ -2316,6 +2316,7 @@
               "received",
               "validating",
               "verified",
+              "parsing",
               "ready",
               "failed"
             ],
@@ -4133,7 +4134,8 @@
           "source_kind": {
             "enum": [
               "upload",
-              "github"
+              "github",
+              "cos"
             ],
             "type": "string"
           },
@@ -4269,6 +4271,7 @@
               "received",
               "validating",
               "verified",
+              "parsing",
               "ready",
               "failed"
             ],
@@ -10021,7 +10024,8 @@
             "schema": {
               "enum": [
                 "upload",
-                "github"
+                "github",
+                "cos"
               ],
               "type": "string"
             }

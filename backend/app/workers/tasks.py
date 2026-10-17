@@ -122,6 +122,12 @@ def execute_task(engine, settings, task_id):
                             ingestion.state = "failed"
                             ingestion.error_code = task.error_code
                             ingestion.error_message = task.error_message
+                    if task.kind == "cos_package_parse":
+                        ingestion = db.get(PackageIngestionRecord, UUID(task.resource_id))
+                        if ingestion:
+                            ingestion.state = "failed"
+                            ingestion.error_code = task.error_code
+                            ingestion.error_message = task.error_message
                     if task.kind == "storage_probe":
                         from app.domains.storage.models import StorageLocation
 
@@ -215,6 +221,10 @@ def dispatch(db, settings, task):
         from app.domains.storage.package_ingestion import verify_object
 
         verify_object(db, settings, task)
+    elif task.kind == "cos_package_parse":
+        from app.domains.storage.cos_ingestion import parse_and_persist
+
+        parse_and_persist(db, settings, task)
     elif task.kind in {"release_sync", "release_import"}:
         from app.domains.github.releases import execute_release_task
 

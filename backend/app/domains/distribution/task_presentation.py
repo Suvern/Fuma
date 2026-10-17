@@ -59,6 +59,7 @@ def result_summary(task):
         "cache_download": "文件已完成缓存，可以重新申请下载。",
         "package_ingest": "安装包已解析并入库；发布仍需单独操作。",
         "cos_package_ingest": "COS 对象已完成首轮校验，等待下载解析阶段。",
+        "cos_package_parse": "COS 安装包正在解析并入库。",
         "package_delete": "安装包文件已清理，历史记录保留。",
         "notification": "通知投递已处理，请查看投递记录；发送成功不等于已阅读。",
         "build_event": "构建分发处理已完成，文件和通知结果见构建事件。",

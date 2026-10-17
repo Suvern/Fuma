@@ -225,7 +225,8 @@ class Adapter:
             ) from None
 
     def verify(self, key, size, sha256, *, public=False, full=False):
-        if self.head(key) != (size, sha256):
+        actual_size, actual_sha256 = self.head(key)
+        if actual_size != size or (actual_sha256 and actual_sha256 != sha256):
             raise AppError(409, "STORAGE_CONTENT_MISMATCH", "云端大小或摘要不一致")
         status = self.anonymous_status(key)
         if (public and status not in {200, 206}) or (not public and status != 403):

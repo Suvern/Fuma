@@ -1160,7 +1160,7 @@ class CosPackageEventAccepted(BaseModel):
     )
     ingestion_id: UUID
     duplicate: bool
-    state: Literal["received", "validating", "verified", "ready", "failed"]
+    state: Literal["received", "validating", "verified", "parsing", "ready", "failed"]
     task_id: UUID
     status_url: str
 
@@ -1179,7 +1179,7 @@ class PackageIngestion(BaseModel):
     manifest_key: str
     manifest_sha256: str = Field(..., pattern="^[0-9a-f]{64}$")
     build: CosPackageBuild
-    state: Literal["received", "validating", "verified", "ready", "failed"]
+    state: Literal["received", "validating", "verified", "parsing", "ready", "failed"]
     task_id: UUID
     error_code: str | None
     error_message: str | None
@@ -1915,7 +1915,7 @@ class PackageInfo(BaseModel):
     architectures: list[Architecture]
     signer_fingerprints: list[SignerFingerprint]
     signature_status: str = Field(..., max_length=100)
-    source_kind: Literal["upload", "github"]
+    source_kind: Literal["upload", "github", "cos"]
     state: Literal["ready", "deleting", "deleted", "processing"]
     created_at: AwareDatetime
     internal_notes: str = Field(..., max_length=2000)

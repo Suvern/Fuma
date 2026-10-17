@@ -61,6 +61,7 @@ def scan(engine, sent):
                     "cache_download",
                     "package_ingest",
                     "cos_package_ingest",
+                    "cos_package_parse",
                     "publication_access",
                 }
                 else "general",

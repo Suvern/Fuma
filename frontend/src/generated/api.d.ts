@@ -2555,7 +2555,7 @@ export interface components {
             /** Format: uuid */
             ingestion_id: string;
             /** @enum {string} */
-            state: "received" | "validating" | "verified" | "ready" | "failed";
+            state: "received" | "validating" | "verified" | "parsing" | "ready" | "failed";
             status_url: string;
             /** Format: uuid */
             task_id: string;
@@ -2990,7 +2990,7 @@ export interface components {
             signer_fingerprints: string[];
             size_bytes: number;
             /** @enum {string} */
-            source_kind: "upload" | "github";
+            source_kind: "upload" | "github" | "cos";
             source_snapshot?: {
                 [key: string]: unknown;
             } | null;
@@ -3019,7 +3019,7 @@ export interface components {
             /** Format: int64 */
             object_size: number;
             /** @enum {string} */
-            state: "received" | "validating" | "verified" | "ready" | "failed";
+            state: "received" | "validating" | "verified" | "parsing" | "ready" | "failed";
             status_url: string;
             /** Format: uuid */
             task_id: string;
@@ -6036,7 +6036,7 @@ export interface operations {
                 platform?: "android" | "ios";
                 mode?: "debug" | "release";
                 state?: "processing" | "ready" | "deleting" | "deleted";
-                source_kind?: "upload" | "github";
+                source_kind?: "upload" | "github" | "cos";
                 /** @description 入库起始时间（含），必须包含时区。 */
                 created_from?: string;
                 /** @description 入库结束时间（不含），必须包含时区。 */

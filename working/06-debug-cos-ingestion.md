@@ -3,16 +3,17 @@
 ## 1. 目标状态机
 
 ```text
-received -> validating -> downloading -> parsing -> ready
+received -> validating -> verified -> parsing -> ready
                                       \-> failed_retryable
                                       \-> failed_terminal
 ```
 
 Debug 通过所有校验后自动进入 `ready`。重复事件命中同一 `event_id` 或同一 `object sha256` 时返回原记录；若同一 key 的 checksum 变化，必须创建冲突错误，不覆盖已 ready 记录。
 
-当前实现到达 `received -> validating -> verified`（`verified` 代表对象和 manifest 已完成
-HEAD、流式下载及 SHA-256 校验），尚未进入 `parsing` 和 `ready`。因此本阶段不会把远端
-对象直接暴露为 Debug 可下载记录。
+当前实现已覆盖 `received -> validating -> verified -> parsing -> ready`：`verified` 代表
+对象和 manifest 已完成 HEAD、流式下载及 SHA-256 校验；`parsing` 会把对象交给现有隔离
+Parser，校验 manifest 平台/文件名和 Parser 输出后创建云端原件 `PackageRecord`、
+`StoredObject` 及 Debug 记录。通知仍未接入，ZIP manifest 的最终字段仍需和 Joice 确认。
 
 ## 2. 任务步骤
 
@@ -20,9 +21,9 @@ HEAD、流式下载及 SHA-256 校验），尚未进入 `parsing` 和 `ready`。
 2. 校验 App、channel、binding 和 key prefix。
 3. HEAD 对象，校验 size/content type/metadata。
 4. 流式下载并计算 SHA-256；大小或 checksum 不符则失败。
-5. 若为 ZIP，执行安全解包并读取 manifest。
-6. 将 APK/IPA 交给现有 Parser；校验包名、版本、平台。
-7. 在事务中创建或更新 DebugRecord、CacheRecord、来源信息。
+5. 校验 manifest 的 `schema_version/platform/file_name`，生成 Parser 请求。
+6. 将 APK/IPA/可解析 ZIP 交给现有 Parser；校验包名、版本、平台。
+7. 在事务中创建或更新 DebugRecord、PackageRecord、StoredObject 和来源信息，下载授权直接指向绑定的 COS 原件。
 8. 提交后发送 ready 通知；通知失败不回滚包记录，使用独立 outbox 重试。
 
 ## 3. API 与异步任务

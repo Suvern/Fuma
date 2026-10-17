@@ -13,7 +13,7 @@ from app.core.errors import AppError
 from app.domains.applications.models import AppStorageBindingRecord
 from app.domains.auth.service import utcnow
 from app.domains.distribution.models import PackageIngestionRecord
-from app.domains.distribution.service import must_get
+from app.domains.distribution.service import enqueue, must_get
 from app.domains.storage.models import StorageLocation
 from app.domains.storage.service import adapter
 
@@ -78,6 +78,14 @@ def verify_object(db, settings, task) -> None:
     ingestion.state = "verified"
     ingestion.verified_at = utcnow()
     ingestion.updated_at = utcnow()
+    parse_task = enqueue(
+        db,
+        "cos_package_parse",
+        resource_id=str(ingestion.id),
+        app_id=ingestion.app_id,
+        dedupe_key=f"cos_package_parse:{ingestion.id}",
+    )
+    ingestion.task_id = parse_task.id
     db.flush()
 
 

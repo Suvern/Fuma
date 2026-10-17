@@ -118,6 +118,7 @@ def task_dto(task):
                 "build_event",
                 "package_ingest",
                 "cos_package_ingest",
+                "cos_package_parse",
                 "storage_probe",
                 "publication_access",
             }

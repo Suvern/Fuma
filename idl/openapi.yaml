@@ -6846,6 +6846,7 @@ paths:
           enum:
           - upload
           - github
+          - cos
       - name: created_from
         in: query
         description: 入库起始时间（含），必须包含时区。
@@ -10912,7 +10913,7 @@ components:
           type: boolean
         state:
           type: string
-          enum: [received, validating, verified, ready, failed]
+          enum: [received, validating, verified, parsing, ready, failed]
         task_id: *id001
         status_url:
           type: string
@@ -10951,7 +10952,7 @@ components:
           $ref: '#/components/schemas/CosPackageBuild'
         state:
           type: string
-          enum: [received, validating, verified, ready, failed]
+          enum: [received, validating, verified, parsing, ready, failed]
         task_id: *id001
         error_code:
           anyOf:
@@ -11832,6 +11833,7 @@ components:
           enum:
           - upload
           - github
+          - cos
         state:
           type: string
           enum:

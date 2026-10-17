@@ -15,7 +15,11 @@ from sqlalchemy.orm import Session
 from app.api.actions import router
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.domains.applications.models import AppRecord, AppStorageBindingRecord
+from app.domains.applications.models import (
+    AllowedPackageIdRecord,
+    AppRecord,
+    AppStorageBindingRecord,
+)
 from app.domains.auth.models import User
 from app.domains.auth.service import password_hasher, token_hash, utcnow
 from app.domains.distribution.actions import process_event, verify_source
@@ -258,6 +262,15 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
                 updated_at=utcnow(),
             )
         )
+        db.add(
+            AllowedPackageIdRecord(
+                app_id=UUID(app_id),
+                platform="android",
+                mode="debug",
+                normalized_identifier="com.example.app",
+                identifier="com.example.app",
+            )
+        )
         db.commit()
     body = {
         "schema_version": "2",
@@ -279,7 +292,9 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
         },
         "manifest": {
             "key": "fuma/test/debug/1.2.3/123/manifest.json",
-            "sha256": hashlib.sha256(b"manifest").hexdigest(),
+            "sha256": hashlib.sha256(
+                b'{"schema_version":"1","platform":"android","file_name":"app.apk"}'
+            ).hexdigest(),
         },
     }
     endpoint = f"/api/v1/integrations/github-actions/{rule['rule']['id']}/cos-events"
@@ -313,7 +328,11 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
             def download(self, key, path, *, expected_size=None, max_size=None):
                 import hashlib
 
-                content = b"package" if key == body["object"]["key"] else b"manifest"
+                content = (
+                    b"package"
+                    if key == body["object"]["key"]
+                    else b'{"schema_version":"1","platform":"android","file_name":"app.apk"}'
+                )
                 if expected_size is not None:
                     assert len(content) == expected_size
                 if max_size is not None:
@@ -325,12 +344,42 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
             "app.domains.storage.package_ingestion.adapter",
             lambda settings, location: HeadOnlyClient(),
         )
+        monkeypatch.setattr(
+            "app.domains.storage.cos_ingestion.adapter",
+            lambda settings, location: HeadOnlyClient(),
+        )
         from app.domains.storage.package_ingestion import verify_object
 
         verify_object(db, client.app.state.settings, task)
         assert db.get(PackageIngestionRecord, ingestion.id).state == "verified"
+        parse_task = db.get(TaskRecord, ingestion.task_id)
+        outbox = client.app.state.settings.parser_outbox
+        outbox.mkdir(parents=True, exist_ok=True)
+        (outbox / f"{parse_task.id}.json").write_text(
+            json.dumps(
+                {
+                    "ok": True,
+                    "sha256": body["object"]["sha256"],
+                    "metadata": {
+                        "package_identifier": "com.example.app",
+                        "version_name": "1.2.3",
+                        "build_number": "123",
+                        "min_os": None,
+                        "architectures": [],
+                        "signer_fingerprints": [],
+                        "signature_status": "测试签名",
+                        "parser_version": "fixture",
+                    },
+                }
+            )
+        )
+        from app.domains.storage.cos_ingestion import parse_and_persist
+
+        parse_and_persist(db, client.app.state.settings, parse_task)
+        assert db.get(PackageIngestionRecord, ingestion.id).state == "ready"
+        assert db.scalar(select(DebugRecord)) is not None
         ingestion.state = "failed"
-        task.state = "failed"
+        parse_task.state = "failed"
         db.commit()
         ingestion_id = ingestion.id
     retry_headers = {**headers, "Idempotency-Key": str(uuid4())}

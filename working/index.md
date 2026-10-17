@@ -20,7 +20,7 @@
 | 3 | [App 存储绑定](./03-app-storage-binding.md) | 进行中 | Debug/Release 存储配置模型、同桶 prefix 隔离 | 需补充连接测试与历史 binding 迁移策略 |
 | 4 | [v2 事件契约](./04-v2-cos-event-contract.md) | 进行中 | COS 通知协议、规则令牌鉴权与幂等落库 | 需确认 Joice 最终签名/通知通道 |
 | 5 | [COS 对象校验](./05-cos-object-verification.md) | 进行中 | 绑定前缀校验、对象 HEAD/流式 SHA 校验任务 | 需确认真实 COS SDK、网络超时与下载上限 |
-| 6 | [Debug COS 接入](./06-debug-cos-ingestion.md) | 未开始 | Debug 自动入库与通知 | 依赖 3-5 |
+| 6 | [Debug COS 接入](./06-debug-cos-ingestion.md) | 进行中 | 已校验对象进入 Parser 并创建云端原件 Debug 记录 | 通知、ZIP manifest 细节与真实 Parser 联调待完成 |
 | 7 | [Release 接入](./07-release-ingestion-manual-publish.md) | 未开始 | Release 自动入库、人工发布 | 依赖 3-5 |
 | 8 | [Fuma 后端改造](./08-fuma-backend-implementation.md) | 进行中 | App 存储绑定 API、迁移、审计和并发版本校验 | 依赖 4-7 的事件/对象流程 |
 | 9 | [Fuma 前端与 OpenAPI](./09-fuma-frontend-and-openapi.md) | 进行中 | 应用设置绑定卡片、OpenAPI 类型同步 | 需补充连接测试、事件记录和发布页 |
@@ -77,16 +77,17 @@
 | 2026-10-17 | 将 App channel 存储绑定接入上传默认路由 | 未显式指定 `storage_location_id` 时，上传按 `debug/release` 使用 App 绑定；无绑定时继续回退系统默认存储，显式指定仍兼容 |
 | 2026-10-17 | 完成 COS v2 事件接入首轮垂直切片 | 新增事件契约、规则令牌鉴权、App/channel/prefix 校验、`event_id` 幂等落库、`cos_package_ingest` 任务及对象 HEAD/大小/已有摘要元数据校验；尚未解析或自动 ready |
 | 2026-10-17 | 完成 COS 对象内容校验切片 | 增加签名 URL 流式下载、对象 SHA-256 与 manifest SHA-256 校验，临时文件只写运行时临时目录；尚未解析或入库 |
+| 2026-10-17 | 开始 Debug COS 解析入库切片 | 增加独立 `cos_package_parse` 任务，消费 manifest 的平台/文件名，复用现有隔离 Parser，创建 `PackageRecord`、`StoredObject` 和 Debug 记录；原件继续以 COS 对象为主，不回传 GitHub Release |
 
 ## 8. 本轮本地验证证据
 
 - `make idl-check`：OpenAPI YAML/JSON、后端生成契约、前端生成类型均同步。
-- `uv run --directory backend alembic upgrade head`：本地开发数据库迁移到 `0022_package_ingestions`。
-- 后端集成测试：独立临时 PostgreSQL 中 `284 passed`；除原有绑定/上传用例外，新增 COS 事件首次接收、重复、冲突、任务入队和 fake adapter HEAD 校验。
+- `uv run --directory backend alembic upgrade head`：本地开发数据库迁移到 `0023_cos_debug_ingestion`；`alembic current` 确认当前为 head。
+- 后端集成测试：独立临时 PostgreSQL 中 `284 passed`；覆盖 COS 事件首次接收、重复、冲突、对象校验、Parser 结果入库、Debug 自动 ready 和失败重试。
 - 前端：`pnpm test --run`（186 passed）、`pnpm lint`、`pnpm typecheck`、`pnpm build` 均通过。
 - 浏览器本地验证：`http://localhost:5174/admin/apps/<本地测试 App>` 已显示“包存储绑定”卡片，验证编辑态及未绑定保存；未连接任何线上 COS。
 - 上传路由集成测试：未指定存储位置的 Release 上传命中 App Release 绑定，独立测试库用例通过。
-- COS 事件集成测试：独立临时 PostgreSQL 中覆盖首次接收、重复事件、同事件内容冲突、任务入队和 fake adapter HEAD 校验；`test_actions_flow.py` 全部通过。
+- COS 事件集成测试：独立临时 PostgreSQL 中覆盖首次接收、重复事件、同事件内容冲突、任务入队、fake adapter HEAD/下载、Parser 结果入库和失败重试；`test_actions_flow.py` 全部通过。
 
 ## 9. 每阶段完成定义
 

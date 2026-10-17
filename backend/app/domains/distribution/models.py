@@ -106,7 +106,7 @@ class DebugRecord(Timestamped, Base):
     source_identity: Mapped[str] = mapped_column(String(64))
     cache_identity: Mapped[str | None] = mapped_column(ForeignKey("source_caches.source_identity"))
     cache_record: Mapped[CacheRecord | None] = relationship()
-    connector_id: Mapped[UUID]
+    connector_id: Mapped[UUID | None]
     revision: Mapped[int] = mapped_column(default=1)
     enabled: Mapped[bool] = mapped_column(default=True)
     platform: Mapped[str] = mapped_column(String(16))
