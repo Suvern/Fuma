@@ -46,6 +46,7 @@
 - Joice 当前发布工作流、产物命名、版本号和构建元数据字段。
 - 历史 GitHub Release 是否允许覆盖已有 COS 对象；缺少 commit/构建号的历史包如何归档。
 - Release 人工确认人的权限、审批界面、审计字段和发布后通知渠道。
+- COS `channel=release` 当前会在解析前 fail-closed，待第 07 阶段实现 `pending_publish` 后再放开；现有 GitHub Release 流程不受影响。
 
 ## 5. 问题记录
 

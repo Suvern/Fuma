@@ -10,6 +10,8 @@ received -> validating -> verified -> parsing -> ready
 
 Debug 通过所有校验后自动进入 `ready`。重复事件命中同一 `event_id` 或同一 `object sha256` 时返回原记录；若同一 key 的 checksum 变化，必须创建冲突错误，不覆盖已 ready 记录。
 
+当前切片只对 `channel=debug` 自动入库；`channel=release` 在 Parser 前 fail-closed，等待第 07 阶段的人工发布模型完成，避免误创建 Debug 记录。
+
 当前实现已覆盖 `received -> validating -> verified -> parsing -> ready`：`verified` 代表
 对象和 manifest 已完成 HEAD、流式下载及 SHA-256 校验；`parsing` 会把对象交给现有隔离
 Parser，校验 manifest 平台/文件名和 Parser 输出后创建云端原件 `PackageRecord`、

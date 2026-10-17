@@ -263,6 +263,12 @@ def parse_and_persist(db, settings, task):
     ingestion = must_get(db, PackageIngestionRecord, UUID(task.resource_id))
     if ingestion.state == "ready":
         return
+    if ingestion.channel == "release":
+        raise AppError(
+            409,
+            "RELEASE_INGESTION_NOT_READY",
+            "Release COS 入库将在人工发布链路完成后启用；当前请继续使用现有 Release 流程",
+        )
     if ingestion.state not in {"verified", "parsing"}:
         raise AppError(409, "INGESTION_NOT_VERIFIED", "对象尚未完成校验")
     _binding, location = binding_for(db, ingestion)
