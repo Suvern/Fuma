@@ -28,7 +28,7 @@ from app.api.dependencies import (
 )
 from app.core.errors import AppError
 from app.domains.access.authorization import require_app_permission
-from app.domains.applications.models import AppRecord
+from app.domains.applications.models import AppRecord, AppStorageBindingRecord
 from app.domains.applications.service import package_ids, platform_enabled, require_platform_enabled
 from app.domains.audit.service import record_audit
 from app.domains.auth.service import AuthContext, token_hash, utcnow
@@ -162,8 +162,15 @@ def create_upload(
     location_id = body.storage_location_id
     if "storage_location_id" not in body.model_fields_set:
         location_id = db.scalar(
-            select(StorageLocation.id).where(StorageLocation.is_default.is_(True))
+            select(AppStorageBindingRecord.storage_location_id).where(
+                AppStorageBindingRecord.app_id == app.id,
+                AppStorageBindingRecord.channel == body.mode,
+            )
         )
+        if location_id is None:
+            location_id = db.scalar(
+                select(StorageLocation.id).where(StorageLocation.is_default.is_(True))
+            )
     if location_id:
         ready_location(db, location_id)
     if not re.fullmatch(

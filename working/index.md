@@ -74,6 +74,7 @@
 | 2026-10-16 | 完成文件清单、入口索引和关键文档存在性校验 | 文档工作区可进入阶段评审 |
 | 2026-10-17 | 修正本地前端 5174 与 API Origin 不一致导致的 CSRF_INVALID | 更新本地启动命令与开发文档；未改变生产配置 |
 | 2026-10-17 | 完成 App Debug/Release 存储绑定第一条垂直切片 | 新增 `app_storage_bindings` 迁移、GET/PUT API、If-Match 并发校验、prefix 规范化与同桶冲突校验；前端应用设置新增绑定卡片；保留 GitHub v1 流程 |
+| 2026-10-17 | 将 App channel 存储绑定接入上传默认路由 | 未显式指定 `storage_location_id` 时，上传按 `debug/release` 使用 App 绑定；无绑定时继续回退系统默认存储，显式指定仍兼容 |
 
 ## 8. 本轮本地验证证据
 
@@ -82,6 +83,7 @@
 - 后端集成测试：独立临时 PostgreSQL 中 `282 passed`；新增用例覆盖正常绑定、同桶不同 prefix、冲突 prefix、非法 prefix、解绑和 revision。
 - 前端：`pnpm test --run`（186 passed）、`pnpm lint`、`pnpm typecheck`、`pnpm build` 均通过。
 - 浏览器本地验证：`http://localhost:5174/admin/apps/<本地测试 App>` 已显示“包存储绑定”卡片，验证编辑态及未绑定保存；未连接任何线上 COS。
+- 上传路由集成测试：未指定存储位置的 Release 上传命中 App Release 绑定，独立测试库用例通过。
 
 ## 9. 每阶段完成定义
 

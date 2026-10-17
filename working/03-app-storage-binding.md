@@ -73,5 +73,6 @@ created_by / updated_by
 - 服务端会 trim 首尾 `/`，拒绝空前缀、`.`、`..`、控制字符；同一 bucket 的 Debug/Release 有相同或父子前缀时拒绝。
 - 只允许 `enabled=true` 且 `status=ready` 的 StorageLocation；不回显凭据。
 - App 设置页新增 Debug/Release 两组选择与 prefix 编辑，允许整组解绑；前端只做及时提示，服务端仍是最终校验方。
+- 现有分片上传接口在请求未显式指定 `storage_location_id` 时，按上传 `mode` 读取 App 绑定；无绑定才回退系统默认存储，保留旧客户端显式选择行为。
 
 本切片暂未实现：连接测试对象、v2 事件入库、旧 binding 自动迁移和对象级审计历史。这些能力分别在第 5、6、7、11 阶段实现，当前 API 不改变现有 GitHub Release v1 行为。

@@ -20,6 +20,7 @@ from app.domains.distribution.models import TaskRecord
 from app.domains.distribution.service import RetryLater
 from app.domains.library.ingestion import ingest
 from app.domains.library.models import PackageRecord, UploadRecord
+from app.domains.storage.models import StorageLocation
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -113,6 +114,43 @@ def test_resumable_chunks_hash_conflicts_and_cancel(client, configured_app, monk
     assert (
         client.post(f"/api/v1/uploads/{upload['id']}/complete", headers=headers).status_code == 409
     )
+
+
+def test_upload_uses_app_channel_storage_binding_when_not_explicit(
+    client, configured_app, monkeypatch
+):
+    headers, app = configured_app
+    storage_id = uuid4()
+    with Session(client.app.state.engine) as db:
+        db.add(
+            StorageLocation(
+                id=storage_id,
+                name="Release 原件存储",
+                provider="oss",
+                region="cn-hangzhou",
+                bucket="fuma-test",
+                prefix="fuma/release",
+                read_mode="private",
+                encrypted_credentials="{}",
+                enabled=True,
+                is_default=False,
+                status="ready",
+                revision=1,
+                capabilities={},
+            )
+        )
+        db.commit()
+    bound = client.put(
+        f"/api/v1/apps/{app['id']}/package-storage",
+        headers={**headers, "If-Match": f'"{app["revision"]}"'},
+        json={
+            "debug": None,
+            "release": {"storage_location_id": str(storage_id), "object_prefix": "release"},
+        },
+    )
+    assert bound.status_code == 200, bound.text
+    upload = start(client, headers, app, ipa(), monkeypatch)
+    assert upload["storage_location_id"] == str(storage_id)
 
 
 def test_upload_parse_publish_download_unpublish_and_restore(client, configured_app, monkeypatch):
