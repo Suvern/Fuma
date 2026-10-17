@@ -102,6 +102,8 @@ def package_ingestion_dto(row: PackageIngestionRecord) -> dict:
         "manifest_sha256": row.manifest_sha256,
         "build": row.build,
         "state": row.state,
+        "package_id": row.package_id,
+        "publication_id": row.publication_id,
         "task_id": row.task_id,
         "error_code": row.error_code,
         "error_message": row.error_message,

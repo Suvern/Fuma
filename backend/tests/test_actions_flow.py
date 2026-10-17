@@ -33,6 +33,7 @@ from app.domains.distribution.models import (
     TaskRecord,
 )
 from app.domains.distribution.service import RetryLater
+from app.domains.library.models import PublicationRecord
 from app.domains.storage.models import StorageLocation
 from app.domains.system.models import SystemState
 from app.infrastructure.database import Base, build_engine
@@ -229,7 +230,8 @@ def test_rule_callback_deduplication_rotation_and_revoke(client):
     assert client.get(f"/api/v1/apps/{app_id}/build-events").json()["total"] == 1
 
 
-def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
+@pytest.mark.parametrize("channel", ["debug", "release"])
+def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch, channel):
     headers, rule, app_id = setup_rule(client)
     storage_id = uuid4()
     with Session(client.app.state.engine) as db:
@@ -254,9 +256,9 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
         db.add(
             AppStorageBindingRecord(
                 app_id=UUID(app_id),
-                channel="debug",
+                channel=channel,
                 storage_location_id=storage_id,
-                object_prefix="debug",
+                object_prefix=channel,
                 revision=1,
                 created_at=utcnow(),
                 updated_at=utcnow(),
@@ -266,7 +268,7 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
             AllowedPackageIdRecord(
                 app_id=UUID(app_id),
                 platform="android",
-                mode="debug",
+                mode=channel,
                 normalized_identifier="com.example.app",
                 identifier="com.example.app",
             )
@@ -276,7 +278,7 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
         "schema_version": "2",
         "event_id": "joice-build-123",
         "app_id": app_id,
-        "channel": "debug",
+        "channel": channel,
         "build": {
             "version": "1.2.3",
             "build_number": "123",
@@ -285,13 +287,13 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
             "created_at": "2026-10-16T10:00:00Z",
         },
         "object": {
-            "key": "fuma/test/debug/1.2.3/123/package.apk",
+            "key": f"fuma/test/{channel}/1.2.3/123/package.apk",
             "size": 7,
             "sha256": hashlib.sha256(b"package").hexdigest(),
             "content_type": "application/vnd.android.package-archive",
         },
         "manifest": {
-            "key": "fuma/test/debug/1.2.3/123/manifest.json",
+            "key": f"fuma/test/{channel}/1.2.3/123/manifest.json",
             "sha256": hashlib.sha256(
                 b'{"schema_version":"1","platform":"android","file_name":"app.apk"}'
             ).hexdigest(),
@@ -376,16 +378,28 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
         from app.domains.storage.cos_ingestion import parse_and_persist
 
         parse_and_persist(db, client.app.state.settings, parse_task)
-        assert db.get(PackageIngestionRecord, ingestion.id).state == "ready"
-        assert db.scalar(select(DebugRecord)) is not None
-        delivery = db.scalar(
-            select(DeliveryRecord).where(DeliveryRecord.rule_id == UUID(rule["rule"]["id"]))
+        assert db.get(PackageIngestionRecord, ingestion.id).state == (
+            "ready" if channel == "debug" else "pending_publish"
         )
-        assert delivery and delivery.kind == "build_ready" and delivery.state == "queued"
-        notification_task = db.scalar(
-            select(TaskRecord).where(TaskRecord.dedupe_key == f"cos_notification:{ingestion.id}")
-        )
-        assert notification_task and str(delivery.id) in notification_task.payload["delivery_ids"]
+        if channel == "debug":
+            assert db.scalar(select(DebugRecord)) is not None
+            delivery = db.scalar(
+                select(DeliveryRecord).where(DeliveryRecord.rule_id == UUID(rule["rule"]["id"]))
+            )
+            assert delivery and delivery.kind == "build_ready" and delivery.state == "queued"
+            notification_task = db.scalar(
+                select(TaskRecord).where(
+                    TaskRecord.dedupe_key == f"cos_notification:{ingestion.id}"
+                )
+            )
+            assert (
+                notification_task and str(delivery.id) in notification_task.payload["delivery_ids"]
+            )
+        else:
+            assert db.scalar(select(DebugRecord)) is None
+            assert ingestion.publication_id is not None
+            publication = db.get(PublicationRecord, ingestion.publication_id)
+            assert publication and publication.state == "draft"
         ingestion.state = "failed"
         parse_task.state = "failed"
         db.commit()

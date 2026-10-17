@@ -2317,6 +2317,7 @@
               "validating",
               "verified",
               "parsing",
+              "pending_publish",
               "ready",
               "failed"
             ],
@@ -4266,12 +4267,35 @@
             "minimum": 1,
             "type": "integer"
           },
+          "package_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publication_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "state": {
             "enum": [
               "received",
               "validating",
               "verified",
               "parsing",
+              "pending_publish",
               "ready",
               "failed"
             ],
@@ -4312,6 +4336,8 @@
           "manifest_sha256",
           "build",
           "state",
+          "package_id",
+          "publication_id",
           "task_id",
           "error_code",
           "error_message",

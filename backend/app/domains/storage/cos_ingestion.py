@@ -18,7 +18,12 @@ from app.domains.auth.service import utcnow
 from app.domains.distribution.feishu import create_delivery
 from app.domains.distribution.models import DebugRecord, PackageIngestionRecord, RuleRecord
 from app.domains.distribution.service import RetryLater, digest, enqueue, must_get
-from app.domains.library.models import PackageRecord
+from app.domains.library.models import (
+    PackageRecord,
+    PublicationPackage,
+    PublicationRecord,
+    VersionRecord,
+)
 from app.domains.storage.models import StoredObject
 from app.domains.storage.package_ingestion import binding_for
 from app.domains.storage.service import adapter
@@ -182,6 +187,42 @@ def _persist_package(db, ingestion, location, metadata, platform, file_name):
     elif stored.package_id is None:
         stored.package_id = package.id
         stored.state = "ready"
+    ingestion.package_id = package.id
+    if ingestion.channel == "release":
+        publication = db.scalar(
+            select(PublicationRecord)
+            .join(PublicationPackage)
+            .where(
+                PublicationRecord.app_id == ingestion.app_id,
+                PublicationRecord.mode == "release",
+                PublicationPackage.package_id == package.id,
+            )
+            .order_by(PublicationRecord.created_at.desc())
+        )
+        if publication is None:
+            version = VersionRecord(
+                app_id=ingestion.app_id,
+                display_name=ingestion.build["version"][:100],
+                mode="release",
+                release_notes="",
+                revision=1,
+                created_at=utcnow(),
+            )
+            db.add(version)
+            db.flush()
+            publication = PublicationRecord(
+                app_id=ingestion.app_id,
+                version_id=version.id,
+                platform=platform,
+                mode="release",
+                created_at=utcnow(),
+            )
+            db.add(publication)
+            db.flush()
+            db.add(PublicationPackage(publication_id=publication.id, package_id=package.id))
+        ingestion.publication_id = publication.id
+        return package, None
+
     source_identity = digest({"event_id": ingestion.event_id, "sha256": ingestion.object_sha256})
     entry = db.scalar(
         select(DebugRecord).where(
@@ -215,7 +256,7 @@ def _persist_package(db, ingestion, location, metadata, platform, file_name):
     else:
         entry.persistent_package_id = package.id
         entry.updated_at = utcnow()
-    return entry
+    return package, entry
 
 
 def _queue_ready_notifications(db, ingestion, entry, metadata):
@@ -261,14 +302,8 @@ def _queue_ready_notifications(db, ingestion, entry, metadata):
 
 def parse_and_persist(db, settings, task):
     ingestion = must_get(db, PackageIngestionRecord, UUID(task.resource_id))
-    if ingestion.state == "ready":
+    if ingestion.state in {"ready", "pending_publish"}:
         return
-    if ingestion.channel == "release":
-        raise AppError(
-            409,
-            "RELEASE_INGESTION_NOT_READY",
-            "Release COS 入库将在人工发布链路完成后启用；当前请继续使用现有 Release 流程",
-        )
     if ingestion.state not in {"verified", "parsing"}:
         raise AppError(409, "INGESTION_NOT_VERIFIED", "对象尚未完成校验")
     _binding, location = binding_for(db, ingestion)
@@ -283,9 +318,12 @@ def parse_and_persist(db, settings, task):
     file_name = task.payload.get("file_name")
     if platform not in {"android", "ios"} or not isinstance(file_name, str):
         raise AppError(422, "INVALID_PACKAGE_MANIFEST", "解析任务缺少 manifest 元数据")
-    entry = _persist_package(db, ingestion, location, metadata, platform, file_name)
-    _queue_ready_notifications(db, ingestion, entry, metadata)
-    ingestion.state = "ready"
+    _package, entry = _persist_package(db, ingestion, location, metadata, platform, file_name)
+    if entry is None:
+        ingestion.state = "pending_publish"
+    else:
+        _queue_ready_notifications(db, ingestion, entry, metadata)
+        ingestion.state = "ready"
     ingestion.error_code = ingestion.error_message = None
     ingestion.updated_at = utcnow()
     db.commit()

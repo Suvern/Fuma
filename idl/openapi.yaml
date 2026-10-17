@@ -10913,7 +10913,7 @@ components:
           type: boolean
         state:
           type: string
-          enum: [received, validating, verified, parsing, ready, failed]
+          enum: [received, validating, verified, parsing, pending_publish, ready, failed]
         task_id: *id001
         status_url:
           type: string
@@ -10952,7 +10952,15 @@ components:
           $ref: '#/components/schemas/CosPackageBuild'
         state:
           type: string
-          enum: [received, validating, verified, parsing, ready, failed]
+          enum: [received, validating, verified, parsing, pending_publish, ready, failed]
+        package_id:
+          anyOf:
+          - *id001
+          - type: 'null'
+        publication_id:
+          anyOf:
+          - *id001
+          - type: 'null'
         task_id: *id001
         error_code:
           anyOf:
@@ -10982,6 +10990,8 @@ components:
       - manifest_sha256
       - build
       - state
+      - package_id
+      - publication_id
       - task_id
       - error_code
       - error_message

@@ -2555,7 +2555,7 @@ export interface components {
             /** Format: uuid */
             ingestion_id: string;
             /** @enum {string} */
-            state: "received" | "validating" | "verified" | "parsing" | "ready" | "failed";
+            state: "received" | "validating" | "verified" | "parsing" | "pending_publish" | "ready" | "failed";
             status_url: string;
             /** Format: uuid */
             task_id: string;
@@ -3018,8 +3018,10 @@ export interface components {
             object_sha256: string;
             /** Format: int64 */
             object_size: number;
+            package_id: string | null;
+            publication_id: string | null;
             /** @enum {string} */
-            state: "received" | "validating" | "verified" | "parsing" | "ready" | "failed";
+            state: "received" | "validating" | "verified" | "parsing" | "pending_publish" | "ready" | "failed";
             status_url: string;
             /** Format: uuid */
             task_id: string;

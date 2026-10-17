@@ -1160,7 +1160,9 @@ class CosPackageEventAccepted(BaseModel):
     )
     ingestion_id: UUID
     duplicate: bool
-    state: Literal["received", "validating", "verified", "parsing", "ready", "failed"]
+    state: Literal[
+        "received", "validating", "verified", "parsing", "pending_publish", "ready", "failed"
+    ]
     task_id: UUID
     status_url: str
 
@@ -1179,7 +1181,11 @@ class PackageIngestion(BaseModel):
     manifest_key: str
     manifest_sha256: str = Field(..., pattern="^[0-9a-f]{64}$")
     build: CosPackageBuild
-    state: Literal["received", "validating", "verified", "parsing", "ready", "failed"]
+    state: Literal[
+        "received", "validating", "verified", "parsing", "pending_publish", "ready", "failed"
+    ]
+    package_id: UUID | None
+    publication_id: UUID | None
     task_id: UUID
     error_code: str | None
     error_message: str | None

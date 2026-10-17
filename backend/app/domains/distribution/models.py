@@ -176,6 +176,8 @@ class PackageIngestionRecord(Timestamped, Base):
     manifest_sha256: Mapped[str] = mapped_column(String(64))
     build: Mapped[dict] = mapped_column(JSON, default=dict)
     state: Mapped[str] = mapped_column(String(32), default="received", index=True)
+    package_id: Mapped[UUID | None] = mapped_column(ForeignKey("packages.id"))
+    publication_id: Mapped[UUID | None] = mapped_column(ForeignKey("publications.id"))
     task_id: Mapped[UUID | None] = mapped_column(ForeignKey("durable_tasks.id"))
     error_code: Mapped[str | None] = mapped_column(String(100))
     error_message: Mapped[str | None] = mapped_column(String(500))

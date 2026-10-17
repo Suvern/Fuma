@@ -9,7 +9,11 @@ pending_publish -> publishing -> published
                               \-> publish_failed (retryable)
 ```
 
-Release 的 ingest 与 publish 必须是两个独立动作。入库成功不等于对外可见。
+Release 的 ingest 与 publish 必须是两个独立动作。当前 COS Release 已完成 ingest：Parser 成功后创建
+`PackageRecord`、`VersionRecord`、草稿 `PublicationRecord`，并将 `PackageIngestion.state` 设为
+`pending_publish`；入库成功不等于对外可见。现有 Publication 发布 API 仍负责最终状态转换和公开副本任务。
+
+当前切片的关联字段：`PackageIngestion.package_id`、`PackageIngestion.publication_id`。重复执行同一事件会复用相同 Package/Publication，不重复创建 Debug 条目。
 
 ## 2. 人工确认页面信息
 
@@ -31,6 +35,7 @@ Release 的 ingest 与 publish 必须是两个独立动作。入库成功不等�
 ## 5. 验证
 
 - Release 事件不能自动变成 published。
+- COS Release 事件只能变为 `pending_publish`，必须由人工调用既有 Publication 发布操作。
 - 无权限用户不能 publish；重复 publish 不产生第二次发布。
 - 对象在确认前被替换时 publish 必须拒绝。
 - publish 后通知失败可重试，不回退已审计的发布状态。
