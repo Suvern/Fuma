@@ -1362,6 +1362,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/package-ingestions/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry a failed COS package ingestion */
+        post: operations["retry_package_ingestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/packages/{id}": {
         parameters: {
             query?: never;
@@ -4898,9 +4915,16 @@ export interface operations {
     };
     list_build_events: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                q?: components["parameters"]["Query"];
+                state?: "received" | "verifying" | "waiting_run" | "caching" | "notifying" | "succeeded" | "partial_success" | "failed" | "unknown";
+            };
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -10687,12 +10711,7 @@ export interface operations {
     };
     get_package_ingestion: {
         parameters: {
-            query?: {
-                page?: components["parameters"]["Page"];
-                page_size?: components["parameters"]["PageSize"];
-                q?: components["parameters"]["Query"];
-                state?: "received" | "verifying" | "waiting_run" | "caching" | "notifying" | "succeeded" | "partial_success" | "failed" | "unknown";
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -10728,6 +10747,66 @@ export interface operations {
             };
             /** @description Resource not available */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    retry_package_ingestion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CSRF"];
+                /** @description Same intent and retries use the same UUID; different body with same key returns 409. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retry queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CosPackageEventAccepted"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application management permission required or invalid CSRF */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Ingestion is not retryable */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

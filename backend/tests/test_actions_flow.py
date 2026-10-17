@@ -226,7 +226,7 @@ def test_rule_callback_deduplication_rotation_and_revoke(client):
 
 
 def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
-    _, rule, app_id = setup_rule(client)
+    headers, rule, app_id = setup_rule(client)
     storage_id = uuid4()
     with Session(client.app.state.engine) as db:
         db.add(
@@ -329,6 +329,15 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch):
 
         verify_object(db, client.app.state.settings, task)
         assert db.get(PackageIngestionRecord, ingestion.id).state == "verified"
+        ingestion.state = "failed"
+        task.state = "failed"
+        db.commit()
+        ingestion_id = ingestion.id
+    retry_headers = {**headers, "Idempotency-Key": str(uuid4())}
+    retry = client.post(f"/api/v1/package-ingestions/{ingestion_id}/retry", headers=retry_headers)
+    assert retry.status_code == 202, retry.text
+    replay = client.post(f"/api/v1/package-ingestions/{ingestion_id}/retry", headers=retry_headers)
+    assert replay.status_code == 202 and replay.json() == retry.json()
 
 
 @pytest.mark.parametrize(

@@ -86,6 +86,7 @@ RESOURCE_OPERATIONS = {
     "revoke_actions_token": RuleRecord,
     "get_build_event": EventRecord,
     "get_package_ingestion": PackageIngestionRecord,
+    "retry_package_ingestion": PackageIngestionRecord,
     "retry_build_event": EventRecord,
     "get_task": TaskRecord,
     "retry_task": TaskRecord,

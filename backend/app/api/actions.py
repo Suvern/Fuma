@@ -490,6 +490,62 @@ def get_package_ingestion(id: UUID, db: DB):
     return package_ingestion_dto(must_get(db, PackageIngestionRecord, id))
 
 
+@router.post(
+    "/package-ingestions/{id}/retry",
+    response_model=CosPackageEventAccepted,
+    status_code=202,
+    operation_id="retry_package_ingestion",
+    dependencies=[Depends(require_csrf)],
+)
+def retry_package_ingestion(
+    id: UUID,
+    request: Request,
+    db: DB,
+    context: ScopedManager,
+    idempotency_key: Annotated[str | None, Header()] = None,
+):
+    lock(db, f"package_ingestion:{id}")
+    row = must_get(db, PackageIngestionRecord, id)
+    key, previous = idem_begin(db, f"retry_package_ingestion:{id}", idempotency_key, {})
+    if previous:
+        return previous.data
+    if row.state != "failed":
+        raise AppError(409, "NOT_RETRYABLE", "只有失败的 COS 入库任务可以重试")
+    task = enqueue(
+        db,
+        "cos_package_ingest",
+        resource_id=str(row.id),
+        app_id=row.app_id,
+        dedupe_key=f"cos_package_ingest:{row.id}",
+    )
+    row.state = "received"
+    row.task_id = task.id
+    row.error_code = row.error_message = None
+    row.updated_at = utcnow()
+    result = {
+        "ingestion_id": row.id,
+        "duplicate": False,
+        "state": row.state,
+        "task_id": task.id,
+        "status_url": f"/api/v1/package-ingestions/{row.id}",
+    }
+    idem_save(db, key, {}, result)
+    record_audit(
+        db,
+        action="actions.cos_event.retry",
+        resource_type="package_ingestion",
+        resource_id=str(row.id),
+        app_id=row.app_id,
+        actor_kind="admin",
+        actor_id=str(context.user.id),
+        request_id=request.state.request_id,
+        outcome="success",
+        summary="重新排队 COS 对象校验任务",
+    )
+    db.commit()
+    return result
+
+
 @router.get(
     "/apps/{id}/build-events",
     response_model=BuildEventPage,
