@@ -405,6 +405,13 @@ def test_cos_event_is_idempotent_and_queues_object_check(client, monkeypatch, ch
             assert publication and publication.state == "draft"
         ingestion_id = ingestion.id
     if channel == "release":
+        listing = client.get(
+            f"/api/v1/apps/{app_id}/package-ingestions?state=pending_publish",
+            headers=headers,
+        )
+        assert listing.status_code == 200, listing.text
+        assert listing.json()["total"] == 1
+        assert listing.json()["items"][0]["publication_revision"] == 1
         monkeypatch.setattr("app.api.library.adapter", lambda settings, location: HeadOnlyClient())
         published = client.post(
             f"/api/v1/package-ingestions/{ingestion_id}/publish",

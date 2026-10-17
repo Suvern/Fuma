@@ -715,6 +715,7 @@ export function VersionsPage() {
       </Title>
       <PageTabs />
       {cmd.feedback}
+      <CosReleaseInbox appId={id} />
       <div className="app-tab-filters versions-toolbar">
         {filters.search}
         <Button
@@ -806,6 +807,68 @@ export function VersionsPage() {
       ))}
       <Pager data={versions.data} {...filters} />
     </div>
+  );
+}
+
+function CosReleaseInbox({ appId }: { appId: string }) {
+  const cmd = useCommand();
+  const ingestions = useQuery({
+    queryKey: ["cos-release-ingestions", appId],
+    queryFn: () =>
+      read("/api/v1/apps/{id}/package-ingestions", {
+        id: appId,
+        query: { page: 1, page_size: 20, state: "pending_publish" },
+      }),
+    refetchInterval: 5000,
+  });
+  const items = ingestions.data?.items ?? [];
+  return (
+    <Panel className="cos-release-inbox">
+      <h2>COS Release 待发布</h2>
+      <p>
+        GitHub Actions 只负责构建并上传 COS。校验通过的 Release 会停在这里，确认后才会进入版本发布列表。
+      </p>
+      {cmd.feedback}
+      <ErrorBox error={ingestions.error} />
+      {ingestions.isPending && <Loading />}
+      {!ingestions.isPending && !ingestions.isError && !items.length && (
+        <p>暂无待发布的 COS Release。</p>
+      )}
+      {items.map((item) => (
+        <div className="cos-release-inbox-item" key={item.id}>
+          <div>
+            <strong>{item.build.version}</strong>
+            <span>
+              {" "}
+              · build {item.build.build_number} · {item.object_key}
+            </span>
+            <p>
+              事件 {item.event_id} · 上传于 {date(item.created_at)}
+            </p>
+          </div>
+          <Button
+            type="button"
+            className="primary"
+            disabled={cmd.pending || item.publication_revision == null}
+            onClick={() =>
+              void cmd.run(
+                "publish-cos-release-" + item.id,
+                () =>
+                  write("/api/v1/package-ingestions/{id}/publish", "post", undefined, {
+                    id: item.id,
+                    revision: item.publication_revision ?? undefined,
+                  }),
+                undefined,
+                "COS Release 已确认发布。",
+                "确认发布这个 COS Release？发布前会再次校验 COS 对象内容。",
+              )
+            }
+          >
+            确认发布
+          </Button>
+        </div>
+      ))}
+    </Panel>
   );
 }
 

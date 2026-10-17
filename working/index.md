@@ -21,9 +21,9 @@
 | 4 | [v2 事件契约](./04-v2-cos-event-contract.md) | 进行中 | COS 通知协议、规则令牌鉴权与幂等落库 | 需确认 Joice 最终签名/通知通道 |
 | 5 | [COS 对象校验](./05-cos-object-verification.md) | 进行中 | 绑定前缀校验、对象 HEAD/流式 SHA 校验任务 | 需确认真实 COS SDK、网络超时与下载上限 |
 | 6 | [Debug COS 接入](./06-debug-cos-ingestion.md) | 进行中 | 已校验对象进入 Parser 并创建云端原件 Debug 记录 | 通知、ZIP manifest 细节与真实 Parser 联调待完成 |
-| 7 | [Release 接入](./07-release-ingestion-manual-publish.md) | 进行中 | COS Release 入库到 `pending_publish`，复用 Publication 草稿与既有发布权限 | 需补发布页入口、发布前对象复核和通知 |
+| 7 | [Release 接入](./07-release-ingestion-manual-publish.md) | 进行中 | COS Release 入库到 `pending_publish`，版本发布页确认发布，复用 Publication 草稿与既有发布权限 | 需补拒绝/重新校验动作、发布后通知和真实 COS 联调 |
 | 8 | [Fuma 后端改造](./08-fuma-backend-implementation.md) | 进行中 | App 存储绑定 API、迁移、审计和并发版本校验 | 依赖 4-7 的事件/对象流程 |
-| 9 | [Fuma 前端与 OpenAPI](./09-fuma-frontend-and-openapi.md) | 进行中 | 应用设置绑定卡片、OpenAPI 类型同步 | 需补充连接测试、事件记录和发布页 |
+| 9 | [Fuma 前端与 OpenAPI](./09-fuma-frontend-and-openapi.md) | 进行中 | 应用设置绑定卡片、COS Release 待发布列表、确认发布按钮、OpenAPI 类型同步 | 需补充真实连接测试、事件记录和发布页失败态 |
 | 10 | [Joice Actions 迁移](./10-joice-github-actions-migration.md) | 未开始 | COS 上传与通知流程 | 依赖 4、6 |
 | 11 | [旧 Release 迁移](./11-legacy-release-migration.md) | 未开始 | 历史包同步、清单、校验与重试 | 依赖 5、7 |
 | 12 | [灰度与回滚](./12-rollout-and-rollback.md) | 未开始 | 分阶段开关、回滚策略 | 依赖 8-11 |
@@ -82,6 +82,7 @@
 | 2026-10-17 | 完成 Debug ready 通知切片 | COS 入库事务同时创建带规则归属的 Feishu 投递记录和通知任务；发送前重新校验 App、规则和群目标，新增 `0024_cos_notification_rule` 迁移；通知失败不回滚已 ready 包 |
 | 2026-10-17 | 开始 COS Release 人工发布切片 | Release 解析后创建 `PackageRecord`、`VersionRecord`、草稿 `PublicationRecord`，入库状态为 `pending_publish`；新增 `package_id/publication_id` 关联和 `0025_cos_release_publication` 迁移，未创建 Debug 条目 |
 | 2026-10-17 | 增加 COS Release 确认发布入口 | 新增 `POST /package-ingestions/{id}/publish`，复用 Publication 权限/审计/If-Match，并在发布前重新校验 COS canonical 对象 |
+| 2026-10-17 | 接入 COS Release 管理页待发布列表 | 新增按 App 查询 `pending_publish` 入库记录的接口，版本发布页展示构建信息并带 Publication revision 确认发布；确认后自动刷新列表与版本数据 |
 
 ## 8. 本轮本地验证证据
 
@@ -93,6 +94,8 @@
 - 上传路由集成测试：未指定存储位置的 Release 上传命中 App Release 绑定，独立测试库用例通过。
 - COS 事件集成测试：独立临时 PostgreSQL 中覆盖首次接收、重复事件、同事件内容冲突、任务入队、fake adapter HEAD/下载、Parser 结果入库和失败重试；`test_actions_flow.py` 全部通过。
 - COS ready 通知测试：验证入库事务创建 `DeliveryRecord` 与 `notification` 任务、绑定 Actions 规则目标，并由发送前的规则/App/群成员校验保护；通知失败可沿用现有投递重试入口。
+- COS Release 管理页本地验证：登录本地 `http://localhost:5174` 后进入 App「版本发布」，可看到“COS Release 待发布”面板；无待发布记录时显示空态，未连接线上 COS。
+- 本轮新增接口验证：`GET /api/v1/apps/{id}/package-ingestions?state=pending_publish` 返回 `publication_revision`，发布操作沿用 `If-Match`；COS Release 流程测试通过。
 
 ## 9. 每阶段完成定义
 

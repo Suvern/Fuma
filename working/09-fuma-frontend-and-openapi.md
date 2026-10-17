@@ -33,4 +33,10 @@
 - 同一存储位置下的相同/父子 prefix 在客户端先提示；后端会再次校验，并覆盖不同 StorageLocation 的 prefix 基础路径判断。
 - 无 ready 存储时页面明确提示先配置对象存储；凭据仍只在对象存储管理页处理。
 
-待后续补齐：连接测试结果、对象 key 示例、v2 事件记录/重试、Release `pending_publish` 操作页和迁移进度展示。
+本轮补齐：
+
+- `GET /api/v1/apps/{id}/package-ingestions?state=pending_publish` 返回按 App 过滤的 COS 入库记录，并带关联 Publication 的 `publication_revision`。
+- 版本发布页新增“COS Release 待发布”面板，展示版本、build、对象 key、事件 ID 和入库时间；确认发布前带二次确认，使用 `If-Match` 调用 `POST /api/v1/package-ingestions/{id}/publish`。
+- 发布成功后由统一查询失效机制刷新待发布列表和版本列表；无记录、加载失败和 publication revision 缺失均有安全态。
+
+待后续补齐：连接测试结果、对象 key 示例、v2 事件记录/重试、Release 拒绝/重新校验、发布后通知和迁移进度展示。

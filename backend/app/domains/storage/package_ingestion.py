@@ -13,6 +13,7 @@ from app.core.errors import AppError
 from app.domains.applications.models import AppStorageBindingRecord
 from app.domains.auth.service import utcnow
 from app.domains.distribution.models import PackageIngestionRecord
+from app.domains.library.models import PublicationRecord
 from app.domains.distribution.service import enqueue, must_get
 from app.domains.storage.models import StorageLocation
 from app.domains.storage.service import adapter
@@ -89,7 +90,10 @@ def verify_object(db, settings, task) -> None:
     db.flush()
 
 
-def package_ingestion_dto(row: PackageIngestionRecord) -> dict:
+def package_ingestion_dto(db, row: PackageIngestionRecord) -> dict:
+    publication = (
+        db.get(PublicationRecord, row.publication_id) if row.publication_id else None
+    )
     return {
         "id": row.id,
         "app_id": row.app_id,
@@ -104,6 +108,7 @@ def package_ingestion_dto(row: PackageIngestionRecord) -> dict:
         "state": row.state,
         "package_id": row.package_id,
         "publication_id": row.publication_id,
+        "publication_revision": publication.revision if publication else None,
         "task_id": row.task_id,
         "error_code": row.error_code,
         "error_message": row.error_message,

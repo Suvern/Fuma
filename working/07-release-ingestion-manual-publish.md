@@ -17,9 +17,11 @@ Release 的 ingest 与 publish 必须是两个独立动作。当前 COS Release 
 
 新增确认入口：`POST /package-ingestions/{id}/publish`。该入口只接受 `pending_publish` 的 Release，复用 Publication 的权限、`If-Match` 修订校验和审计；发布前会对 `source_kind=cos` 的 canonical 对象重新执行 HEAD/完整摘要校验。校验失败时保持草稿，不改变对外状态。
 
+管理页通过 `GET /api/v1/apps/{id}/package-ingestions?state=pending_publish` 拉取待确认记录。列表返回关联 Publication 的 `publication_revision`，前端确认发布时将其作为 `If-Match`，避免并发编辑覆盖。发布成功后，页面依赖现有查询失效机制刷新待发布列表和版本列表；没有待发布记录时显示明确空态。
+
 ## 2. 人工确认页面信息
 
-页面至少展示：App、channel、版本、build number、commit、workflow run、对象 key、bucket/prefix（脱敏）、size、SHA-256、manifest、包解析结果、与上一版本的差异、来源类型、ingest 时间和失败/重试记录。
+当前管理页首版展示：版本、build number、对象 key、事件 ID、入库时间和确认发布按钮。后续补齐 App、commit、workflow run、bucket/prefix（脱敏）、size、SHA-256、manifest、包解析结果、与上一版本差异及失败/重试记录。
 
 操作按钮：`确认发布`、`拒绝`、`重新校验`。确认发布前再次 HEAD 对象并比对 checksum，防止对象被替换。
 

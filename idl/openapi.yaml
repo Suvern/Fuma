@@ -4772,6 +4772,54 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ErrorResponse'}
+  /api/v1/apps/{id}/package-ingestions:
+    get:
+      operationId: list_package_ingestions
+      tags: [integrations]
+      summary: List COS package ingestions for an App
+      security:
+      - SessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: state
+        in: query
+        schema:
+          type: string
+          maxLength: 32
+      responses:
+        '200':
+          description: COS package ingestion records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageIngestionPage'
+        '401': {description: Authentication required}
+        '403':
+          description: Application management permission required
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: Resource not available
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
   /api/v1/package-ingestions/{id}/retry:
     post:
       operationId: retry_package_ingestion
@@ -10998,6 +11046,11 @@ components:
           anyOf:
           - *id001
           - type: 'null'
+        publication_revision:
+          anyOf:
+          - type: integer
+            minimum: 1
+          - type: 'null'
         task_id: *id001
         error_code:
           anyOf:
@@ -11029,6 +11082,7 @@ components:
       - state
       - package_id
       - publication_id
+      - publication_revision
       - task_id
       - error_code
       - error_message
@@ -11036,6 +11090,25 @@ components:
       - created_at
       - updated_at
       - status_url
+    PackageIngestionPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackageIngestion'
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+      required:
+      - items
+      - page
+      - page_size
+      - total
     BuildEventRequest:
       type: object
       additionalProperties: false

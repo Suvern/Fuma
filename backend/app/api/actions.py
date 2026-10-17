@@ -24,6 +24,7 @@ from app.api.contracts import (
     CosPackageEventAccepted,
     CosPackageEventRequest,
     PackageIngestion,
+    PackageIngestionPage,
     PublicationInfo,
     TaskAccepted,
 )
@@ -115,6 +116,31 @@ def list_rules(
         if not q or q.casefold() in row.data["name"].casefold()
     ]
     return page(items, page_number, page_size)
+
+
+@router.get(
+    "/apps/{id}/package-ingestions",
+    response_model=PackageIngestionPage,
+    operation_id="list_package_ingestions",
+    dependencies=READ,
+)
+def list_package_ingestions(
+    id: UUID,
+    db: DB,
+    page_number: int = Query(1, alias="page", ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    state: str | None = Query(None, max_length=32),
+):
+    must_get(db, AppRecord, id)
+    statement = (
+        select(PackageIngestionRecord)
+        .where(PackageIngestionRecord.app_id == id)
+        .order_by(PackageIngestionRecord.created_at.desc(), PackageIngestionRecord.id)
+    )
+    if state:
+        statement = statement.where(PackageIngestionRecord.state == state)
+    rows = db.scalars(statement).all()
+    return page([package_ingestion_dto(db, row) for row in rows], page_number, page_size)
 
 
 @router.post(
@@ -488,7 +514,7 @@ def receive_cos_package_event(
     dependencies=READ,
 )
 def get_package_ingestion(id: UUID, db: DB):
-    return package_ingestion_dto(must_get(db, PackageIngestionRecord, id))
+    return package_ingestion_dto(db, must_get(db, PackageIngestionRecord, id))
 
 
 @router.post(

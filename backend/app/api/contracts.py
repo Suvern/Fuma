@@ -1167,6 +1167,10 @@ class CosPackageEventAccepted(BaseModel):
     status_url: str
 
 
+class PublicationRevision(RootModel[int]):
+    root: int = Field(..., ge=1)
+
+
 class PackageIngestion(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1186,6 +1190,7 @@ class PackageIngestion(BaseModel):
     ]
     package_id: UUID | None
     publication_id: UUID | None
+    publication_revision: PublicationRevision | None
     task_id: UUID
     error_code: str | None
     error_message: str | None
@@ -1193,6 +1198,16 @@ class PackageIngestion(BaseModel):
     created_at: AwareDatetime
     updated_at: AwareDatetime
     status_url: str
+
+
+class PackageIngestionPage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[PackageIngestion]
+    page: int
+    page_size: int
+    total: int
 
 
 class AssetId(RootModel[str]):

@@ -4289,6 +4289,17 @@
               }
             ]
           },
+          "publication_revision": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "state": {
             "enum": [
               "received",
@@ -4338,6 +4349,7 @@
           "state",
           "package_id",
           "publication_id",
+          "publication_revision",
           "task_id",
           "error_code",
           "error_message",
@@ -4345,6 +4357,33 @@
           "created_at",
           "updated_at",
           "status_url"
+        ],
+        "type": "object"
+      },
+      "PackageIngestionPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PackageIngestion"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
         ],
         "type": "object"
       },
@@ -9811,6 +9850,93 @@
           "PackageLibrary"
         ],
         "x-access": "app-manager"
+      }
+    },
+    "/api/v1/apps/{id}/package-ingestions": {
+      "get": {
+        "operationId": "list_package_ingestions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "maxLength": 32,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageIngestionPage"
+                }
+              }
+            },
+            "description": "COS package ingestion records"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Application management permission required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not available"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "List COS package ingestions for an App",
+        "tags": [
+          "integrations"
+        ]
       }
     },
     "/api/v1/apps/{id}/package-storage": {

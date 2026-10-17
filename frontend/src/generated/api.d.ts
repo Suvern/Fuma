@@ -380,6 +380,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/apps/{id}/package-ingestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List COS package ingestions for an App */
+        get: operations["list_package_ingestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/apps/{id}/package-storage": {
         parameters: {
             query?: never;
@@ -3037,6 +3054,7 @@ export interface components {
             object_size: number;
             package_id: string | null;
             publication_id: string | null;
+            publication_revision: number | null;
             /** @enum {string} */
             state: "received" | "validating" | "verified" | "parsing" | "pending_publish" | "ready" | "failed";
             status_url: string;
@@ -3045,6 +3063,12 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
             verified_at: string | null;
+        };
+        PackageIngestionPage: {
+            items: components["schemas"]["PackageIngestion"][];
+            page: number;
+            page_size: number;
+            total: number;
         };
         PackageNotes: {
             internal_notes: string;
@@ -5911,6 +5935,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadSession"];
+                };
+            };
+        };
+    };
+    list_package_ingestions: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                state?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description COS package ingestion records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageIngestionPage"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Application management permission required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Resource not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
