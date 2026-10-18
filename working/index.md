@@ -30,7 +30,7 @@
 | 13 | [测试与验收](./13-test-and-acceptance.md) | 未开始 | 测试矩阵、验收证据 | 依赖 8-12 |
 | 14 | [运维手册](./14-operations-runbook.md) | 未开始 | 日常处理、告警、排障 | 依赖 6-13 |
 | 15 | [产品主流程切换](./15-fuma-product-cutover.md) | 已完成（主流程） | 移除 GitHub Release 主入口、COS-first 文案与手工上传锁定 | 无 |
-| 16 | [存储桶资源池复核](./16-storage-pool-product-review.md) | 已完成（本地代码） | 将全局存储页降级为资源池，App/channel 绑定成为唯一分发语义 | 需补隔离 PostgreSQL 回归 |
+| 16 | [存储桶资源池复核](./16-storage-pool-product-review.md) | 已完成（本地代码与回归） | 将全局存储页降级为资源池，App/channel 绑定成为唯一分发语义 | 无；真实 COS 凭据仍待本地联调 |
 
 ## 3. 已确认决策
 
