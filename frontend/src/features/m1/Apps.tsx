@@ -251,7 +251,7 @@ export function AppsPage() {
   return (
     <div className="apps-page">
       <Title
-        description="连接应用与仓库，让每个版本都有归处。"
+        description="连接应用、存储桶与通知规则，让每个版本都有归处。"
         actions={
           globalAdmin && (
             <Button className="primary" onClick={() => setCreating(true)}>
@@ -412,7 +412,7 @@ export function AppsPage() {
                     <dd>{app.publication_count ?? 0}</dd>
                   </div>
                   <div>
-                    <dt>旧版 Debug 包</dt>
+                  <dt>兼容 Debug 包</dt>
                     <dd>{app.debug_entry_count}</dd>
                   </div>
                 </dl>

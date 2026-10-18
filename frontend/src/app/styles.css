@@ -25,6 +25,13 @@ a:hover {
   outline: 2px solid var(--semi-color-focus-border);
   outline-offset: 3px;
 }
+/* Semi input controls already render their own focus ring. Avoid a second
+   global outline that makes the focused field look like a duplicated border. */
+.semi-input:focus-visible,
+.semi-input-textarea:focus-visible,
+.semi-select-selection:focus-visible {
+  outline: none;
+}
 h1,
 h2,
 h3,
