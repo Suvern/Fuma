@@ -5885,12 +5885,37 @@
         "additionalProperties": false,
         "properties": {
           "asset_id": {
-            "pattern": "^[0-9]+$",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "asset_updated_at": {
-            "format": "date-time",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "build": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "digest": {
             "anyOf": [
@@ -5902,30 +5927,82 @@
               }
             ]
           },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manifest_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "object_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "release_id": {
-            "pattern": "^[0-9]+$",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "repository_full_name": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "repository_id": {
-            "pattern": "^[0-9]+$",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "size_bytes": {
             "minimum": 0,
             "type": "integer"
+          },
+          "source_kind": {
+            "enum": [
+              "github",
+              "cos_v2"
+            ],
+            "type": "string"
           }
         },
         "required": [
-          "repository_id",
-          "repository_full_name",
-          "release_id",
-          "asset_id",
-          "asset_updated_at",
-          "size_bytes",
-          "digest"
+          "size_bytes"
         ],
         "type": "object"
       },

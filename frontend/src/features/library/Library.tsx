@@ -947,12 +947,17 @@ function CosPackageImportForm({
   const cmd = useCommand();
   const [open, setOpen] = useState(false);
   const [selectedKey, setSelectedKey] = useState("");
+  const [resolveKey, setResolveKey] = useState("");
   const objects = useQuery({
-    queryKey: ["cos-package-objects", appId, channel],
+    queryKey: ["cos-package-objects", appId, channel, resolveKey],
     queryFn: () =>
       read("/api/v1/apps/{id}/package-ingestions/cos-objects", {
         id: appId,
-        query: { channel, page_size: 50 },
+        query: {
+          channel,
+          page_size: 50,
+          resolve_key: resolveKey || undefined,
+        },
       }),
     enabled: open,
     staleTime: 15_000,
@@ -992,10 +997,19 @@ function CosPackageImportForm({
               </div>
               <Button
                 type="button"
-                disabled={!usable || cmd.pending}
-                onClick={() => setSelectedKey(item.key)}
+                disabled={cmd.pending}
+                onClick={() => {
+                  setSelectedKey(item.key);
+                  if (!usable) setResolveKey(item.key);
+                }}
               >
-                {selectedKey === item.key ? "已选择" : "选择"}
+                {selectedKey === item.key && !usable
+                  ? "正在解析…"
+                  : selectedKey === item.key
+                    ? "已选择"
+                    : item.sha256
+                      ? "选择"
+                      : "解析摘要"}
               </Button>
             </div>
           );

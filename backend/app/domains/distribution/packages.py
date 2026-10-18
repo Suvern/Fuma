@@ -12,12 +12,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import object_session
 
 from app.core.errors import AppError
-from app.domains.applications.models import AppRecord
+from app.domains.applications.models import AppRecord, AppStorageBindingRecord
 from app.domains.applications.service import platform_enabled, require_platform_enabled
 from app.domains.auth.service import utcnow
 from app.domains.distribution.models import CacheRecord, DebugRecord, GrantRecord, TransferLease
 from app.domains.distribution.service import RetryLater, digest, enqueue, lock, state
 from app.domains.github.service import get_github_client
+from app.domains.storage.models import StorageLocation
+from app.domains.storage.package_ingestion import assert_object_key
+from app.domains.storage.service import adapter as storage_adapter
 
 DEFAULT_CACHE = {
     "max_file_bytes": 2147483648,
@@ -222,8 +225,14 @@ def entry_dto(row, settings):
         "enabled",
         "source",
     )
+    # COS-backed entries use object/manifest fields instead of GitHub release
+    # identifiers. Fill common integrity fields from the persisted entry so
+    # both source variants satisfy the public DTO and older rows remain readable.
+    source = dict(row.source or {})
+    source.setdefault("size_bytes", row.size_bytes)
+    source.setdefault("digest", row.sha256)
     return {
-        **{n: getattr(row, n) for n in names},
+        **{n: (source if n == "source" else getattr(row, n)) for n in names},
         "mode": "debug",
         "cache": cache_status(row),
         "version_label_source": "manual" if row.version_name else "tag",
@@ -414,6 +423,13 @@ def validate_package(path, platform):
                 else any(re.fullmatch(r"Payload/[^/]+\.app/Info\.plist", name) for name in names)
             )
             if not valid:
+                # COS imports may retain Joice's self-contained build archive
+                # rather than the inner APK/IPA. Reuse the strict archive
+                # checks used during ingestion, including the inner digest.
+                from app.domains.storage.cos_ingestion import _archive_manifest
+
+                valid = _archive_manifest(path, path.name) is not None
+            if not valid:
                 raise AppError(422, "INVALID_PACKAGE", "附件缺少 APK / IPA 必需结构")
     except (zipfile.BadZipFile, OSError):
         raise AppError(422, "INVALID_PACKAGE", "附件不是有效的 APK / IPA 文件") from None
@@ -472,6 +488,24 @@ def _source_client(db, entry, settings):
                 raise
             last_error = exc
     raise last_error
+
+
+def _cos_source_client(db, entry, settings):
+    source = entry.source or {}
+    object_key = source.get("object_key")
+    if not object_key:
+        raise AppError(409, "SOURCE_NOT_AVAILABLE", "COS 来源缺少对象路径")
+    binding = db.get(
+        AppStorageBindingRecord,
+        {"app_id": entry.app_id, "channel": "debug"},
+    )
+    if binding is None:
+        raise AppError(409, "APP_STORAGE_NOT_BOUND", "该通道尚未绑定存储位置")
+    location = db.get(StorageLocation, binding.storage_location_id)
+    if location is None or not location.enabled or location.status != "ready":
+        raise AppError(409, "STORAGE_NOT_READY", "绑定的存储位置不可用，请重新配置")
+    assert_object_key(location, binding.object_prefix, object_key)
+    return storage_adapter(settings, location), entry
 
 
 def _verify_source_fence(fence, backend_pid):
@@ -541,8 +575,12 @@ def _download_shared_cache(db, settings, entry, task_id, verify_fence):
     if temporary.exists() or temporary.is_symlink():
         temporary.unlink()
     api = None
+    cos_client = None
     try:
-        api, source_entry = _source_client(db, entry, settings)
+        if (entry.source or {}).get("source_kind") == "cos_v2":
+            cos_client, source_entry = _cos_source_client(db, entry, settings)
+        else:
+            api, source_entry = _source_client(db, entry, settings)
         last = utcnow()
 
         def progress(size):
@@ -554,13 +592,20 @@ def _download_shared_cache(db, settings, entry, task_id, verify_fence):
                 db.commit()
                 last = utcnow()
 
-        result = api.download_asset(
-            source_entry.source["repository_full_name"],
-            source_entry.source["asset_id"],
-            temporary,
-            cache.size_bytes,
-            progress=progress,
-        )
+        if cos_client:
+            object_key = source_entry.source["object_key"]
+            result_size, result_sha256 = cos_client.download(
+                object_key, temporary, expected_size=cache.size_bytes
+            )
+            result = {"size_bytes": result_size, "sha256": result_sha256}
+        else:
+            result = api.download_asset(
+                source_entry.source["repository_full_name"],
+                source_entry.source["asset_id"],
+                temporary,
+                cache.size_bytes,
+                progress=progress,
+            )
         lock(db, cache_lock_key(entry))
         _project_cache(db, cache, cache_state="verifying", cache_updated_at=utcnow())
         db.commit()
@@ -569,10 +614,13 @@ def _download_shared_cache(db, settings, entry, task_id, verify_fence):
         if cache.sha256 and result["sha256"] != cache.sha256:
             raise AppError(409, "SOURCE_CHANGED", "重建缓存内容与首次下载不一致")
         expected = source_entry.source.get("digest")
-        if expected and (not expected.startswith("sha256:") or result["sha256"] != expected[7:]):
-            raise AppError(409, "SOURCE_CHANGED", "源文件摘要不一致")
+        if expected:
+            expected = expected[7:] if expected.startswith("sha256:") else expected
+            if result["sha256"] != expected:
+                raise AppError(409, "SOURCE_CHANGED", "源文件摘要不一致")
         validate_package(temporary, cache.platform)
-        check_source(api, source_entry)
+        if api:
+            check_source(api, source_entry)
         with temporary.open("rb") as file:
             os.fsync(file.fileno())
         lock(db, cache_lock_key(entry))

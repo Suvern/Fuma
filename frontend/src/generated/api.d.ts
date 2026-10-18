@@ -3447,14 +3447,21 @@ export interface components {
             tenant_key: string | null;
         };
         SourceSnapshot: {
-            asset_id: string;
-            /** Format: date-time */
-            asset_updated_at: string;
-            digest: string | null;
-            release_id: string;
-            repository_full_name: string;
-            repository_id: string;
+            asset_id?: string | null;
+            asset_updated_at?: string | null;
+            build?: {
+                [key: string]: unknown;
+            } | null;
+            digest?: string | null;
+            event_id?: string | null;
+            manifest_key?: string | null;
+            object_key?: string | null;
+            release_id?: string | null;
+            repository_full_name?: string | null;
+            repository_id?: string | null;
             size_bytes: number;
+            /** @enum {string} */
+            source_kind?: "github" | "cos_v2";
         };
         StorageCreate: {
             access_key_id?: string;

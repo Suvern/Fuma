@@ -168,6 +168,7 @@ def list_cos_package_objects(
     channel: Literal["debug", "release"] = Query(...),
     page_size: int = Query(50, ge=1, le=100),
     cursor: str | None = Query(None, max_length=600),
+    resolve_key: str | None = Query(None, max_length=600),
 ):
     app = must_get(db, AppRecord, id)
     if not app.enabled or app.archived_at:
@@ -198,7 +199,12 @@ def list_cos_package_objects(
             # Keep a listed object visible; import remains disabled until its
             # metadata can be resolved by the next request.
             pass
-        if key.lower().endswith(".zip") and not sha256 and size <= 512 * 1024**2:
+        if (
+            key.lower().endswith(".zip")
+            and not sha256
+            and size <= 512 * 1024**2
+            and key == resolve_key
+        ):
             # Joice's uploader does not write a provider SHA metadata header.
             # Hash bounded archives once during explicit manual discovery so
             # the self-contained archive path can still be selected safely.

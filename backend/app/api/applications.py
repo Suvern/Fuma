@@ -400,8 +400,8 @@ def available_storage(id: UUID, db: DB, context: ScopedManager):
 
 def _normalize_object_prefix(value: str) -> str:
     prefix = value.strip().strip("/")
-    if any(ord(char) < 32 or ord(char) == 127 for char in prefix) or any(
-        part in {"", ".", ".."} for part in prefix.split("/")
+    if any(ord(char) < 32 or ord(char) == 127 for char in prefix) or (
+        prefix and any(part in {"", ".", ".."} for part in prefix.split("/"))
     ):
         raise AppError(
             422,

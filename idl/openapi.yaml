@@ -10526,12 +10526,31 @@ components:
       type: object
       additionalProperties: false
       properties:
-        repository_id: *id008
-        repository_full_name:
+        source_kind:
           type: string
-        release_id: *id008
-        asset_id: *id008
-        asset_updated_at: *id003
+          enum:
+          - github
+          - cos_v2
+        repository_id:
+          anyOf:
+          - *id008
+          - type: 'null'
+        repository_full_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        release_id:
+          anyOf:
+          - *id008
+          - type: 'null'
+        asset_id:
+          anyOf:
+          - *id008
+          - type: 'null'
+        asset_updated_at:
+          anyOf:
+          - *id003
+          - type: 'null'
         size_bytes:
           type: integer
           minimum: 0
@@ -10539,14 +10558,25 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        event_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        object_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+        manifest_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+        build:
+          anyOf:
+          - type: object
+            additionalProperties: true
+          - type: 'null'
       required:
-      - repository_id
-      - repository_full_name
-      - release_id
-      - asset_id
-      - asset_updated_at
       - size_bytes
-      - digest
     DebugEntry:
       type: object
       additionalProperties: false

@@ -214,9 +214,20 @@ def test_package_storage_binding_isolated_prefixes_and_revision(client, configur
     assert invalid.status_code == 422
     assert invalid.json()["error"]["code"] == "INVALID_STORAGE_PREFIX"
 
-    cleared = client.put(
+    root_binding = client.put(
         f"/api/v1/apps/{app['id']}/package-storage",
         headers={**headers, "If-Match": f'"{saved.json()["app_revision"]}"'},
+        json={
+            "debug": {"storage_location_id": str(storage_id), "object_prefix": ""},
+            "release": None,
+        },
+    )
+    assert root_binding.status_code == 200, root_binding.text
+    assert root_binding.json()["debug"]["object_prefix"] == ""
+
+    cleared = client.put(
+        f"/api/v1/apps/{app['id']}/package-storage",
+        headers={**headers, "If-Match": f'"{root_binding.json()["app_revision"]}"'},
         json={"debug": None, "release": None},
     )
     assert cleared.status_code == 200, cleared.text

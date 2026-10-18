@@ -836,17 +836,34 @@ class DebugEntryCreate(BaseModel):
     enabled: bool
 
 
+class RepositoryId(RootModel[str]):
+    root: str = Field(..., pattern="^[0-9]+$")
+
+
+class ReleaseId(RootModel[str]):
+    root: str = Field(..., pattern="^[0-9]+$")
+
+
+class AssetId(RootModel[str]):
+    root: str = Field(..., pattern="^[0-9]+$")
+
+
 class SourceSnapshot(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    repository_id: str = Field(..., pattern="^[0-9]+$")
-    repository_full_name: str
-    release_id: str = Field(..., pattern="^[0-9]+$")
-    asset_id: str = Field(..., pattern="^[0-9]+$")
-    asset_updated_at: AwareDatetime
+    source_kind: Literal["github", "cos_v2"] | None = None
+    repository_id: RepositoryId | None = None
+    repository_full_name: str | None = None
+    release_id: ReleaseId | None = None
+    asset_id: AssetId | None = None
+    asset_updated_at: AwareDatetime | None = None
     size_bytes: int = Field(..., ge=0)
-    digest: str | None
+    digest: str | None = None
+    event_id: str | None = None
+    object_key: str | None = None
+    manifest_key: str | None = None
+    build: dict[str, Any] | None = None
 
 
 class DebugEntry(BaseModel):
@@ -1245,10 +1262,6 @@ class PackageIngestionPage(BaseModel):
     page: int
     page_size: int
     total: int
-
-
-class AssetId(RootModel[str]):
-    root: str = Field(..., pattern="^[0-9]+$")
 
 
 class BuildEventRequest(BaseModel):

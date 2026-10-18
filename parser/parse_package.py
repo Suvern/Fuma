@@ -116,7 +116,9 @@ def command(args):
             env={
                 "PATH": "/usr/bin:/bin",
                 "JAVA_TOOL_OPTIONS": (
-                    "-Xmx256m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m"
+                    "-Xmx256m -Xss256k -XX:ActiveProcessorCount=1 "
+                    "-XX:ParallelGCThreads=1 -XX:ConcGCThreads=1 -XX:CICompilerCount=2 "
+                    "-XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m"
                 ),
             },
             check=False,
