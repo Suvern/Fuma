@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from test_core_auth_apps import client as client
 from test_core_auth_apps import core_app as core_app
 from test_m2_applications import configured_app as configured_app
+from test_m2_applications import ensure_ready_binding
 
 from app.core.errors import AppError
 from app.domains.distribution.models import TaskRecord
@@ -51,6 +52,7 @@ def parser_module(name):
 
 def start(client, headers, app, data, monkeypatch):
     monkeypatch.setattr("app.api.library.CHUNK_SIZE", 128)
+    ensure_ready_binding(client, app["id"], "release")
     result = client.post(
         f"/api/v1/apps/{app['id']}/uploads",
         headers={**headers, "Idempotency-Key": str(uuid4())},
@@ -75,7 +77,7 @@ def send(client, headers, upload, data):
         assert result.status_code == 200, result.text
 
 
-def process(client, upload):
+def process(client, upload, *, keep_cloud=False):
     settings = client.app.state.settings
     with Session(client.app.state.engine) as db:
         row = db.get(UploadRecord, UUID(upload["id"]))
@@ -86,7 +88,14 @@ def process(client, upload):
             settings.parser_inbox / f"{task.id}.json", settings.parser_outbox
         )
         ingest(db, settings, task)
-        return str(db.get(UploadRecord, row.id).package_id)
+        package_id = db.get(UploadRecord, row.id).package_id
+        if not keep_cloud:
+            # Most library tests exercise the local download path. The strict
+            # binding is still created and the canonical upload is verified;
+            # clear only the test package pointer after that boundary.
+            db.get(PackageRecord, package_id).storage_location_id = None
+            db.commit()
+        return str(package_id)
 
 
 def test_resumable_chunks_hash_conflicts_and_cancel(client, configured_app, monkeypatch):
@@ -153,7 +162,56 @@ def test_upload_uses_app_channel_storage_binding_when_not_explicit(
     assert upload["storage_location_id"] == str(storage_id)
 
 
-def test_upload_parse_publish_download_unpublish_and_restore(client, configured_app, monkeypatch):
+def test_upload_rejects_missing_mismatched_and_disabled_channel_binding(client, configured_app):
+    headers, app = configured_app
+    missing = client.post(
+        f"/api/v1/apps/{app['id']}/uploads",
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+        json={
+            "file_name": "missing.ipa",
+            "declared_size": 1,
+            "platform": "ios",
+            "mode": "release",
+        },
+    )
+    assert missing.status_code == 409
+    assert missing.json()["error"]["code"] == "STORAGE_BINDING_REQUIRED"
+
+    bound_id = ensure_ready_binding(client, app["id"], "release")
+    mismatched = client.post(
+        f"/api/v1/apps/{app['id']}/uploads",
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+        json={
+            "file_name": "mismatched.ipa",
+            "declared_size": 1,
+            "platform": "ios",
+            "mode": "release",
+            "storage_location_id": str(uuid4()),
+        },
+    )
+    assert mismatched.status_code == 409
+    assert mismatched.json()["error"]["code"] == "STORAGE_BINDING_MISMATCH"
+
+    with Session(client.app.state.engine) as db:
+        db.get(StorageLocation, bound_id).enabled = False
+        db.commit()
+    disabled = client.post(
+        f"/api/v1/apps/{app['id']}/uploads",
+        headers={**headers, "Idempotency-Key": str(uuid4())},
+        json={
+            "file_name": "disabled.ipa",
+            "declared_size": 1,
+            "platform": "ios",
+            "mode": "release",
+        },
+    )
+    assert disabled.status_code == 409
+    assert disabled.json()["error"]["code"] == "STORAGE_NOT_READY"
+
+
+def test_upload_parse_publish_download_unpublish_and_restore(
+    client, configured_app, storage_cloud, monkeypatch
+):
     headers, app = configured_app
     data = ipa()
     upload = start(client, headers, app, data, monkeypatch)
@@ -273,7 +331,9 @@ def test_parser_rejects_unsafe_zip_entries(tmp_path, name):
         parser_module("parse_package").parse(package, "ios")
 
 
-def test_version_and_publication_create_retries_are_idempotent(client, configured_app, monkeypatch):
+def test_version_and_publication_create_retries_are_idempotent(
+    client, configured_app, storage_cloud, monkeypatch
+):
     headers, app = configured_app
     upload = start(client, headers, app, ipa(), monkeypatch)
     send(client, headers, upload, ipa())

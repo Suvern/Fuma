@@ -58,7 +58,7 @@
 | ID | 问题 | 影响阶段 | 状态 | 负责人 | 下一步 |
 |---|---|---|---|---|---|
 | ISSUE-INIT-01 | 需要确认线上 COS 配置、通知通道和密钥托管 | 3-10 | 待确认 | TBD | 召开设计确认会并补充配置表 |
-| ISSUE-20261017-01 | 本地数据库当前没有 ready 的存储位置，无法在浏览器中选择真实桶验证上传 | 3、5、6 | 待确认 | TBD | 仅在本地创建测试 StorageLocation 或使用测试凭证完成连接测试；禁止指向线上桶 |
+| ISSUE-20261017-01 | 本地数据库当前没有 ready 的存储位置，无法在浏览器中选择真实桶验证上传 | 3、5、6 | 已解决（本地测试） | TBD | 已使用 disposable PostgreSQL + 测试适配器验证；真实 COS 仍需单独准备本地测试凭证 |
 
 ## 6. 决策记录
 
@@ -98,6 +98,7 @@
 | 2026-10-18 | 收紧手工上传器的存储选择 | 安装包页按当前 Debug/Release channel 自动使用 App 绑定 COS bucket，不再展示系统默认、本机或任意存储位置；旧 API 回退仅保留给旧客户端兼容 |
 | 2026-10-18 | 复核并纠正“全局存储”产品语义 | 全局入口改为“存储桶资源池”，移除默认桶展示与操作；App 设置改为“分发存储绑定”，明确 Debug/Release 是唯一包源；新增 `working/16-storage-pool-product-review.md` |
 | 2026-10-18 | 收紧上传运行时绑定 | `create_upload` 不再回退全局默认桶；必须存在 App/channel binding，显式目标桶必须与绑定一致；新增 `STORAGE_BINDING_REQUIRED` / `STORAGE_BINDING_MISMATCH` |
+| 2026-10-18 | 补齐绑定后的隔离 PostgreSQL 回归 | 测试 fixture 显式创建 ready 的 Debug/Release 绑定，普通包流使用本地确定性存储适配器；完整后端集成测试 `289 passed`，新增无绑定/错桶/停用桶拒绝用例 |
 
 ## 8. 本轮本地验证证据
 

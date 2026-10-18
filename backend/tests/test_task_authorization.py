@@ -102,7 +102,7 @@ def test_publication_revocation_compensates_but_committed_reclaim_continues(
     upload = start(client, headers, app, data, monkeypatch)
     send(client, headers, upload, data)
     client.post(f"/api/v1/uploads/{upload['id']}/complete", headers=headers)
-    package = process(client, upload)
+    package = process(client, upload, keep_cloud=True)
     version = client.post(
         f"/api/v1/apps/{app['id']}/versions",
         headers=headers,
@@ -139,12 +139,16 @@ def test_publication_revocation_compensates_but_committed_reclaim_continues(
     monkeypatch.setattr(cloud, "put", put)
     execute_task(client.app.state.engine, client.app.state.settings, task_id)
     row = client.get(f"/api/v1/publications/{pid}").json()
+
+    def public_files():
+        return [value for value in cloud.files.values() if value[2]]
+
     if revoke_during_publish:
         assert revoked and row["access_state"] == "publish_failed"
-        assert row["state"] != "published" and not cloud.files
+        assert row["state"] != "published" and not public_files()
         assert client.get(f"/api/v1/catalog/publications/{pid}").status_code in {403, 404}
     else:
-        assert row["state"] == "published" and cloud.files
+        assert row["state"] == "published" and public_files()
         result = client.post(
             f"/api/v1/publications/{pid}/unpublish",
             headers={**headers, "If-Match": f'"{row["revision"]}"'},
@@ -155,4 +159,4 @@ def test_publication_revocation_compensates_but_committed_reclaim_continues(
             db.commit()
         execute_task(client.app.state.engine, client.app.state.settings, result["access_task_id"])
         row = client.get(f"/api/v1/publications/{pid}").json()
-        assert row["access_state"] == "reclaimed" and not cloud.files
+        assert row["access_state"] == "reclaimed" and not public_files()

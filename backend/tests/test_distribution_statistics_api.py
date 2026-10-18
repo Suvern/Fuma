@@ -14,7 +14,7 @@ from app.domains.distribution.statistics import COUNTERS, record_observation
 from app.domains.library.models import LibraryGrant
 
 
-def test_statistics_window_counts_and_access(client, configured_app, monkeypatch):
+def test_statistics_window_counts_and_access(client, configured_app, storage_cloud, monkeypatch):
     headers, app, package_id = package(client, configured_app, monkeypatch)
     version = client.post(
         f"/api/v1/apps/{app['id']}/versions",

@@ -9,6 +9,7 @@ from test_cloud_storage import location
 from test_core_auth_apps import client as client
 from test_core_auth_apps import core_app as core_app
 from test_m2_applications import configured_app as configured_app
+from test_m2_applications import ensure_ready_binding
 from test_package_library import ipa, process, send
 
 from app.domains.applications.models import AppRecord
@@ -17,8 +18,10 @@ from app.domains.library.models import PackageRecord, PublicationRecord
 
 
 @pytest.fixture
-def source(client, configured_app, monkeypatch):
+def source(client, configured_app, monkeypatch, storage_cloud):
     headers, app = configured_app
+    ensure_ready_binding(client, app["id"], "debug")
+    ensure_ready_binding(client, app["id"], "release")
     content = ipa()
     binding = {"connector_id": str(uuid4()), "repository_id": "90", "full_name": "example/mobile"}
     asset = {
@@ -124,7 +127,7 @@ def test_changed_source_never_reaches_parser_or_ready_package(client, source):
 
 @pytest.mark.parametrize("fail_first", [False, True])
 def test_legacy_migration_upgrades_deduplicated_local_package_atomically(
-    client, source, cloud, fail_first
+    client, source, cloud, fail_first, monkeypatch
 ):
     import hashlib
 
@@ -158,7 +161,21 @@ def test_legacy_migration_upgrades_deduplicated_local_package_atomically(
     send(client, headers, local_upload, content)
     client.post(f"/api/v1/uploads/{local_upload['id']}/complete", headers=headers)
     package_id = UUID(process(client, local_upload))
+    current_bindings = client.get(f"/api/v1/apps/{app['id']}/package-storage").json()
     target = location(client, headers)
+    current_app = app
+    rebound = client.put(
+        f"/api/v1/apps/{app['id']}/package-storage",
+        headers={**headers, "If-Match": f'"{current_app["revision"]}"'},
+        json={
+            "debug": {"storage_location_id": target["id"], "object_prefix": "debug"},
+            "release": {
+                "storage_location_id": current_bindings["release"]["storage_location_id"],
+                "object_prefix": "release",
+            },
+        },
+    )
+    assert rebound.status_code == 200, rebound.text
     with Session(client.app.state.engine) as db:
         binding = db.get(AppRecord, UUID(app["id"])).repository
         legacy = DebugRecord(
@@ -190,10 +207,11 @@ def test_legacy_migration_upgrades_deduplicated_local_package_atomically(
     )
     assert result.status_code == 202, result.text
     migration = result.json()
+    monkeypatch.setattr("app.domains.storage.service.adapter", lambda *_: cloud)
     if fail_first:
         cloud.fail_upload = True
         with pytest.raises(AppError):
-            process(client, migration)
+            process(client, migration, keep_cloud=True)
         with Session(client.app.state.engine) as db:
             assert db.get(PackageRecord, package_id).storage_location_id is None
             assert db.get(PackageRecord, package_id).state == "ready"
@@ -203,7 +221,7 @@ def test_legacy_migration_upgrades_deduplicated_local_package_atomically(
             task = db.get(TaskRecord, UUID(migration["task_id"]))
             ingest(db, client.app.state.settings, task)
     else:
-        assert UUID(process(client, migration)) == package_id
+        assert UUID(process(client, migration, keep_cloud=True)) == package_id
     with Session(client.app.state.engine) as db:
         package = db.get(PackageRecord, package_id)
         assert package.storage_location_id == UUID(target["id"])

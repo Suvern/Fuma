@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from test_core_auth_apps import client as client
 from test_core_auth_apps import complete_first_login
 from test_core_auth_apps import core_app as core_app
+from test_m2_applications import ensure_ready_binding
 
 from app.domains.audit.models import AuditRecord
 from app.domains.auth.models import AppRoleRecord, AuthSession, User
@@ -335,6 +336,7 @@ def test_upload_stream_revocation_rechecks_before_installing_part(client, manage
 
     headers, apps, actor = managed_apps
     body = b"test"
+    ensure_ready_binding(client, apps[0]["id"], "debug")
     result = client.post(
         f"/api/v1/apps/{apps[0]['id']}/uploads",
         headers={**headers, "Idempotency-Key": str(uuid4())},

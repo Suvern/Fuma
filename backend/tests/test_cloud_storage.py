@@ -134,7 +134,7 @@ def test_public_copy_reclaim_failure_never_reopens_download(
     upload = start(client, headers, app, data, monkeypatch)
     send(client, headers, upload, data)
     client.post(f"/api/v1/uploads/{upload['id']}/complete", headers=headers)
-    package = process(client, upload)
+    package = process(client, upload, keep_cloud=True)
     version = client.post(
         f"/api/v1/apps/{app['id']}/versions",
         headers=headers,

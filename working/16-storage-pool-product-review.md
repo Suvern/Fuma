@@ -81,8 +81,18 @@ App 设置（唯一分发路由）
 - [x] App 绑定标题、字段和空态明确表达 App/channel 唯一来源。
 - [x] 后端拒绝无绑定上传。
 - [x] 后端拒绝显式指定非绑定桶上传。
-- [ ] 绑定停用后上传、COS 通知、补导入均返回可解释错误。
-- [ ] 同一 App 的 Debug/Release 不同桶和不同前缀均有独立集成测试。
+- [x] 绑定停用后上传、COS 通知、补导入均返回可解释错误。
+- [x] 同一 App 的 Debug/Release 不同桶和不同前缀均有独立集成测试。
+
+## 9. 隔离 PostgreSQL 回归
+
+在本地 disposable PostgreSQL（`deploy/compose.test.yml`，端口 55499）上运行完整后端集成测试：
+
+```text
+289 passed in 67.09s
+```
+
+测试基建为所有需要安装包的 fixture 创建 ready 的 App/channel 存储绑定；普通库测试使用本地确定性适配器，云存储专项测试继续使用 FakeCloud。这样既验证了“无绑定/错桶会被拒绝”，也避免测试隐式依赖全局默认桶。
 
 ## 8. 产品决策
 

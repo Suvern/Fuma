@@ -15,14 +15,69 @@ from test_core_auth_apps import client as client
 from test_core_auth_apps import complete_first_login
 from test_core_auth_apps import core_app as core_app
 
-from app.domains.applications.models import AllowedPackageIdRecord, AppCreation
+from app.domains.applications.models import (
+    AllowedPackageIdRecord,
+    AppCreation,
+    AppStorageBindingRecord,
+)
 from app.domains.auth.service import utcnow
 from app.domains.distribution.models import DebugRecord, TaskRecord
+from app.domains.github.crypto import SecretBox
 from app.domains.storage.models import StorageLocation
 
 
 def identifier(platform="android", mode="debug", value="com.example.app"):
     return {"platform": platform, "mode": mode, "identifier": value}
+
+
+def ensure_ready_binding(client, app_id, mode):
+    """Seed a disposable ready package source for tests exercising package flows."""
+    with Session(client.app.state.engine) as db:
+        existing = db.scalar(
+            select(AppStorageBindingRecord).where(
+                AppStorageBindingRecord.app_id == UUID(app_id),
+                AppStorageBindingRecord.channel == mode,
+            )
+        )
+        if existing:
+            return existing.storage_location_id
+        storage_id = uuid4()
+        db.add(
+            StorageLocation(
+                id=storage_id,
+                name=f"测试 {mode} 包源",
+                provider="oss",
+                region="cn-hangzhou",
+                bucket=f"fuma-{mode}-{storage_id.hex[:8]}",
+                prefix="fuma",
+                read_mode="private",
+                encrypted_credentials=SecretBox(client.app.state.settings).encrypt(
+                    json.dumps(
+                        {"access_key_id": "test-only-id", "access_key_secret": "test-only-secret"}
+                    ),
+                    f"storage:{storage_id}",
+                ),
+                enabled=True,
+                is_default=False,
+                status="ready",
+                revision=1,
+                capabilities={},
+            )
+        )
+        db.flush()
+        db.add(
+            AppStorageBindingRecord(
+                app_id=UUID(app_id),
+                channel=mode,
+                storage_location_id=storage_id,
+                object_prefix=mode,
+                revision=1,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            )
+        )
+        db.commit()
+        return storage_id
 
 
 @pytest.fixture

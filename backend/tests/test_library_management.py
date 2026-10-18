@@ -22,7 +22,7 @@ def package(client, configured_app, monkeypatch):
 
 
 def test_default_is_explicit_revisioned_and_cleared_on_unpublish(
-    client, configured_app, monkeypatch
+    client, configured_app, storage_cloud, monkeypatch
 ):
     headers, app, pid = package(client, configured_app, monkeypatch)
     version = client.post(
@@ -67,7 +67,9 @@ def test_default_is_explicit_revisioned_and_cleared_on_unpublish(
     )
 
 
-def test_deletion_retention_and_expired_upload_cleanup(client, configured_app, monkeypatch):
+def test_deletion_retention_and_expired_upload_cleanup(
+    client, configured_app, storage_cloud, monkeypatch
+):
     headers, app, pid = package(client, configured_app, monkeypatch)
     result = client.delete(f"/api/v1/packages/{pid}", headers={**headers, "If-Match": '"1"'})
     assert result.status_code == 409

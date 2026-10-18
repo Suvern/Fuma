@@ -205,9 +205,7 @@ def create_upload(
 ):
     app = active_app(db, id)
     validate_scope(db, app, body.platform, body.mode)
-    location_id = bound_storage_location(
-        db, app.id, body.mode, body.storage_location_id
-    )
+    location_id = bound_storage_location(db, app.id, body.mode, body.storage_location_id)
     if not re.fullmatch(
         r"[^/\\\x00-\x1f\x7f]{1,255}", body.file_name
     ) or not body.file_name.lower().endswith(".apk" if body.platform == "android" else ".ipa"):
