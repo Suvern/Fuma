@@ -100,6 +100,7 @@
 | 2026-10-18 | 收紧上传运行时绑定 | `create_upload` 不再回退全局默认桶；必须存在 App/channel binding，显式目标桶必须与绑定一致；新增 `STORAGE_BINDING_REQUIRED` / `STORAGE_BINDING_MISMATCH` |
 | 2026-10-18 | 补齐绑定后的隔离 PostgreSQL 回归 | 测试 fixture 显式创建 ready 的 Debug/Release 绑定，普通包流使用本地确定性存储适配器；完整后端集成测试 `289 passed`，新增无绑定/错桶/停用桶拒绝用例 |
 | 2026-10-18 | 清理归档页遗留 Release 语义 | 归档提示改为 COS 入库任务，管理入口改到“版本发布”，不再链接旧 GitHub Release 路径；前端测试 `186 passed`、类型检查通过 |
+| 2026-10-18 | 修复应用管理 UI 细节 | 修复新建应用输入框重复焦点边框；区分存储桶、账号与缓存图标；应用列表文案补充存储桶/通知语义；前端测试 `186 passed`、lint 和类型检查通过 |
 
 ## 8. 本轮本地验证证据
 
