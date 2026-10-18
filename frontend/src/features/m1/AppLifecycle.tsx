@@ -48,7 +48,7 @@ export function AppLifecycle({ app }: { app: DTO<"App"> }) {
         <>
           <p>
             归档保留历史包、配置和审计，关闭新导入和下载授权。请先停用已上架的包、Actions
-            规则及自动导入，并处理未完成任务。
+            规则及 COS 入库任务，并处理未完成任务。
           </p>
           <Button
             type="button"
@@ -90,8 +90,8 @@ export function AppLifecycle({ app }: { app: DTO<"App"> }) {
                     <Link to={`/admin/apps/${app.id}/actions`}>
                       管理 Actions 规则
                     </Link>
-                    <Link to={`/admin/apps/${app.id}/releases`}>
-                      管理自动导入
+                    <Link to={`/admin/apps/${app.id}/versions`}>
+                      管理版本发布
                     </Link>
                     <Link to="/admin/tasks">任务中心</Link>
                   </div>
