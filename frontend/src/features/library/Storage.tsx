@@ -13,6 +13,7 @@ import {
   Pager,
   Title,
   date,
+  size,
   text,
   useCommand,
   useFilters,
@@ -255,8 +256,7 @@ function StorageCard({ row }: { row: DTO<"StorageInfo"> }) {
       </p>
       <p>
         记录内对象 {row.object_count} 个，合计{" "}
-        {(row.managed_bytes / 1024 ** 2).toFixed(2)}{" "}
-        MiB（含待清理对象，并非云账单）。
+        {size(row.managed_bytes)}（含待清理对象，并非云账单）。
       </p>
       {row.error_message && <p role="alert">{row.error_message}</p>}
       {!!Object.keys(row.capabilities).length && (

@@ -16,6 +16,7 @@ import {
   Pager,
   Title,
   date,
+  size,
   text,
   useCommand,
   useFilters,
@@ -266,7 +267,7 @@ export function PackagesPage() {
               <code>{p.package_identifier}</code>
             </p>
             <p>
-              {(p.size_bytes / 1024 / 1024).toFixed(2)} MiB ·{" "}
+              {size(p.size_bytes)} ·{" "}
               {date(p.created_at)}
             </p>
             <p>{p.signature_status}</p>
@@ -910,7 +911,7 @@ export function PackageImportPage() {
                       />
                       <span>
                         <strong>{candidate.key}</strong>
-                        <small>{candidate.size.toLocaleString()} B · 来源 {channelLabel(candidate.channel)} · {usable ? "manifest 已解析" : "待解析"}</small>
+                        <small>{size(candidate.size)} · 来源 {channelLabel(candidate.channel)} · {usable ? "manifest 已解析" : "待解析"}</small>
                       </span>
                     </label>
                     <div className="import-candidate-actions">
@@ -1209,7 +1210,7 @@ function CosReleaseInbox({ appId }: { appId: string }) {
               </div>
               <div>
                 <dt>对象大小</dt>
-                <dd>{item.object_size.toLocaleString()} B</dd>
+                <dd>{size(item.object_size)}</dd>
               </div>
               <div>
                 <dt>对象 SHA-256</dt>
@@ -1334,7 +1335,7 @@ export function CosPackageImportForm({
               <div>
                 <code>{item.key}</code>
                 <small>
-                  {item.size.toLocaleString()} B
+                  {size(item.size)}
                   {usable ? " · manifest 已找到" : " · 缺少摘要或 manifest"}
                 </small>
               </div>
@@ -1954,7 +1955,7 @@ function PublishedReleaseContent({
           <h2>{f.file_name}</h2>
           <p>
             {f.version_name} ({f.build_number}) ·{" "}
-            {(f.size_bytes / 1024 / 1024).toFixed(2)} MiB
+            {size(f.size_bytes)}
           </p>
           <p>{f.signature_status}</p>
           <Button

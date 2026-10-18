@@ -21,6 +21,7 @@ import { ApiError, read, ssoUrl, type DTO } from "../api/http";
 import { PageTitle } from "../components/PageTitle";
 import { Icon, type IconName } from "./Icon";
 import { useConfirmAction } from "./confirm";
+import { filesize } from "filesize";
 
 export const labels: Record<string, string> = {
   package_ingest: "安装包解析入库",
@@ -112,11 +113,15 @@ export function Status({ value }: { value: string }) {
     </Tag>
   );
 }
-export function size(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+export function size(bytes: number | null | undefined) {
+  if (bytes === null || bytes === undefined || !Number.isFinite(bytes) || bytes < 0) {
+    return "大小待确认";
+  }
+  return filesize(bytes, {
+    base: 2,
+    standard: "jedec",
+    round: 2,
+  });
 }
 export function date(value?: string | null) {
   return value ? new Date(value).toLocaleString("zh-CN") : "—";

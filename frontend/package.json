@@ -23,6 +23,7 @@
     "@douyinfe/semi-icons": "^2.103.0",
     "@douyinfe/semi-ui-19": "^2.103.0",
     "@tanstack/react-query": "5.104.1",
+    "filesize": "^10.1.6",
     "openapi-fetch": "0.17.0",
     "qrcode": "^1.5.4",
     "react": "19.3.0",
