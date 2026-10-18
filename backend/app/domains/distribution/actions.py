@@ -55,17 +55,20 @@ def validate_rule(db, data):
 
 
 def rule_dto(row, settings):
+    data = row.data
     return ActionsRule(
         id=row.id,
         app_id=row.app_id,
         revision=row.revision,
         created_at=row.created_at,
         updated_at=row.updated_at,
-        **{name: row.data[name] for name in RULE_FIELDS},
+        **{name: data.get(name) for name in RULE_FIELDS},
         mode="debug",
         has_token=bool(row.token_hash),
         token_created_at=row.token_created_at,
-        callback_url=f"{settings.site_url}/api/v1/integrations/github-actions/{row.id}/events",
+        # COS event callbacks are the supported integration. The old /events
+        # endpoint remains available only for already-migrated legacy rules.
+        callback_url=f"{settings.site_url}/api/v1/integrations/github-actions/{row.id}/cos-events",
     )
 
 

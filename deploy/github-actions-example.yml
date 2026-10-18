@@ -69,4 +69,4 @@ jobs:
             --write-out '%{http_code}' "$FUMA_CALLBACK_URL")"
           test "$status" = 202
           jq '{event_id,duplicate,state}' "${RUNNER_TEMP}/fuma-response.json"
-          # End this step now. Fuma waits for this run to finish, caches files, then sends the card.
+          # End this step now. Fuma validates the COS objects, parses the package, then sends the card.

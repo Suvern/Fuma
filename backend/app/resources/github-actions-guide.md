@@ -17,7 +17,7 @@ GitHub Release 不再是 Fuma 的主数据源，也不要求 workflow 创建或�
 ## 开始前确认
 
 - 管理员在 Fuma 创建并启用规则，选择通知群；机器人已加入目标群。
-- 规则的源仓库、Workflow 路径、可信分支 / Tag 和文件匹配规则与实际构建一致。
+- 规则的 Workflow 路径、可信分支 / Tag 和文件匹配规则与实际构建一致；这些字段用于接入说明，不需要 GitHub API 连接。
 - Fuma 中已为 App 配置并启用对应 channel（Debug/Release）的 COS 存储绑定。
 - workflow 使用最小权限的 COS 上传凭证；bucket、prefix、区域和 endpoint 必须与 Fuma 绑定一致。
 - Release channel 仍会进入 Fuma 的人工发布确认，不因上传到 COS 而自动公开。
@@ -39,23 +39,22 @@ GitHub Release 不再是 Fuma 的主数据源，也不要求 workflow 创建或�
 ## 回调协议与完成条件
 
 POST 上方 URL；Authorization: Bearer <FUMA_CI_TOKEN>；Content-Type: application/json。
-字段 repository_id、run_id、head_sha 来自当前 GitHub 上下文；run_attempt 为整数；object key、size、sha256 和 manifest 摘要来自 COS 上传结果。
+字段 app_id、channel 和 build 元数据来自当前 workflow；object key、size、sha256 和 manifest 摘要必须来自 COS 上传结果。
 不接受任意下载 URL、bucket 或群 ID；Fuma 只使用服务端 App/channel 绑定。多条规则分别使用对应的令牌与 URL。
 
 HTTP 202 仅表示已接收，不等于已通知。响应含 event_id、duplicate、state；重复回调可能返回原事件。
-回调步骤返回后立即结束，不要在同一 workflow 中轮询等待 Fuma 完成：Fuma 会等待整个 run 成功。
+回调步骤返回后立即结束，不要在同一 workflow 中轮询等待 Fuma 完成；Fuma 会独立处理 COS 对象并投递通知。
 网络错误可重试相同上下文；不要通过更换 run/attempt 伪造新事件。不要打印令牌或把它提交到仓库。
 
 ## 验收与排障
 
 1. 从规则允许的可信分支 / Tag 触发 workflow，确认 APK / IPA 与 manifest 出现在绑定的 COS prefix 中。
 2. 回调获得 202，workflow 最终成功。
-3. Fuma「构建事件」依次完成来源核验、等待构建、准备文件和通知投递；验证目标群实际收到卡片。
+3. Fuma「任务中心」依次完成对象校验、解析、缓存和通知投递；验证目标群实际收到卡片。
 4. 确认固定分发页面可访问；下载仍按 Fuma 的身份和权限规则执行。
 
 - 401/403：检查 Secret 是否存在、规则是否启用、令牌是否撤销，以及令牌 / URL 是否来自同一规则。
-- 来源核验失败：核对仓库、Workflow 路径、分支 / Tag、SHA、run 以及 COS 对象元数据。
-- 等待构建：检查整个 workflow 是否仍在运行或失败；不要形成等待 Fuma 的循环。
+- 对象校验失败：核对 App/channel 绑定、对象 key、大小、SHA-256 和 manifest 内容。
 - 文件失败：检查对象存在、绑定 prefix、对象扩展名、大小、SHA-256 和 manifest 内容。
 - 通知丢失：在 Fuma 版本页按相同 channel 选择“从 COS 导入”，填写对象 key、size、SHA-256、manifest key/SHA-256 和构建元数据；不要创建虚假的 GitHub Release。
 - 对象扫描为空或摘要缺失：确认对象已上传到 App/channel binding 的 prefix，且上传端写入了对象 SHA-256 metadata；也可以继续手工填写并由 Fuma 异步复核。

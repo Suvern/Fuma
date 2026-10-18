@@ -10977,9 +10977,12 @@ components:
         chat_ids: *id017
         enabled: *id018
         app_id: *id001
-        repository_id: *id008
+        repository_id:
+          type: [string, 'null']
+          pattern: ^[0-9]+$
         repository_full_name:
           type: string
+          nullable: true
         mode:
           type: string
           enum:
@@ -11003,8 +11006,6 @@ components:
       - chat_ids
       - enabled
       - app_id
-      - repository_id
-      - repository_full_name
       - mode
       - has_token
       - token_created_at

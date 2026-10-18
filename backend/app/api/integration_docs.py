@@ -21,7 +21,7 @@ class MarkdownResponse(PlainTextResponse):
 )
 def github_actions_documentation(request: Request, rule_id: UUID | None = None) -> str:
     origin = request.app.state.settings.site_url.rstrip("/")
-    callback = f"{origin}/api/v1/integrations/github-actions/{rule_id or '<RULE_ID>'}/events"
+    callback = f"{origin}/api/v1/integrations/github-actions/{rule_id or '<RULE_ID>'}/cos-events"
     example = (Path(__file__).parents[1] / "resources/github-actions-example.yml").read_text()
     hint = (
         "此地址已包含你提供的规则 ID。它不是授权凭据；"

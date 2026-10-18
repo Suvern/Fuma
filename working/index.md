@@ -32,6 +32,7 @@
 | 15 | [产品主流程切换](./15-fuma-product-cutover.md) | 已完成（主流程） | 移除 GitHub Release 主入口、COS-first 文案与手工上传锁定 | 无 |
 | 16 | [存储桶资源池复核](./16-storage-pool-product-review.md) | 已完成（本地代码与回归） | 将全局存储页降级为资源池，App/channel 绑定成为唯一分发语义 | 无；真实 COS 凭据仍待本地联调 |
 | 17 | [桶根目录与凭据档案](./17-storage-root-and-credential-profiles.md) | 已完成（本地代码与回归） | 可选根前缀、App 根目录绑定、共享加密凭据档案、Joice 外层 ZIP 安全解包 | 新 workflow 仍建议直接上传 APK/IPA + manifest |
+| 18 | [GitHub 仅通知入口](./18-github-notification-only.md) | 已完成（本地代码与回归） | 隐藏 GitHub 连接主入口；Actions 规则创建不再依赖 connector；默认回调切换 COS events | 旧 GitHub API/legacy v1 仍待最终删除 |
 
 ## 3. 已确认决策
 
@@ -41,6 +42,7 @@
 4. 旧 GitHub Release API 暂保留为后台兼容层，但从 Fuma 产品导航和主流程移除，不再作为回退入口。
 5. Fuma 强绑定 COS：COS webhook、手工补导入和手工上传必须命中 App/channel binding；GitHub 只负责通知与来源审计。
 6. Joice 后续再改为“GitHub 只负责打包，Actions 上传 COS 后通知 Fuma”；本阶段不修改 Joice。
+7. GitHub 连接不属于新产品模型；新规则只使用 Actions CI token + COS 事件回调，旧 connector/repository/Release API 进入兼容退场阶段。
 
 ## 4. 待确认问题
 
@@ -73,6 +75,7 @@
 | ADR-004 | COS webhook/手工补导入强制使用 App/channel binding；GitHub Release 仅作 legacy 兼容 | 2026-10-17 | 已确认 |
 | ADR-005 | 全局存储页只管理资源池；新产品路径不再使用全局默认桶 | 2026-10-18 | 已确认 |
 | ADR-006 | 空资源池/App 前缀表示绑定桶根目录；凭据档案与桶位置分离并可复用 | 2026-10-18 | 已确认 |
+| ADR-007 | GitHub 从 API 连接降级为 Actions 通知入口，COS 是唯一包源 | 2026-10-18 | 已确认 |
 
 ## 7. 变更日志
 
@@ -104,6 +107,7 @@
 | 2026-10-18 | 清理归档页遗留 Release 语义 | 归档提示改为 COS 入库任务，管理入口改到“版本发布”，不再链接旧 GitHub Release 路径；前端测试 `186 passed`、类型检查通过 |
 | 2026-10-18 | 修复应用管理 UI 细节 | 修复新建应用输入框重复焦点边框；区分存储桶、账号与缓存图标；应用列表文案补充存储桶/通知语义；前端测试 `186 passed`、lint 和类型检查通过 |
 | 2026-10-18 | 支持桶根目录、共享凭据档案与 Joice 外层 ZIP | 前缀可留空并归一化；App channel 前缀可留空；新增 `storage_credentials` 与可复用凭据选择；仅对含唯一 APK/IPA、sha256、build-info 的 ZIP 安全解包 |
+| 2026-10-18 | GitHub 连接收敛为通知入口 | 移除管理后台 GitHub 连接主入口和 App 仓库绑定主卡片；Actions 新规则不再依赖 connector；回调文档与默认 URL 切换为 `cos-events`；旧 GitHub API 保留兼容 |
 
 ## 8. 本轮本地验证证据
 

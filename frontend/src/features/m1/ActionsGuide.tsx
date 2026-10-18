@@ -57,12 +57,12 @@ export function ActionsGuide({
       </p>
       <p>
         仅保存令牌不会触发通知。需要在源应用仓库完成：构建安装包 → 上传绑定的
-        COS 存储桶 → 回调 Fuma。GitHub 只提供 workflow、commit 和 run 的来源审计信息。
+        COS 存储桶 → 回调 Fuma。Fuma 只信任规则令牌和 COS 对象，不连接 GitHub API。
       </p>
       <ol>
         <li>
-          在 Fuma 创建并启用分发规则，选择通知群；仓库、Workflow 路径、可信分支
-          / Tag 和安装包匹配规则必须与实际构建一致。
+          在 Fuma 创建并启用分发规则，选择通知群；Workflow 路径、可信分支 / Tag
+          和安装包匹配规则用于生成接入说明，不会触发 GitHub API 读取。
         </li>
         <li>
           在源仓库 Settings → Secrets and variables → Actions → Secrets 新增{" "}
@@ -78,14 +78,13 @@ export function ActionsGuide({
           artifact 不会被当前接入读取。
         </li>
         <li>
-          运行可信分支 / Tag 的 workflow。回调返回 202 后立即结束步骤；Fuma
-          等待整个 run 成功，再缓存文件并通知群。不要在同一次 run 中轮询等待
-          Fuma 完成。
+          运行 workflow。回调返回 202 后立即结束步骤；Fuma 校验 COS 对象、解析安装包并通知群。
+          不要在同一次 run 中轮询等待 Fuma 完成。
         </li>
       </ol>
       <p>
-        Fuma 不读取 GitHub Release，也不要求 GitHub Release 写权限；GitHub Actions
-        只需能运行 workflow，COS 上传凭证由源仓库自行配置。目标群需已加入机器人。
+        Fuma 不读取 GitHub Release，也不要求 GitHub API 或 Release 写权限；GitHub
+        Actions 只需能运行 workflow，COS 上传凭证由源仓库自行配置。目标群需已加入机器人。
       </p>
       <Disclosure title="复制 build YAML 示例与修改说明">
         <p>
@@ -135,7 +134,7 @@ export function ActionsGuide({
 export function RuleConnection({ rule }: { rule: DTO<"ActionsRule"> }) {
   const markdownPath = `/api/v1/docs/github-actions?rule_id=${encodeURIComponent(rule.id)}`;
   const markdownUrl = new URL(markdownPath, window.location.origin).href;
-  const agentInstructions = `请按以下文档修改源仓库的 GitHub Actions workflow。\n\n接入文档：${markdownUrl}\n仓库：${rule.repository_full_name}\nWorkflow：${rule.workflow_path}\n可信分支：${rule.allowed_branches.join(", ") || "未配置"}\n可信 Tag：${rule.allowed_tags.join(", ") || "未配置"}\n文件匹配：${rule.asset_patterns.join(", ")}\nFUMA_CALLBACK_URL：${rule.callback_url}\nFUMA_CI_TOKEN：由管理员填入 GitHub Actions Secret，不写入代码或日志。\n\n保留现有构建环境，将安装包和 manifest 上传到 Fuma 已绑定的 COS channel/prefix 后回调；不要创建 GitHub Release。回调返回 202 后结束该步骤，等待整个 workflow 成功再核对 Fuma 构建事件。`;
+  const agentInstructions = `请按以下文档修改源仓库的 GitHub Actions workflow。\n\n接入文档：${markdownUrl}\nWorkflow：${rule.workflow_path}\n可信分支：${rule.allowed_branches.join(", ") || "未配置"}\n可信 Tag：${rule.allowed_tags.join(", ") || "未配置"}\n文件匹配：${rule.asset_patterns.join(", ")}\nFUMA_CALLBACK_URL：${rule.callback_url}\nFUMA_CI_TOKEN：由管理员填入 GitHub Actions Secret，不写入代码或日志。\n\n保留现有构建环境，将安装包和 manifest 上传到 Fuma 已绑定的 COS channel/prefix 后回调；不要创建 GitHub Release，也不要调用 GitHub API。回调返回 202 后结束该步骤，等待 Fuma 构建事件。`;
   return (
     <>
       <div className="toolbar">
@@ -147,7 +146,7 @@ export function RuleConnection({ rule }: { rule: DTO<"ActionsRule"> }) {
         <Copy value={markdownUrl} label="复制文档链接给 Agent" />
         <Copy value={agentInstructions} label="复制完整接入说明" />
       </div>
-      <Disclosure title="接入信息：回调 URL 与规则要求">
+      <Disclosure title="COS 通知接入信息：回调 URL 与规则要求">
         <p>
           将此地址保存为源仓库 Actions Variable <code>FUMA_CALLBACK_URL</code>
           。对应令牌保存为 Secret <code>FUMA_CI_TOKEN</code>。
@@ -158,8 +157,6 @@ export function RuleConnection({ rule }: { rule: DTO<"ActionsRule"> }) {
         </label>
         <Copy value={rule.callback_url} label="复制回调 URL" />
         <dl>
-          <dt>仓库</dt>
-          <dd>{rule.repository_full_name}</dd>
           <dt>Workflow 路径</dt>
           <dd>
             <code>{rule.workflow_path}</code>

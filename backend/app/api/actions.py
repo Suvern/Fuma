@@ -351,14 +351,17 @@ def create_rule(
     recent_admin(context)
     app = get_app(db, id, lock=True)
     lock(db, f"app_entries:{id}")
-    if not app.repository or not app.enabled:
-        raise AppError(409, "REPOSITORY_NOT_BOUND", "请先启用 App 并关联 GitHub 仓库")
+    if not app.enabled:
+        raise AppError(409, "APP_NOT_READY", "请先启用 App")
     data = body.model_dump(mode="json")
     validate_rule(db, data)
+    # COS is the source of truth. Keep the legacy GitHub fields only when an
+    # old repository binding exists so the v1 callback remains readable during
+    # migration; new rules never require a GitHub connector.
     data.update(
-        repository_id=app.repository["repository_id"],
-        repository_full_name=app.repository["full_name"],
-        connector_id=app.repository["connector_id"],
+        repository_id=app.repository.get("repository_id") if app.repository else None,
+        repository_full_name=app.repository.get("full_name") if app.repository else None,
+        connector_id=app.repository.get("connector_id") if app.repository else None,
     )
     raw, now = secrets.token_urlsafe(32), utcnow()
     row = RuleRecord(

@@ -32,7 +32,7 @@ it("copies the public rule document link and a complete callback handoff without
     allowed_tags: ["v*"],
     asset_patterns: ["*.apk"],
     callback_url:
-      "https://fuma.example/api/v1/integrations/github-actions/rule/events",
+      "https://fuma.example/api/v1/integrations/github-actions/rule/cos-events",
   } as DTO<"ActionsRule">;
   render(
     <MemoryRouter>
@@ -51,7 +51,7 @@ it("copies the public rule document link and a complete callback handoff without
       expect.stringContaining(rule.callback_url),
     ),
   );
-  expect(writeText.mock.lastCall?.[0]).toContain("example/mobile");
+  expect(writeText.mock.lastCall?.[0]).toContain("Workflow：.github/workflows/build.yml");
   expect(writeText.mock.lastCall?.[0]).toContain(
     "由管理员填入 GitHub Actions Secret",
   );

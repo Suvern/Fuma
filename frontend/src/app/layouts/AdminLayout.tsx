@@ -31,7 +31,6 @@ const groups: {
   {
     title: "集成",
     items: [
-      { to: "/admin/connectors", title: "GitHub 连接", icon: "branch" },
       { to: "/admin/settings/feishu", title: "飞书与机器人", icon: "chat" },
     ],
   },

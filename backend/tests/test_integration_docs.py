@@ -16,7 +16,7 @@ def test_agent_document_is_public_and_uses_configured_origin():
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/markdown")
     assert (
-        f"https://fuma.example/api/v1/integrations/github-actions/{rule_id}/events" in response.text
+        f"https://fuma.example/api/v1/integrations/github-actions/{rule_id}/cos-events" in response.text
     )
     assert "untrusted-host" not in response.text
     assert "文档不验证该规则是否存在" in response.text

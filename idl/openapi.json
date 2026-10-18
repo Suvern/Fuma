@@ -139,11 +139,15 @@
             "type": "string"
           },
           "repository_full_name": {
+            "nullable": true,
             "type": "string"
           },
           "repository_id": {
             "pattern": "^[0-9]+$",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "revision": {
             "minimum": 1,
@@ -184,8 +188,6 @@
           "chat_ids",
           "enabled",
           "app_id",
-          "repository_id",
-          "repository_full_name",
           "mode",
           "has_token",
           "token_created_at",

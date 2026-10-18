@@ -1091,8 +1091,8 @@ class ActionsRule(BaseModel):
     chat_ids: list[ChatId] = Field(..., max_length=20, min_length=1)
     enabled: bool
     app_id: UUID
-    repository_id: str = Field(..., pattern="^[0-9]+$")
-    repository_full_name: str
+    repository_id: str | None = Field(None, pattern="^[0-9]+$")
+    repository_full_name: str | None = None
     mode: Literal["debug"]
     has_token: bool
     token_created_at: AwareDatetime | None

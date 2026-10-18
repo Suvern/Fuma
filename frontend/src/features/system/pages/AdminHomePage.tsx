@@ -94,10 +94,6 @@ function AdminDashboard() {
     queryKey: ["dashboard-apps"],
     queryFn: () => read("/api/v1/apps", { query: { page: 1, page_size: 4 } }),
   });
-  const connectors = useQuery({
-    queryKey: ["dashboard-connectors"],
-    queryFn: () => read("/api/v1/connectors/github", { query: { page: 1 } }),
-  });
   const feishu = useQuery({
     queryKey: ["feishu"],
     queryFn: () => read("/api/v1/settings/feishu"),
@@ -113,12 +109,6 @@ function AdminDashboard() {
       description: "添加 Android 或 iOS 应用",
       to: "/admin/apps?new=1",
       done: apps.data ? apps.data.total > 0 : undefined,
-    },
-    {
-      title: "添加 GitHub 连接",
-      description: "保存仓库访问凭据",
-      to: "/admin/connectors",
-      done: connectors.data ? connectors.data.total > 0 : undefined,
     },
     {
       title: "验证飞书登录",
@@ -156,9 +146,8 @@ function AdminDashboard() {
         </Card>
         <Card>
           <Metric
-            title="GitHub 连接"
-            value={connectors.data?.total ?? "—"}
-            suffix="个"
+            title="COS 包源模式"
+            value="按 App 绑定"
           />
         </Card>
         <Card>
@@ -244,7 +233,7 @@ function AdminDashboard() {
                   </Link>
                 }
               >
-                添加应用并关联仓库，开始分发安装包。
+                添加应用后绑定 Debug / Release 存储桶，开始分发安装包。
               </Empty>
             )}
             {apps.data?.items.map((app) => (
@@ -257,7 +246,7 @@ function AdminDashboard() {
                 <span className="row-copy">
                   <strong>{app.name}</strong>
                   <small>
-                    {app.repository?.full_name ?? "待绑定 GitHub 仓库"}
+                    Debug / Release 存储桶与 Actions 通知
                   </small>
                 </span>
                 <Typography.Text
@@ -319,11 +308,11 @@ function AdminDashboard() {
           title={<h2>接入指引</h2>}
           headerExtraContent={
             <Typography.Text type="tertiary">
-              {setupKnown ? `${complete} / 3 已完成` : "正在检查"}
+              {setupKnown ? `${complete} / ${steps.length} 已完成` : "正在检查"}
             </Typography.Text>
           }
         >
-          <ErrorBox error={apps.error || connectors.error || feishu.error} />
+          <ErrorBox error={apps.error || feishu.error} />
           <Steps
             className="setup-steps"
             type="basic"

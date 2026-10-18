@@ -2211,8 +2211,8 @@ export interface components {
             /** @enum {string} */
             mode: "debug";
             name: string;
-            repository_full_name: string;
-            repository_id: string;
+            repository_full_name?: string | null;
+            repository_id?: string | null;
             revision: number;
             token_created_at: string | null;
             /** Format: date-time */

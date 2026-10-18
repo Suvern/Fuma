@@ -1,4 +1,3 @@
-import { RepositorySelect } from "../../shared/ui/RepositorySelect";
 import { AppLifecycle } from "./AppLifecycle";
 import { AppIcon, AppIconField } from "./AppIcon";
 import { Statistics } from "./Statistics";
@@ -805,19 +804,21 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
             </Form>
           </fieldset>
         </Panel>
-        {!app.archived_at &&
-          (globalAdmin ? (
-            <RepositoryBinding app={app} />
-          ) : (
-            <Panel>
-              <h2>仓库绑定</h2>
-              <p>{app.repository?.full_name ?? "尚未绑定仓库"}</p>
-              <p className="muted">
-                仓库凭据与绑定由管理员管理。已有绑定可用于此应用的 Release
-                导入。
-              </p>
-            </Panel>
-          ))}
+        {!app.archived_at && (
+          <Panel>
+            <div className="settings-section-heading">
+              <h2>GitHub Actions 通知</h2>
+              <Link className="button" to={`/admin/apps/${app.id}/actions`}>
+                配置通知
+              </Link>
+            </div>
+            <p className="muted">
+              GitHub 只负责运行构建并发送通知；Fuma 不连接 GitHub API，也不读取
+              GitHub Release。安装包必须先上传到此 App 绑定的 Debug / Release
+              存储桶，通知丢失时可直接从存储桶扫描导入。
+            </p>
+          </Panel>
+        )}
       </div>
       {!app.archived_at && <AppStorageBinding appId={app.id} />}
       <Disclosure title="分发统计">
@@ -852,167 +853,5 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
         </Panel>
       )}
     </div>
-  );
-}
-function RepositoryBinding({ app }: { app: DTO<"App"> }) {
-  const [editing, setEditing] = useState(!app.repository);
-  const [revision, setRevision] = useState(app.revision);
-  const client = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const connectors = useQuery({
-    queryKey: ["connectors-select", page, search],
-    queryFn: ({ signal }) =>
-      read("/api/v1/connectors/github", { query: { page, q: search }, signal }),
-  });
-  const [connectorId, setConnectorId] = useState(
-    app.repository?.connector_id ?? "",
-  );
-  const [repoName, setRepoName] = useState(app.repository?.full_name ?? "");
-  const cmd = useCommand();
-  const locked = !editing || cmd.pending;
-  const currentConnectorId = editing
-    ? connectorId
-    : (app.repository?.connector_id ?? "");
-  const currentRepoName = editing
-    ? repoName
-    : (app.repository?.full_name ?? "");
-  const options =
-    connectors.data?.items.map((c) => ({
-      value: c.id,
-      label: c.name,
-      disabled: !c.enabled,
-    })) ?? [];
-  if (
-    currentConnectorId &&
-    !options.some((c) => c.value === currentConnectorId)
-  ) {
-    options.unshift({
-      value: currentConnectorId,
-      label: "已保存的 GitHub 连接",
-      disabled: false,
-    });
-  }
-  return (
-    <Panel>
-      <div className="settings-section-heading">
-        <h2>GitHub Actions 来源（仅通知）</h2>
-        {!editing && (
-          <Button
-            type="button"
-            aria-label="修改仓库绑定"
-            onClick={() => {
-              setConnectorId(app.repository?.connector_id ?? "");
-              setRepoName(app.repository?.full_name ?? "");
-              setRevision(app.revision);
-              setSearch("");
-              setPage(1);
-              setEditing(true);
-            }}
-          >
-            修改
-          </Button>
-        )}
-      </div>
-      <p className="muted settings-edit-hint">
-        {editing
-          ? "选择连接与仓库，保存前会验证读取权限；这里只用于校验 workflow 来源，不读取 GitHub Release。"
-          : "已绑定，仅用于校验 GitHub Actions workflow 来源；点击「修改」后更换连接或仓库。"}
-      </p>
-      {cmd.feedback}
-      <div className="field">
-        <span id="connector-label">GitHub 连接</span>
-        <Select
-          aria-labelledby="connector-label"
-          aria-label="GitHub 连接"
-          value={currentConnectorId || undefined}
-          placeholder="搜索并选择连接"
-          filter
-          remote
-          loading={connectors.isFetching}
-          disabled={locked}
-          onSearch={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          onChange={(value) => {
-            setConnectorId(String(value ?? ""));
-            setRepoName("");
-          }}
-          optionList={options}
-          outerBottomSlot={
-            connectors.data &&
-            connectors.data.total > connectors.data.page_size ? (
-              <Pager data={connectors.data} page={page} setPage={setPage} />
-            ) : undefined
-          }
-          style={{ width: "100%" }}
-        />
-      </div>
-      <ErrorBox error={connectors.error} />
-      <Form
-        submit={() => {
-          if (locked || !connectorId || !repoName.trim()) return;
-          void cmd.run(
-            "bind-repository",
-            () =>
-              write(
-                "/api/v1/apps/{id}/repository",
-                "put",
-                { connector_id: connectorId, full_name: repoName.trim() },
-                { id: app.id, revision },
-              ),
-            (saved) => {
-              client.setQueryData(["app", app.id], saved);
-              setEditing(false);
-            },
-            "仓库绑定已保存。",
-          );
-        }}
-      >
-        <RepositorySelect
-          key={`${currentConnectorId}-${editing}`}
-          connectorId={currentConnectorId}
-          value={currentRepoName}
-          onChange={setRepoName}
-          disabled={locked}
-        />
-        {editing && (
-          <Disclosure title="手动填写仓库名称">
-            <Field
-              label="仓库完整名称"
-              name="full_name"
-              value={repoName}
-              onChange={(event) => setRepoName(event.target.value)}
-              disabled={cmd.pending || !connectorId}
-              pattern={String.raw`[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+`}
-              validationMessage="请按 owner/repository 格式填写仓库完整名称。"
-              help="未在搜索中找到时，可填写已知仓库；服务端会验证读取权限。"
-            />
-          </Disclosure>
-        )}
-        {editing && (
-          <div className="form-actions">
-            {app.repository && (
-              <Button
-                type="button"
-                disabled={cmd.pending}
-                onClick={() => setEditing(false)}
-              >
-                取消修改
-              </Button>
-            )}
-            <Button
-              className="primary"
-              loading={cmd.pending}
-              disabled={cmd.pending || !connectorId || !repoName.trim()}
-            >
-              验证并绑定
-            </Button>
-          </div>
-        )}
-      </Form>
-      <Link to="/admin/connectors">管理 GitHub 连接</Link>
-    </Panel>
   );
 }

@@ -328,7 +328,7 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
         <Badge className="badge">{r.enabled ? "已启用" : "已停用"}</Badge>
       </div>
       <p>
-        {r.repository_full_name} · {r.workflow_path}
+        COS 通知 · Workflow {r.workflow_path}
       </p>
       <p className="muted">
         令牌：{r.has_token ? "已签发" : "已撤销"} · {date(r.token_created_at)}
@@ -477,7 +477,7 @@ export function BuildEventsPage() {
         )}
       </div>
       <p className="muted">
-        这里跟踪 Fuma 分发进度；回调已接收不等于 GitHub 构建成功或通知已送达。
+        这里跟踪 Fuma 分发进度；回调已接收不等于 COS 对象已校验或通知已送达。
       </p>
       <ErrorBox error={q.error} />
       {q.error && (
@@ -560,16 +560,16 @@ export function BuildEventPage() {
         <p>{buildGuidance(e)}</p>
         <p className="muted">
           {e.stages.find((s) => s.name === "wait_run")?.state === "succeeded"
-            ? "GitHub 构建：已核验通过"
-            : "GitHub 构建：请查看等待构建阶段的核验结果"}
+            ? "COS 对象：已校验通过"
+            : "COS 对象：请查看等待处理阶段的核验结果"}
         </p>
         <dl>
           <dt>构建轮次</dt>
           <dd>{e.run_attempt}</dd>
           <dt>提交 SHA</dt>
           <dd className="mono">{e.head_sha}</dd>
-          <dt>Release ID</dt>
-          <dd>{e.release_id}</dd>
+          <dt>来源</dt>
+          <dd>COS / GitHub Actions 通知</dd>
         </dl>
         <h2>执行轨迹</h2>
         <ol className="build-timeline">
