@@ -73,6 +73,6 @@ created_by / updated_by
 - 服务端会 trim 首尾 `/`，拒绝空前缀、`.`、`..`、控制字符；Debug/Release 绑定相同 bucket 时拒绝。
 - 只允许 `enabled=true` 且 `status=ready` 的 StorageLocation；不回显凭据。
 - App 设置页新增 Debug/Release 两组选择与 prefix 编辑，明确标注“存储桶”；前端和服务端都拒绝相同 bucket，未绑定 channel 的 COS 操作直接拒绝。
-- 现有分片上传接口在请求未显式指定 `storage_location_id` 时，按上传 `mode` 读取 App 绑定；管理页上传器不再提供系统默认/本机选项。后端保留无绑定回退仅用于旧客户端兼容，后续清理阶段下线。
+- 现有分片上传接口始终按上传 `mode` 读取 App 绑定；管理页上传器不再提供系统默认/本机选项。显式传入的 `storage_location_id` 也必须与当前 App/channel 绑定一致；无绑定或错桶直接返回 `STORAGE_BINDING_REQUIRED` / `STORAGE_BINDING_MISMATCH`。
 
 本切片暂未实现：连接测试对象、旧 binding 自动迁移和对象级审计历史。这些能力分别在第 5、11 阶段实现。COS v2 webhook 和“从 COS 导入”均强制要求对应 channel 存在可用 binding；未绑定时直接拒绝，不接受事件或请求中的任意 bucket/URL。现有 GitHub Release v1 和本地上传兼容入口暂不删除，但不属于 COS 主路径。

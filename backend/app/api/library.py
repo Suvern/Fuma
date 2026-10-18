@@ -99,6 +99,30 @@ def validate_scope(db, app, platform, mode, identifier=None):
             raise AppError(409, "PACKAGE_ID_MISMATCH", "安装包标识与应用配置不一致")
 
 
+def bound_storage_location(db, app_id, mode, requested_id=None):
+    """Resolve the App/channel package source; global defaults are not package sources."""
+    binding_id = db.scalar(
+        select(AppStorageBindingRecord.storage_location_id).where(
+            AppStorageBindingRecord.app_id == app_id,
+            AppStorageBindingRecord.channel == mode,
+        )
+    )
+    if binding_id is None:
+        raise AppError(
+            409,
+            "STORAGE_BINDING_REQUIRED",
+            f"请先为该 App 配置 {('Debug' if mode == 'debug' else 'Release')} 包源存储桶",
+        )
+    if requested_id is not None and requested_id != binding_id:
+        raise AppError(
+            409,
+            "STORAGE_BINDING_MISMATCH",
+            "上传目标必须与当前 App/channel 的包源存储桶一致",
+        )
+    ready_location(db, binding_id)
+    return binding_id
+
+
 def upload_dto(row):
     return {name: getattr(row, name) for name in dto.UploadSession.model_fields}
 
@@ -181,23 +205,9 @@ def create_upload(
 ):
     app = active_app(db, id)
     validate_scope(db, app, body.platform, body.mode)
-    from app.domains.storage.models import StorageLocation
-    from app.domains.storage.service import ready_location
-
-    location_id = body.storage_location_id
-    if "storage_location_id" not in body.model_fields_set:
-        location_id = db.scalar(
-            select(AppStorageBindingRecord.storage_location_id).where(
-                AppStorageBindingRecord.app_id == app.id,
-                AppStorageBindingRecord.channel == body.mode,
-            )
-        )
-        if location_id is None:
-            location_id = db.scalar(
-                select(StorageLocation.id).where(StorageLocation.is_default.is_(True))
-            )
-    if location_id:
-        ready_location(db, location_id)
+    location_id = bound_storage_location(
+        db, app.id, body.mode, body.storage_location_id
+    )
     if not re.fullmatch(
         r"[^/\\\x00-\x1f\x7f]{1,255}", body.file_name
     ) or not body.file_name.lower().endswith(".apk" if body.platform == "android" else ".ipa"):

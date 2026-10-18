@@ -42,17 +42,23 @@ export function StoragePage() {
   });
   return (
     <>
-      <Title description="私有原件与公开副本分开保存。默认位置只影响新上传，历史文件继续使用原位置。">
-        对象存储
+      <Title description="登记并验证可用的 COS / OSS 存储桶。包来源必须在应用设置中按 App 分别绑定 Debug 或 Release；此页不决定任何 App 的分发来源。">
+        存储桶资源池
       </Title>
       <Notice>
-        连接测试会在专用前缀内写入、回读并删除小文件。需要对象读写、删除及桶版本配置读取权限；公开副本桶须从未启用版本控制。仅支持官方
-        HTTPS 源站。
+        <p>
+          这里管理可复用的桶连接、凭据与健康状态；真正的包来源由每个 App 的 Debug / Release
+          绑定决定。连接测试会在专用前缀内写入、回读并删除小文件，需要对象读写、删除及桶版本配置读取权限。
+        </p>
+        <p>
+          新增或验证存储桶后，请前往 <Link to="/admin/apps">应用管理</Link> 为具体 App
+          分别绑定两个 channel；不要把全局资源池当作默认分发入口。
+        </p>
       </Notice>
       {cmd.feedback}
       <Panel>
         <details>
-          <summary>新增 COS / OSS 存储</summary>
+          <summary>新增 COS / OSS 存储桶资源</summary>
           <Form
             key={formKey}
             submit={(form) =>
@@ -98,14 +104,14 @@ export function StoragePage() {
             />
             <Field
               name="prefix"
-              label="Fuma 专用路径前缀"
+              label="Fuma 资源池路径前缀"
               defaultValue="fuma"
               required
             />
             <div className="field">
               <Select label="读取模式" name="read_mode">
-                <option value="private">私有原件（受限分发）</option>
-                <option value="public">公开副本（仅 Release）</option>
+                <option value="private">私有原件（Debug / Release 均可）</option>
+                <option value="public">公开副本（仅 Release 可绑定）</option>
               </Select>
             </div>
             <Field
@@ -122,7 +128,10 @@ export function StoragePage() {
               autoComplete="new-password"
               required
             />
-            <p>保存后不回显凭据。桶与路径身份固定；更换位置请新增配置。</p>
+            <p>
+              保存后不回显凭据。桶与资源池路径身份固定；更换位置请新增配置，之后再到 App
+              设置绑定对应 channel。
+            </p>
             <Button disabled={cmd.pending} className="primary">
               保存配置
             </Button>
@@ -133,7 +142,9 @@ export function StoragePage() {
       <ErrorBox error={query.error} />
       {query.isPending && <Loading />}
       {query.data?.items.length === 0 && (
-        <Empty>暂无存储配置。本机私有存储仍可使用。</Empty>
+        <Empty>
+          暂无存储桶资源。请先新增并通过连接测试，再到应用设置按 Debug / Release 绑定。
+        </Empty>
       )}
       {query.data?.items.map((row) => (
         <StorageCard key={row.id} row={row} />
@@ -169,7 +180,6 @@ function StorageCard({ row }: { row: DTO<"StorageInfo"> }) {
     <Panel>
       <h2>
         {row.name}
-        {row.is_default ? " · 默认" : ""}
       </h2>
       <p>
         {row.provider.toUpperCase()} · {row.region} · {row.bucket}/{row.prefix}
@@ -221,14 +231,6 @@ function StorageCard({ row }: { row: DTO<"StorageInfo"> }) {
         >
           连接测试
         </Button>
-        {row.enabled && row.read_mode === "private" && !row.is_default && (
-          <Button
-            disabled={cmd.pending || row.status !== "ready"}
-            onClick={() => action("make-default", "设置默认")}
-          >
-            设为默认
-          </Button>
-        )}
         <Button
           disabled={cmd.pending || row.status === "testing"}
           onClick={() =>
@@ -335,7 +337,7 @@ export function StorageChoice({
       {appChannel ? (
         <>
           <p className="muted">
-            {appChannel === "debug" ? "Debug" : "Release"} 原件存储桶：{" "}
+            {appChannel === "debug" ? "Debug" : "Release"} 包源存储桶：{" "}
             {boundChannel
               ? `${boundChannel.storage.name} / ${boundChannel.object_prefix}`
               : "尚未绑定，请先在应用设置中配置独立 COS 存储桶。"}

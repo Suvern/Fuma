@@ -39,7 +39,7 @@ const groups: {
     title: "管理",
     items: [
       { to: "/admin/settings/cache", title: "本地缓存", icon: "disk" },
-      { to: "/admin/settings/storage", title: "对象存储", icon: "disk" },
+      { to: "/admin/settings/storage", title: "存储桶资源", icon: "disk" },
       { to: "/admin/audit", title: "审计日志", icon: "history" },
       { to: "/admin/settings/members", title: "成员与角色", icon: "shield" },
       { to: "/admin/settings/account", title: "账号与会话", icon: "shield" },

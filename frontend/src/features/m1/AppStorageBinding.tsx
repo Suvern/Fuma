@@ -4,6 +4,7 @@ import { read, write, type DTO } from "../../shared/api/http";
 import { Select } from "../../shared/ui/FormControls";
 import { ErrorBox, Field, Form, Loading, useCommand } from "../../shared/ui/common";
 import { Button, Panel } from "../../shared/ui/controls";
+import { Link } from "react-router";
 
 type Channel = "debug" | "release";
 type Draft = Record<`${Channel}StorageId` | `${Channel}Prefix`, string>;
@@ -112,7 +113,7 @@ export function AppStorageBinding({ appId }: { appId: string }) {
   return (
     <Panel>
       <div className="settings-section-heading">
-        <h2>包存储绑定</h2>
+        <h2>分发存储绑定</h2>
         {!editing && (
           <Button
             type="button"
@@ -128,8 +129,8 @@ export function AppStorageBinding({ appId }: { appId: string }) {
         )}
       </div>
       <p className="muted settings-edit-hint">
-        Debug 与 Release 默认分别使用独立存储桶；这两个绑定是 COS 上传、通知接收和补导入的唯一来源。
-        尚未配置时，对应 channel 不能接收或导入安装包。
+        这是此 App 的唯一包来源配置。Debug 和 Release 必须分别绑定独立存储桶；COS 上传、通知接收、
+        手工上传和补导入都会严格按当前 channel 使用这里的绑定。尚未配置时，对应 channel 不能接收或导入安装包。
       </p>
       {cmd.feedback}
       <ErrorBox error={bindings.error ?? available.error} />
@@ -144,10 +145,10 @@ export function AppStorageBinding({ appId }: { appId: string }) {
             const storageId = currentDraft[`${channel}StorageId`];
             return (
               <fieldset key={channel} disabled={!editing || cmd.pending}>
-                <legend>{channelLabel(channel)} 存储桶</legend>
+                <legend>{channelLabel(channel)} 包源</legend>
                 <Select
                   name={`${channel}-storage-location`}
-                  label="存储桶"
+                  label={`${channelLabel(channel)} 包源存储桶`}
                   value={storageId}
                   onChange={(event) =>
                     setDraftValue(
@@ -178,7 +179,7 @@ export function AppStorageBinding({ appId }: { appId: string }) {
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  help="相对于存储位置前缀的目录名，例如 debug 或 release。"
+                  help="相对于资源池路径前缀的目录名；此 App 的该 channel 只会读取和写入这个前缀。"
                 />
               </fieldset>
             );
@@ -205,7 +206,7 @@ export function AppStorageBinding({ appId }: { appId: string }) {
       )}
       {!options.length && !available.error && (
         <p className="muted">
-          暂无已启用且通过连接测试的存储位置，请先到「对象存储」配置。
+          暂无已启用且通过连接测试的存储桶资源，请先到 <Link to="/admin/settings/storage">存储桶资源池</Link> 登记并测试。
         </p>
       )}
     </Panel>

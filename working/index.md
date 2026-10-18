@@ -29,6 +29,8 @@
 | 12 | [灰度与回滚](./12-rollout-and-rollback.md) | 未开始 | 分阶段开关、回滚策略 | 依赖 8-11 |
 | 13 | [测试与验收](./13-test-and-acceptance.md) | 未开始 | 测试矩阵、验收证据 | 依赖 8-12 |
 | 14 | [运维手册](./14-operations-runbook.md) | 未开始 | 日常处理、告警、排障 | 依赖 6-13 |
+| 15 | [产品主流程切换](./15-fuma-product-cutover.md) | 已完成（主流程） | 移除 GitHub Release 主入口、COS-first 文案与手工上传锁定 | 无 |
+| 16 | [存储桶资源池复核](./16-storage-pool-product-review.md) | 已完成（本地代码） | 将全局存储页降级为资源池，App/channel 绑定成为唯一分发语义 | 需补隔离 PostgreSQL 回归 |
 
 ## 3. 已确认决策
 
@@ -68,6 +70,7 @@
 | ADR-002 | GitHub Release 从产品主流程移除，旧 API 仅作后台兼容 | 2026-10-16 | 已确认 |
 | ADR-003 | Debug 自动 ready，Release 需要人工 publish | 2026-10-16 | 已确认 |
 | ADR-004 | COS webhook/手工补导入强制使用 App/channel binding；GitHub Release 仅作 legacy 兼容 | 2026-10-17 | 已确认 |
+| ADR-005 | 全局存储页只管理资源池；新产品路径不再使用全局默认桶 | 2026-10-18 | 已确认 |
 
 ## 7. 变更日志
 
@@ -77,7 +80,7 @@
 | 2026-10-16 | 完成文件清单、入口索引和关键文档存在性校验 | 文档工作区可进入阶段评审 |
 | 2026-10-17 | 修正本地前端 5174 与 API Origin 不一致导致的 CSRF_INVALID | 更新本地启动命令与开发文档；未改变生产配置 |
 | 2026-10-17 | 完成 App Debug/Release 存储绑定第一条垂直切片 | 新增 `app_storage_bindings` 迁移、GET/PUT API、If-Match 并发校验、prefix 规范化与同桶冲突校验；前端应用设置新增绑定卡片；保留 GitHub v1 流程 |
-| 2026-10-17 | 将 App channel 存储绑定接入上传默认路由 | 未显式指定 `storage_location_id` 时，上传按 `debug/release` 使用 App 绑定；无绑定时继续回退系统默认存储，显式指定仍兼容 |
+| 2026-10-17 | 将 App channel 存储绑定接入上传默认路由 | 上传按 `debug/release` 使用 App 绑定；后续收紧为无绑定或显式错桶直接拒绝 |
 | 2026-10-17 | 完成 COS v2 事件接入首轮垂直切片 | 新增事件契约、规则令牌鉴权、App/channel/prefix 校验、`event_id` 幂等落库、`cos_package_ingest` 任务及对象 HEAD/大小/已有摘要元数据校验；尚未解析或自动 ready |
 | 2026-10-17 | 完成 COS 对象内容校验切片 | 增加签名 URL 流式下载、对象 SHA-256 与 manifest SHA-256 校验，临时文件只写运行时临时目录；尚未解析或入库 |
 | 2026-10-17 | 开始 Debug COS 解析入库切片 | 增加独立 `cos_package_parse` 任务，消费 manifest 的平台/文件名，复用现有隔离 Parser，创建 `PackageRecord`、`StoredObject` 和 Debug 记录；原件继续以 COS 对象为主，不回传 GitHub Release |
@@ -93,6 +96,8 @@
 | 2026-10-18 | Fuma 接入绑定 COS 对象扫描 | 新增 Adapter 统一列举 COS/OSS 对象和 continuation cursor；新增按 App/channel binding 限定范围的对象列表 API；前端选择对象后自动带入大小、摘要和同目录 manifest，缺少校验元数据时禁止直接提交 |
 | 2026-10-18 | 完成 Fuma 产品主流程走查与 COS 切换 | 移除 GitHub Releases 导航和入口，旧链接重定向到版本发布；Debug/Release 新配置强制独立存储桶；安装包、Debug、Actions、通知模板统一改为 COS 主来源文案；GitHub 仅保留构建通知/审计语义 |
 | 2026-10-18 | 收紧手工上传器的存储选择 | 安装包页按当前 Debug/Release channel 自动使用 App 绑定 COS bucket，不再展示系统默认、本机或任意存储位置；旧 API 回退仅保留给旧客户端兼容 |
+| 2026-10-18 | 复核并纠正“全局存储”产品语义 | 全局入口改为“存储桶资源池”，移除默认桶展示与操作；App 设置改为“分发存储绑定”，明确 Debug/Release 是唯一包源；新增 `working/16-storage-pool-product-review.md` |
+| 2026-10-18 | 收紧上传运行时绑定 | `create_upload` 不再回退全局默认桶；必须存在 App/channel binding，显式目标桶必须与绑定一致；新增 `STORAGE_BINDING_REQUIRED` / `STORAGE_BINDING_MISMATCH` |
 
 ## 8. 本轮本地验证证据
 

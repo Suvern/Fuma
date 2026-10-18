@@ -207,7 +207,7 @@ describe("后台角色与自身会话", () => {
     await screen.findByText("已授权应用");
     for (const name of [
       "GitHub 连接",
-      "对象存储",
+      "存储桶资源",
       "飞书与机器人",
       "成员与角色",
       "本地缓存",

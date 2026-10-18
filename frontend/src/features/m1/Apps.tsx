@@ -600,7 +600,7 @@ function AppEditor({ app }: { app: DTO<"App"> }) {
   const navigate = useNavigate();
   return (
     <div className="app-settings-page">
-      <Title description="维护基本信息，配置 Debug/Release 存储桶，并接入 GitHub Actions 通知。">
+      <Title description="维护基本信息，为 Debug/Release 分别绑定唯一包源存储桶，并接入 GitHub Actions 通知。">
         {app.name}
       </Title>
       <PageTabs className="tabs">
