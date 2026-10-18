@@ -400,12 +400,14 @@ def available_storage(id: UUID, db: DB, context: ScopedManager):
 
 def _normalize_object_prefix(value: str) -> str:
     prefix = value.strip().strip("/")
-    if (
-        not prefix
-        or any(ord(char) < 32 or ord(char) == 127 for char in prefix)
-        or any(part in {"", ".", ".."} for part in prefix.split("/"))
+    if any(ord(char) < 32 or ord(char) == 127 for char in prefix) or any(
+        part in {"", ".", ".."} for part in prefix.split("/")
     ):
-        raise AppError(422, "INVALID_STORAGE_PREFIX", "对象前缀不合法")
+        raise AppError(
+            422,
+            "INVALID_STORAGE_PREFIX",
+            "对象前缀可留空（表示桶根目录），且不能包含 . 或 ..",
+        )
     return prefix
 
 

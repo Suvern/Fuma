@@ -11,9 +11,9 @@ type Draft = Record<`${Channel}StorageId` | `${Channel}Prefix`, string>;
 
 const emptyDraft: Draft = {
   debugStorageId: "",
-  debugPrefix: "debug",
+  debugPrefix: "",
   releaseStorageId: "",
-  releasePrefix: "release",
+  releasePrefix: "",
 };
 
 function draftFrom(
@@ -60,15 +60,6 @@ export function AppStorageBinding({ appId }: { appId: string }) {
     channel === "debug" ? "Debug" : "Release";
 
   function submit() {
-    const channels: Channel[] = ["debug", "release"];
-    for (const channel of channels) {
-      const storageId = currentDraft[`${channel}StorageId`];
-      const prefix = normalizedPrefix(currentDraft[`${channel}Prefix`]);
-      if (storageId && !prefix) {
-        setValidationError(`${channelLabel(channel)} 已选择存储位置，请填写对象前缀。`);
-        return;
-      }
-    }
     if (
       currentDraft.debugStorageId &&
       currentDraft.releaseStorageId &&
@@ -174,12 +165,11 @@ export function AppStorageBinding({ appId }: { appId: string }) {
                       event.target.value,
                     )
                   }
-                  required={Boolean(storageId)}
                   maxLength={200}
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  help="相对于资源池路径前缀的目录名；此 App 的该 channel 只会读取和写入这个前缀。"
+                  help="相对于桶路径前缀的目录名；可留空表示桶根目录，例如直接读取 android/ 和 ios/。"
                 />
               </fieldset>
             );

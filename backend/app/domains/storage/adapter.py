@@ -26,6 +26,20 @@ def provider_status(exc):
     return None
 
 
+def normalize_prefix(prefix: str | None) -> str:
+    """Return a safe relative prefix; an empty value means bucket root."""
+    value = (prefix or "").strip().strip("/")
+    if not value:
+        return ""
+    if not re.fullmatch(r"[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*", value):
+        raise AppError(
+            422,
+            "STORAGE_PREFIX_INVALID",
+            "路径前缀可留空（表示桶根目录），或仅使用字母、数字、横线、下划线和目录分隔符",
+        )
+    return value
+
+
 def validate_identity(provider, region, bucket, prefix):
     if provider not in {"cos", "oss"} or not re.fullmatch(r"[a-z][a-z0-9-]{2,39}", region):
         raise AppError(422, "STORAGE_IDENTITY_INVALID", "请使用云厂商地域标识")
@@ -36,12 +50,7 @@ def validate_identity(provider, region, bucket, prefix):
     )
     if not re.fullmatch(pattern, bucket):
         raise AppError(422, "STORAGE_IDENTITY_INVALID", "存储桶名称无效；COS 名称须包含 APPID")
-    if not re.fullmatch(r"[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*", prefix):
-        raise AppError(
-            422,
-            "STORAGE_PREFIX_INVALID",
-            "请设置专用路径前缀，仅支持字母、数字、横线、下划线和目录分隔符",
-        )
+    normalize_prefix(prefix)
 
 
 class Adapter:
@@ -83,7 +92,15 @@ class Adapter:
             self.origin = f"https://{location.bucket}.oss-{location.region}.aliyuncs.com"
 
     def key(self, key):
-        if not key.startswith(self.location.prefix + "/") or ".." in key.split("/"):
+        prefix = normalize_prefix(self.location.prefix)
+        parts = key.split("/")
+        within_prefix = key.startswith(prefix + "/") if prefix else True
+        if (
+            not within_prefix
+            or not key
+            or key.startswith("/")
+            or any(part in {"", ".", ".."} for part in parts)
+        ):
             raise AppError(422, "STORAGE_KEY_INVALID", "对象不在本系统专用路径内")
         return key
 
@@ -175,14 +192,16 @@ class Adapter:
         shapes and continuation tokens never reach the API layer.
         """
         prefix = prefix.strip("/")
-        if not prefix or not prefix.startswith(self.location.prefix + "/"):
+        location_prefix = normalize_prefix(self.location.prefix)
+        within_prefix = prefix.startswith(location_prefix + "/") if location_prefix else True
+        if prefix and not within_prefix:
             raise AppError(422, "STORAGE_KEY_INVALID", "对象不在本系统专用路径内")
         if not 1 <= limit <= 100:
             raise AppError(422, "STORAGE_LIST_LIMIT_INVALID", "对象列表大小无效")
         if self.location.provider == "cos":
             arguments = {
                 "Bucket": self.location.bucket,
-                "Prefix": prefix + "/",
+                "Prefix": prefix + "/" if prefix else "",
                 "MaxKeys": limit,
             }
             if cursor:
@@ -204,7 +223,7 @@ class Adapter:
             }
         request = self.oss.ListObjectsV2Request(
             bucket=self.location.bucket,
-            prefix=prefix + "/",
+            prefix=prefix + "/" if prefix else "",
             max_keys=limit,
             continuation_token=cursor,
         )

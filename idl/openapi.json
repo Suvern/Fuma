@@ -4597,9 +4597,9 @@
         "additionalProperties": false,
         "properties": {
           "object_prefix": {
-            "description": "App-relative object prefix without a leading or trailing slash.",
+            "default": "",
+            "description": "App-relative object prefix; empty means the bound bucket root.",
             "maxLength": 200,
-            "minLength": 1,
             "type": "string"
           },
           "storage_location_id": {
@@ -5949,14 +5949,25 @@
             "minLength": 1,
             "type": "string"
           },
+          "credential_id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "credential_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "nullable": true,
+            "type": "string"
+          },
           "name": {
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
           },
           "prefix": {
+            "default": "",
             "maxLength": 100,
-            "minLength": 1,
             "type": "string"
           },
           "provider": {
@@ -5984,10 +5995,121 @@
           "provider",
           "region",
           "bucket",
-          "prefix",
-          "read_mode",
+          "read_mode"
+        ],
+        "type": "object"
+      },
+      "StorageCredentialCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "access_key_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "access_key_secret": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "cos",
+              "oss"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "provider",
           "access_key_id",
           "access_key_secret"
+        ],
+        "type": "object"
+      },
+      "StorageCredentialInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "access_key_hint": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "location_count": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "cos",
+              "oss"
+            ],
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "access_key_hint",
+          "location_count",
+          "enabled",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "StorageCredentialPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StorageCredentialInfo"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
         ],
         "type": "object"
       },
@@ -6038,6 +6160,27 @@
               }
             ]
           },
+          "credential_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credential_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -6070,8 +6213,8 @@
             "type": "integer"
           },
           "prefix": {
+            "default": "",
             "maxLength": 100,
-            "minLength": 1,
             "type": "string"
           },
           "provider": {
@@ -6119,6 +6262,8 @@
         },
         "required": [
           "id",
+          "credential_id",
+          "credential_name",
           "name",
           "provider",
           "region",
@@ -19704,6 +19849,79 @@
         ],
         "tags": [
           "Access"
+        ],
+        "x-access": "admin"
+      }
+    },
+    "/api/v1/settings/storage-credentials": {
+      "get": {
+        "operationId": "list_storage_credentials",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageCredentialPage"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "tags": [
+          "Storage"
+        ],
+        "x-access": "admin"
+      },
+      "post": {
+        "operationId": "create_storage_credential",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CSRF"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StorageCredentialCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageCredentialInfo"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "tags": [
+          "Storage"
         ],
         "x-access": "admin"
       }

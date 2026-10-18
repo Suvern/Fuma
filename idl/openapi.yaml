@@ -8260,6 +8260,46 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/StorageCreate'
+  /api/v1/settings/storage-credentials:
+    get:
+      operationId: list_storage_credentials
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageCredentialPage'
+    post:
+      operationId: create_storage_credential
+      tags:
+      - Storage
+      x-access: admin
+      security:
+      - SessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageCredentialInfo'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageCredentialCreate'
   /api/v1/settings/storage-locations/{id}:
     get:
       operationId: get_storage_location
@@ -8791,9 +8831,9 @@ components:
         storage_location_id: {type: string, format: uuid}
         object_prefix:
           type: string
-          minLength: 1
+          default: ''
           maxLength: 200
-          description: App-relative object prefix without a leading or trailing slash.
+          description: App-relative object prefix; empty means the bound bucket root.
     PackageStorageBinding:
       type: object
       additionalProperties: false
@@ -12544,7 +12584,7 @@ components:
         prefix:
           type: string
           maxLength: 100
-          minLength: 1
+          default: ''
         read_mode:
           type: string
           enum:
@@ -12560,15 +12600,21 @@ components:
           maxLength: 500
           minLength: 1
           writeOnly: true
+        credential_id:
+          type: string
+          format: uuid
+          nullable: true
+        credential_name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          nullable: true
       required:
       - name
       - provider
       - region
       - bucket
-      - prefix
       - read_mode
-      - access_key_id
-      - access_key_secret
     StorageCredentials:
       type: object
       additionalProperties: false
@@ -12593,6 +12639,15 @@ components:
         id:
           type: string
           format: uuid
+        credential_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        credential_name:
+          anyOf:
+          - type: string
+          - type: 'null'
         name:
           type: string
           maxLength: 100
@@ -12613,7 +12668,7 @@ components:
         prefix:
           type: string
           maxLength: 100
-          minLength: 1
+          default: ''
         read_mode:
           type: string
           enum:
@@ -12656,6 +12711,8 @@ components:
           type: integer
       required:
       - id
+      - credential_id
+      - credential_name
       - name
       - provider
       - region
@@ -12672,6 +12729,91 @@ components:
       - task_id
       - object_count
       - managed_bytes
+    StorageCredentialCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+        provider:
+          type: string
+          enum:
+          - cos
+          - oss
+        access_key_id:
+          type: string
+          maxLength: 200
+          minLength: 1
+          writeOnly: true
+        access_key_secret:
+          type: string
+          maxLength: 500
+          minLength: 1
+          writeOnly: true
+      required:
+      - name
+      - provider
+      - access_key_id
+      - access_key_secret
+    StorageCredentialInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        provider:
+          type: string
+          enum:
+          - cos
+          - oss
+        access_key_hint:
+          type: string
+        location_count:
+          type: integer
+        enabled:
+          type: boolean
+        revision:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - name
+      - provider
+      - access_key_hint
+      - location_count
+      - enabled
+      - revision
+      - created_at
+      - updated_at
+    StorageCredentialPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorageCredentialInfo'
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+      required:
+      - items
+      - page
+      - page_size
+      - total
     StoragePage:
       type: object
       additionalProperties: false

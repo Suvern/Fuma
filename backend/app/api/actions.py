@@ -1,6 +1,8 @@
 """Administrator Actions rules and strictly scoped CI bearer callbacks."""
 
 import secrets
+import tempfile
+from pathlib import Path
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -196,10 +198,29 @@ def list_cos_package_objects(
             # Keep a listed object visible; import remains disabled until its
             # metadata can be resolved by the next request.
             pass
+        if key.lower().endswith(".zip") and not sha256 and size <= 512 * 1024**2:
+            # Joice's uploader does not write a provider SHA metadata header.
+            # Hash bounded archives once during explicit manual discovery so
+            # the self-contained archive path can still be selected safely.
+            try:
+                with tempfile.TemporaryDirectory(prefix="fuma-cos-list-") as directory:
+                    _, sha256 = client.download(
+                        key,
+                        Path(directory) / "archive.zip",
+                        expected_size=size,
+                        max_size=512 * 1024**2,
+                    )
+            except AppError:
+                sha256 = None
         parent = key.rsplit("/", 1)[0]
         manifest_key = parent + "/manifest.json"
         manifest_size = manifest_sha256 = None
-        if manifest_key in objects or not objects:
+        if key.lower().endswith(".zip") and sha256:
+            # Joice's legacy build archive contains build-info.json and its
+            # platform package; the archive SHA is the self-contained manifest
+            # identity and is verified again before parsing.
+            manifest_key, manifest_size, manifest_sha256 = key, size, sha256
+        elif manifest_key in objects or not objects:
             try:
                 manifest_size, manifest_sha256 = client.head(manifest_key)
             except AppError:

@@ -35,9 +35,8 @@ class PackageStorageBindingInput(BaseModel):
     storage_location_id: UUID
     object_prefix: str = Field(
         ...,
-        description="App-relative object prefix without a leading or trailing slash.",
+        description="App-relative object prefix; empty means the bound bucket root.",
         max_length=200,
-        min_length=1,
     )
 
 
@@ -1743,10 +1742,12 @@ class StorageCreate(BaseModel):
     provider: Literal["cos", "oss"]
     region: str = Field(..., max_length=40, min_length=1)
     bucket: str = Field(..., max_length=100, min_length=1)
-    prefix: str = Field(..., max_length=100, min_length=1)
+    prefix: str = Field("", max_length=100)
     read_mode: Literal["private", "public"]
-    access_key_id: str = Field(..., max_length=200, min_length=1)
-    access_key_secret: str = Field(..., max_length=500, min_length=1)
+    access_key_id: str | None = Field(None, max_length=200, min_length=1)
+    access_key_secret: str | None = Field(None, max_length=500, min_length=1)
+    credential_id: UUID | None = None
+    credential_name: str | None = Field(None, max_length=100, min_length=1)
 
 
 class StorageCredentials(BaseModel):
@@ -1762,11 +1763,13 @@ class StorageInfo(BaseModel):
         extra="forbid",
     )
     id: UUID
+    credential_id: UUID | None
+    credential_name: str | None
     name: str = Field(..., max_length=100, min_length=1)
     provider: Literal["cos", "oss"]
     region: str = Field(..., max_length=40, min_length=1)
     bucket: str = Field(..., max_length=100, min_length=1)
-    prefix: str = Field(..., max_length=100, min_length=1)
+    prefix: str = Field(..., max_length=100)
     read_mode: Literal["private", "public"]
     enabled: bool
     is_default: bool
@@ -1778,6 +1781,41 @@ class StorageInfo(BaseModel):
     task_id: UUID | None
     object_count: int
     managed_bytes: int
+
+
+class StorageCredentialCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: str = Field(..., max_length=100, min_length=1)
+    provider: Literal["cos", "oss"]
+    access_key_id: str = Field(..., max_length=200, min_length=1)
+    access_key_secret: str = Field(..., max_length=500, min_length=1)
+
+
+class StorageCredentialInfo(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    name: str
+    provider: Literal["cos", "oss"]
+    access_key_hint: str
+    location_count: int
+    enabled: bool
+    revision: int
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+
+
+class StorageCredentialPage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[StorageCredentialInfo]
+    page: int
+    page_size: int
+    total: int
 
 
 class StoragePage(BaseModel):

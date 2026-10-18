@@ -31,6 +31,7 @@
 | 14 | [运维手册](./14-operations-runbook.md) | 未开始 | 日常处理、告警、排障 | 依赖 6-13 |
 | 15 | [产品主流程切换](./15-fuma-product-cutover.md) | 已完成（主流程） | 移除 GitHub Release 主入口、COS-first 文案与手工上传锁定 | 无 |
 | 16 | [存储桶资源池复核](./16-storage-pool-product-review.md) | 已完成（本地代码与回归） | 将全局存储页降级为资源池，App/channel 绑定成为唯一分发语义 | 无；真实 COS 凭据仍待本地联调 |
+| 17 | [桶根目录与凭据档案](./17-storage-root-and-credential-profiles.md) | 已完成（本地代码与回归） | 可选根前缀、App 根目录绑定、共享加密凭据档案、Joice 外层 ZIP 安全解包 | 新 workflow 仍建议直接上传 APK/IPA + manifest |
 
 ## 3. 已确认决策
 
@@ -71,6 +72,7 @@
 | ADR-003 | Debug 自动 ready，Release 需要人工 publish | 2026-10-16 | 已确认 |
 | ADR-004 | COS webhook/手工补导入强制使用 App/channel binding；GitHub Release 仅作 legacy 兼容 | 2026-10-17 | 已确认 |
 | ADR-005 | 全局存储页只管理资源池；新产品路径不再使用全局默认桶 | 2026-10-18 | 已确认 |
+| ADR-006 | 空资源池/App 前缀表示绑定桶根目录；凭据档案与桶位置分离并可复用 | 2026-10-18 | 已确认 |
 
 ## 7. 变更日志
 
@@ -98,15 +100,16 @@
 | 2026-10-18 | 收紧手工上传器的存储选择 | 安装包页按当前 Debug/Release channel 自动使用 App 绑定 COS bucket，不再展示系统默认、本机或任意存储位置；旧 API 回退仅保留给旧客户端兼容 |
 | 2026-10-18 | 复核并纠正“全局存储”产品语义 | 全局入口改为“存储桶资源池”，移除默认桶展示与操作；App 设置改为“分发存储绑定”，明确 Debug/Release 是唯一包源；新增 `working/16-storage-pool-product-review.md` |
 | 2026-10-18 | 收紧上传运行时绑定 | `create_upload` 不再回退全局默认桶；必须存在 App/channel binding，显式目标桶必须与绑定一致；新增 `STORAGE_BINDING_REQUIRED` / `STORAGE_BINDING_MISMATCH` |
-| 2026-10-18 | 补齐绑定后的隔离 PostgreSQL 回归 | 测试 fixture 显式创建 ready 的 Debug/Release 绑定，普通包流使用本地确定性存储适配器；完整后端集成测试 `289 passed`，新增无绑定/错桶/停用桶拒绝用例 |
+| 2026-10-18 | 补齐绑定后的隔离 PostgreSQL 回归 | 测试 fixture 显式创建 ready 的 Debug/Release 绑定，普通包流使用本地确定性存储适配器；完整后端集成测试 `290 passed`，新增无绑定/错桶/停用桶拒绝用例 |
 | 2026-10-18 | 清理归档页遗留 Release 语义 | 归档提示改为 COS 入库任务，管理入口改到“版本发布”，不再链接旧 GitHub Release 路径；前端测试 `186 passed`、类型检查通过 |
 | 2026-10-18 | 修复应用管理 UI 细节 | 修复新建应用输入框重复焦点边框；区分存储桶、账号与缓存图标；应用列表文案补充存储桶/通知语义；前端测试 `186 passed`、lint 和类型检查通过 |
+| 2026-10-18 | 支持桶根目录、共享凭据档案与 Joice 外层 ZIP | 前缀可留空并归一化；App channel 前缀可留空；新增 `storage_credentials` 与可复用凭据选择；仅对含唯一 APK/IPA、sha256、build-info 的 ZIP 安全解包 |
 
 ## 8. 本轮本地验证证据
 
 - `make idl-check`：OpenAPI YAML/JSON、后端生成契约、前端生成类型均同步。
-- `uv run --directory backend alembic upgrade head`：本地开发数据库迁移到 `0026_cos_manual_import`；`alembic current` 确认当前为 head。
-- 后端集成测试：独立临时 PostgreSQL 中 `285 passed`；覆盖 COS Debug/Release 事件首次接收、重复、冲突、对象校验、Parser 结果入库、Debug 自动 ready、Release `pending_publish`、发布前复核和失败重试。
+- `uv run --directory backend alembic upgrade head`：本地开发数据库迁移到 `0027_storage_credentials`；本地测试数据库同样从迁移头重建。
+- 后端集成测试：独立临时 PostgreSQL 中 `290 passed`；覆盖 COS Debug/Release 事件首次接收、重复、冲突、对象校验、Parser 结果入库、Debug 自动 ready、Release `pending_publish`、发布前复核和失败重试。
 - 前端：既有 `pnpm test --run`（186 passed）、`pnpm lint`、`pnpm typecheck`、`pnpm build` 均通过；本轮生成类型后再次通过 `pnpm typecheck`。
 - 浏览器本地验证：`http://localhost:5174/admin/apps/<本地测试 App>` 已显示“包存储绑定”卡片，验证编辑态及未绑定保存；未连接任何线上 COS。
 - 上传路由集成测试：未指定存储位置的 Release 上传命中 App Release 绑定，独立测试库用例通过。
@@ -115,6 +118,7 @@
 - COS Release 管理页本地验证：登录本地 `http://localhost:5174` 后进入 App「版本发布」，可看到“COS Release 待发布”面板；无待发布记录时显示空态，未连接线上 COS。
 - 本轮新增接口验证：`GET /api/v1/apps/{id}/package-ingestions?state=pending_publish` 返回 `publication_revision`，发布操作沿用 `If-Match`；COS Release 流程测试通过。
 - 本轮新增接口验证：管理员可在本地为已绑定 Release channel 提交 COS 对象补导入；无 CI rule 时 `rule_id` 为空，接口返回 202，重复 payload 幂等，绑定缺失/越界对象被拒绝；定向测试通过。
+- 本轮新增接口验证：`test_cloud_storage.py` 7 项通过；根前缀、共享凭据档案复用、Joice 外层 ZIP 的 APK/IPA + sha256 + build-info 校验通过；外层 ZIP 不满足完整结构时拒绝解析。
 - 本轮新增接口验证：绑定 COS 对象列表只返回 APK/IPA/ZIP，排除 TXT 等无关对象，匹配同目录 manifest 并返回摘要；COS/OSS 分页响应归一化测试通过。
 
 ## 9. 每阶段完成定义

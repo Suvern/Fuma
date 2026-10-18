@@ -94,9 +94,16 @@ def _validate_existing_credentials(db, key: bytes) -> None:
     from app.domains.storage.models import StorageLocation
 
     for location in db.scalars(select(StorageLocation).execution_options(yield_per=100)):
-        verify(location.encrypted_credentials, "storage:" + str(location.id))
-        if location.candidate_credentials:
+        if location.encrypted_credentials and not location.credential_id:
+            verify(location.encrypted_credentials, "storage:" + str(location.id))
+        if location.candidate_credentials and not location.credential_id:
             verify(location.candidate_credentials, "storage:" + str(location.id))
+    from app.domains.storage.models import StorageCredential
+
+    for credential in db.scalars(select(StorageCredential).execution_options(yield_per=100)):
+        verify(credential.encrypted_credentials, "storage-credential:" + str(credential.id))
+        if credential.candidate_credentials:
+            verify(credential.candidate_credentials, "storage-credential:" + str(credential.id))
     feishu = db.get(IntegrationState, "feishu")
     if feishu and feishu.data.get("secret"):
         verify(feishu.data["secret"], "feishu")

@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database import Base
 
@@ -16,8 +16,16 @@ class StorageLocation(Base):
     bucket: Mapped[str] = mapped_column(String(100))
     prefix: Mapped[str] = mapped_column(String(100))
     read_mode: Mapped[str] = mapped_column(String(16))
-    encrypted_credentials: Mapped[str] = mapped_column(String(4000))
+    # Kept for legacy locations. New locations resolve credentials through the
+    # reusable profile below and leave this column empty.
+    encrypted_credentials: Mapped[str] = mapped_column(String(4000), default="")
     candidate_credentials: Mapped[str | None] = mapped_column(String(4000))
+    credential_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("storage_credentials.id"), index=True
+    )
+    credential: Mapped["StorageCredential | None"] = relationship(
+        "StorageCredential", lazy="select"
+    )
     enabled: Mapped[bool] = mapped_column(default=True)
     is_default: Mapped[bool] = mapped_column(default=False)
     status: Mapped[str] = mapped_column(String(16), default="unverified")
@@ -26,6 +34,22 @@ class StorageLocation(Base):
     capabilities: Mapped[dict] = mapped_column(JSON, default=dict)
     error_message: Mapped[str | None] = mapped_column(String(500))
     task_id: Mapped[UUID | None] = mapped_column(ForeignKey("durable_tasks.id"))
+
+
+class StorageCredential(Base):
+    """Reusable provider credentials shared by one or more bucket locations."""
+
+    __tablename__ = "storage_credentials"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(100))
+    provider: Mapped[str] = mapped_column(String(16))
+    encrypted_credentials: Mapped[str] = mapped_column(String(4000))
+    candidate_credentials: Mapped[str | None] = mapped_column(String(4000))
+    access_key_hint: Mapped[str] = mapped_column(String(64))
+    enabled: Mapped[bool] = mapped_column(default=True)
+    revision: Mapped[int] = mapped_column(default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class StoredObject(Base):

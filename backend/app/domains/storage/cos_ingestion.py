@@ -1,9 +1,11 @@
 """Parse a verified COS package through the existing isolated parser."""
 
+import hashlib
 import json
 import os
 import shutil
 import tempfile
+import zipfile
 from pathlib import Path
 from uuid import UUID, uuid5
 
@@ -60,6 +62,48 @@ def _safe_manifest(value):
     return {"schema_version": "1", "platform": platform, "file_name": file_name}
 
 
+def _archive_manifest(path: Path, object_key: str) -> dict | None:
+    """Recognize Joice's outer build archive without trusting its extension."""
+    try:
+        with zipfile.ZipFile(path) as archive:
+            names = [name for name in archive.namelist() if name and not name.endswith("/")]
+            packages = [
+                name
+                for name in names
+                if name.count("/") <= 1 and name.lower().endswith((".apk", ".ipa"))
+            ]
+            if len(packages) != 1 or "build-info.json" not in names:
+                return None
+            package_name = packages[0]
+            platform = "android" if package_name.lower().endswith(".apk") else "ios"
+            object_parts = object_key.strip("/").split("/")
+            if (
+                object_parts
+                and object_parts[0] in {"android", "ios"}
+                and object_parts[0] != platform
+            ):
+                raise AppError(422, "INVALID_PACKAGE_ARCHIVE", "归档平台目录与内部安装包类型不一致")
+            declared = (
+                archive.read(f"{package_name}.sha256").decode("utf-8", errors="strict").split()[0]
+            )
+            digest = hashlib.sha256(archive.read(package_name)).hexdigest()
+            if declared.lower() != digest:
+                raise AppError(422, "INVALID_PACKAGE_ARCHIVE", "归档内安装包摘要校验失败")
+            info = json.loads(archive.read("build-info.json").decode("utf-8"))
+            if not isinstance(info, dict):
+                raise ValueError
+            return {
+                "schema_version": "archive-1",
+                "platform": platform,
+                "file_name": Path(package_name).name,
+                "entry_name": package_name,
+            }
+    except AppError:
+        raise
+    except (OSError, ValueError, UnicodeError, zipfile.BadZipFile, KeyError, IndexError):
+        return None
+
+
 def _parser_paths(settings, task_id):
     job = str(task_id)
     inbox, outbox = settings.parser_inbox, settings.parser_outbox
@@ -80,21 +124,47 @@ def _prepare_parser_input(db, settings, task, ingestion, client, location):
         )
         if package_sha256 != ingestion.object_sha256:
             raise AppError(409, "STORAGE_CONTENT_MISMATCH", "对象内容摘要与构建事件不一致")
-        client.download(ingestion.manifest_key, manifest_path, max_size=16 * 1024 * 1024)
-        manifest = _safe_manifest(json.loads(manifest_path.read_text(encoding="utf-8")))
+        archive = _archive_manifest(package_path, ingestion.object_key)
+        if ingestion.manifest_key == ingestion.object_key:
+            if ingestion.manifest_sha256 != ingestion.object_sha256 or archive is None:
+                raise AppError(422, "INVALID_PACKAGE_ARCHIVE", "归档对象缺少可验证的构建内容")
+            manifest = archive
+        else:
+            client.download(ingestion.manifest_key, manifest_path, max_size=16 * 1024 * 1024)
+            manifest = _safe_manifest(json.loads(manifest_path.read_text(encoding="utf-8")))
+            if archive and (
+                manifest["platform"] != archive["platform"]
+                or manifest["file_name"] != archive["file_name"]
+            ):
+                raise AppError(422, "INVALID_PACKAGE_ARCHIVE", "manifest 与归档内部安装包不一致")
         temporary = source_path.with_suffix(".tmp")
-        shutil.copyfile(package_path, temporary)
+        if archive:
+            with zipfile.ZipFile(package_path) as bundle:
+                temporary.write_bytes(bundle.read(archive["entry_name"]))
+            payload_sha256 = hashlib.sha256(temporary.read_bytes()).hexdigest()
+            task.payload = {
+                **task.payload,
+                "package_sha256": payload_sha256,
+                "archive_file_name": Path(ingestion.object_key).name,
+            }
+        else:
+            shutil.copyfile(package_path, temporary)
         os.replace(temporary, source_path)
     request_temp = request_path.with_suffix(".tmp")
     request_temp.write_text(
-        json.dumps({"platform": manifest["platform"], "sha256": ingestion.object_sha256}),
+        json.dumps(
+            {
+                "platform": manifest["platform"],
+                "sha256": task.payload.get("package_sha256", ingestion.object_sha256),
+            }
+        ),
         encoding="utf-8",
     )
     os.replace(request_temp, request_path)
     task.payload = {
         **task.payload,
         "platform": manifest["platform"],
-        "file_name": manifest["file_name"],
+        "file_name": task.payload.get("archive_file_name", manifest["file_name"]),
         "parser_started_at": utcnow().isoformat(),
     }
     ingestion.state = "parsing"
@@ -313,7 +383,9 @@ def parse_and_persist(db, settings, task):
     )
     if not result_path.is_file():
         raise RetryLater(5)
-    metadata = _parser_result(result_path, ingestion.object_sha256)
+    metadata = _parser_result(
+        result_path, task.payload.get("package_sha256", ingestion.object_sha256)
+    )
     platform = task.payload.get("platform")
     file_name = task.payload.get("file_name")
     if platform not in {"android", "ios"} or not isinstance(file_name, str):

@@ -27,8 +27,9 @@ def assert_object_key(location: StorageLocation, app_prefix: str, object_key: st
     prefix = effective_prefix(location, app_prefix)
     parts = object_key.split("/")
     if (
-        not prefix
-        or not object_key.startswith(prefix + "/")
+        (prefix and not object_key.startswith(prefix + "/"))
+        or not object_key
+        or object_key.startswith("/")
         or any(part in {"", ".", ".."} for part in parts)
         or object_key.endswith("/")
     ):
@@ -71,11 +72,19 @@ def verify_object(db, settings, task) -> None:
         )
         if package_sha256 != ingestion.object_sha256:
             raise AppError(409, "STORAGE_CONTENT_MISMATCH", "对象内容摘要与构建事件不一致")
-        _, manifest_sha256 = client.download(
-            ingestion.manifest_key, manifest_path, max_size=16 * 1024 * 1024
-        )
-        if manifest_sha256 != ingestion.manifest_sha256:
-            raise AppError(409, "STORAGE_CONTENT_MISMATCH", "manifest 摘要与构建事件不一致")
+        if ingestion.manifest_key == ingestion.object_key:
+            if ingestion.manifest_sha256 != ingestion.object_sha256:
+                raise AppError(409, "STORAGE_CONTENT_MISMATCH", "归档 manifest 摘要与对象不一致")
+            from app.domains.storage.cos_ingestion import _archive_manifest
+
+            if _archive_manifest(package_path, ingestion.object_key) is None:
+                raise AppError(422, "INVALID_PACKAGE_ARCHIVE", "归档对象缺少可验证的构建内容")
+        else:
+            _, manifest_sha256 = client.download(
+                ingestion.manifest_key, manifest_path, max_size=16 * 1024 * 1024
+            )
+            if manifest_sha256 != ingestion.manifest_sha256:
+                raise AppError(409, "STORAGE_CONTENT_MISMATCH", "manifest 摘要与构建事件不一致")
     ingestion.state = "verified"
     ingestion.verified_at = utcnow()
     ingestion.updated_at = utcnow()
@@ -91,9 +100,7 @@ def verify_object(db, settings, task) -> None:
 
 
 def package_ingestion_dto(db, row: PackageIngestionRecord) -> dict:
-    publication = (
-        db.get(PublicationRecord, row.publication_id) if row.publication_id else None
-    )
+    publication = db.get(PublicationRecord, row.publication_id) if row.publication_id else None
     return {
         "id": row.id,
         "app_id": row.app_id,

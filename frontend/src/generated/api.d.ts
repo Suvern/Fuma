@@ -1852,6 +1852,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/storage-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_storage_credentials"];
+        put?: never;
+        post: operations["create_storage_credential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/storage-locations": {
         parameters: {
             query?: never;
@@ -3153,7 +3169,10 @@ export interface components {
             storage_location_id: string;
         };
         PackageStorageBindingInput: {
-            /** @description App-relative object prefix without a leading or trailing slash. */
+            /**
+             * @description App-relative object prefix; empty means the bound bucket root.
+             * @default
+             */
             object_prefix: string;
             /** Format: uuid */
             storage_location_id: string;
@@ -3438,16 +3457,48 @@ export interface components {
             size_bytes: number;
         };
         StorageCreate: {
-            access_key_id: string;
-            access_key_secret: string;
+            access_key_id?: string;
+            access_key_secret?: string;
             bucket: string;
+            /** Format: uuid */
+            credential_id?: string | null;
+            credential_name?: string | null;
             name: string;
+            /** @default  */
             prefix: string;
             /** @enum {string} */
             provider: "cos" | "oss";
             /** @enum {string} */
             read_mode: "private" | "public";
             region: string;
+        };
+        StorageCredentialCreate: {
+            access_key_id: string;
+            access_key_secret: string;
+            name: string;
+            /** @enum {string} */
+            provider: "cos" | "oss";
+        };
+        StorageCredentialInfo: {
+            access_key_hint: string;
+            /** Format: date-time */
+            created_at: string;
+            enabled: boolean;
+            /** Format: uuid */
+            id: string;
+            location_count: number;
+            name: string;
+            /** @enum {string} */
+            provider: "cos" | "oss";
+            revision: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        StorageCredentialPage: {
+            items: components["schemas"]["StorageCredentialInfo"][];
+            page: number;
+            page_size: number;
+            total: number;
         };
         StorageCredentials: {
             access_key_id: string;
@@ -3459,6 +3510,8 @@ export interface components {
                 [key: string]: string;
             };
             checked_at: string | null;
+            credential_id: string | null;
+            credential_name: string | null;
             enabled: boolean;
             error_message: string | null;
             /** Format: uuid */
@@ -3467,6 +3520,7 @@ export interface components {
             managed_bytes: number;
             name: string;
             object_count: number;
+            /** @default  */
             prefix: string;
             /** @enum {string} */
             provider: "cos" | "oss";
@@ -13317,6 +13371,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberInfo"];
+                };
+            };
+        };
+    };
+    list_storage_credentials: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageCredentialPage"];
+                };
+            };
+        };
+    };
+    create_storage_credential: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CSRF"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageCredentialCreate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageCredentialInfo"];
                 };
             };
         };

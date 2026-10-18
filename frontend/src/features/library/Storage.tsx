@@ -31,7 +31,17 @@ export function StoragePage() {
   const filters = useFilters("搜索存储名称或桶名…");
   const cmd = useCommand();
   const [provider, setProvider] = useState<"cos" | "oss">("cos");
+  const [credentialId, setCredentialId] = useState("");
+  const credentialMode = credentialId ? "existing" : "new";
   const [formKey, setFormKey] = useState(0);
+  const credentials = useQuery({
+    queryKey: ["storage-credentials"],
+    queryFn: () =>
+      read("/api/v1/settings/storage-credentials", {
+        query: { page: 1, page_size: 100 },
+      }),
+    staleTime: 15_000,
+  });
   const query = useQuery({
     queryKey: ["storage", filters.page, filters.q],
     queryFn: () =>
@@ -48,7 +58,7 @@ export function StoragePage() {
       <Notice>
         <p>
           这里管理可复用的桶连接、凭据与健康状态；真正的包来源由每个 App 的 Debug / Release
-          绑定决定。连接测试会在专用前缀内写入、回读并删除小文件，需要对象读写、删除及桶版本配置读取权限。
+          绑定决定。连接测试会在桶根目录或配置的前缀下写入、回读并删除小文件，需要对象读写、删除及桶版本配置读取权限。
         </p>
         <p>
           新增或验证存储桶后，请前往 <Link to="/admin/apps">应用管理</Link> 为具体 App
@@ -72,10 +82,27 @@ export function StoragePage() {
                     bucket: text(form, "bucket"),
                     prefix: text(form, "prefix"),
                     read_mode: text(form, "read_mode") as "private" | "public",
-                    access_key_id: text(form, "access_key_id"),
-                    access_key_secret: text(form, "access_key_secret"),
+                    credential_id:
+                      credentialMode === "existing"
+                        ? text(form, "credential_id") || undefined
+                        : undefined,
+                    credential_name:
+                      credentialMode === "new"
+                        ? text(form, "credential_name") || undefined
+                        : undefined,
+                    access_key_id:
+                      credentialMode === "new"
+                        ? text(form, "access_key_id")
+                        : undefined,
+                    access_key_secret:
+                      credentialMode === "new"
+                        ? text(form, "access_key_secret")
+                        : undefined,
                   }),
-                () => setFormKey((k) => k + 1),
+                () => {
+                  setFormKey((k) => k + 1);
+                  void credentials.refetch();
+                },
                 "配置已保存，请运行连接测试。",
               )
             }
@@ -85,7 +112,10 @@ export function StoragePage() {
               <Select
                 label="云厂商"
                 value={provider}
-                onChange={(e) => setProvider(e.target.value as "cos" | "oss")}
+                onChange={(e) => {
+                  setProvider(e.target.value as "cos" | "oss");
+                  setCredentialId("");
+                }}
               >
                 <option value="cos">腾讯云 COS</option>
                 <option value="oss">阿里云 OSS</option>
@@ -104,9 +134,8 @@ export function StoragePage() {
             />
             <Field
               name="prefix"
-              label="Fuma 资源池路径前缀"
-              defaultValue="fuma"
-              required
+              label="Fuma 资源池路径前缀（可选）"
+              placeholder="留空表示桶根目录，如 android/ios"
             />
             <div className="field">
               <Select label="读取模式" name="read_mode">
@@ -114,23 +143,54 @@ export function StoragePage() {
                 <option value="public">公开副本（仅 Release 可绑定）</option>
               </Select>
             </div>
-            <Field
-              name="access_key_id"
-              label={provider === "cos" ? "SecretId" : "AccessKey ID"}
-              type="password"
-              autoComplete="new-password"
-              required
-            />
-            <Field
-              name="access_key_secret"
-              label={provider === "cos" ? "SecretKey" : "AccessKey Secret"}
-              type="password"
-              autoComplete="new-password"
-              required
-            />
+            <div className="field">
+              <Select
+                label="访问凭据"
+                name="credential_id"
+                value={credentialId}
+                onChange={(e) => setCredentialId(e.target.value)}
+              >
+                <option value="">新建凭据档案（只需填写一次）</option>
+                {credentials.data?.items
+                  .filter((item) => item.provider === provider && item.enabled)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      使用已有：{item.name} · {item.access_key_hint}（已绑定 {item.location_count} 个桶）
+                    </option>
+                  ))}
+              </Select>
+            </div>
+            {credentialMode === "existing" ? (
+              <p className="muted">
+                该桶会复用选中的凭据；凭据只在服务端加密保存，不会回显 Secret。
+              </p>
+            ) : (
+              <>
+                <Field
+                  name="credential_name"
+                  label="凭据档案名称"
+                  placeholder="例如：Joice COS 发布凭据"
+                  required
+                />
+                <Field
+                  name="access_key_id"
+                  label={provider === "cos" ? "SecretId" : "AccessKey ID"}
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                />
+                <Field
+                  name="access_key_secret"
+                  label={provider === "cos" ? "SecretKey" : "AccessKey Secret"}
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                />
+              </>
+            )}
             <p>
-              保存后不回显凭据。桶与资源池路径身份固定；更换位置请新增配置，之后再到 App
-              设置绑定对应 channel。
+              前缀留空时直接管理桶根目录；例如根目录下的 <code>android/</code> 和 <code>ios/</code>。
+              桶与路径身份固定；更换位置请新增配置，之后再到 App 设置绑定对应 channel。
             </p>
             <Button disabled={cmd.pending} className="primary">
               保存配置
@@ -182,7 +242,11 @@ function StorageCard({ row }: { row: DTO<"StorageInfo"> }) {
         {row.name}
       </h2>
       <p>
-        {row.provider.toUpperCase()} · {row.region} · {row.bucket}/{row.prefix}
+        {row.provider.toUpperCase()} · {row.region} · {row.bucket}/
+        {row.prefix || "（桶根目录）"}
+      </p>
+      <p>
+        访问凭据：{row.credential_name || "旧版桶专属凭据"}
       </p>
       <p>
         {row.read_mode === "private" ? "私有原件" : "公开副本"} ·{" "}
@@ -339,7 +403,7 @@ export function StorageChoice({
           <p className="muted">
             {appChannel === "debug" ? "Debug" : "Release"} 包源存储桶：{" "}
             {boundChannel
-              ? `${boundChannel.storage.name} / ${boundChannel.object_prefix}`
+              ? `${boundChannel.storage.name} / ${boundChannel.object_prefix || "桶根目录"}`
               : "尚未绑定，请先在应用设置中配置独立 COS 存储桶。"}
           </p>
           {!boundChannel && (

@@ -1,8 +1,10 @@
 """Cloud failure/compensation boundaries use deterministic provider doubles, never live buckets."""
 
 import hashlib
+import json
 from pathlib import Path
 from uuid import UUID
+from zipfile import ZipFile
 
 import pytest
 from sqlalchemy import select
@@ -14,6 +16,7 @@ from test_package_library import ipa, process, send, start
 
 from app.core.errors import AppError
 from app.domains.storage.adapter import Adapter
+from app.domains.storage.cos_ingestion import _archive_manifest
 from app.domains.storage.models import StorageLocation, StoredObject
 from app.workers.tasks import execute_task
 
@@ -117,6 +120,71 @@ def test_cloud_probe_rotation_failure_preserves_credentials_and_retries_cleanup(
         current = db.get(StorageLocation, UUID(row["id"]))
         assert current.status == "ready" and current.encrypted_credentials != old
         assert current.candidate_credentials is None
+
+
+def test_root_prefix_accepts_platform_directories_and_reuses_credential_profile(
+    client, configured_app
+):
+    headers, _ = configured_app
+    first = client.post(
+        "/api/v1/settings/storage-locations",
+        headers=headers,
+        json={
+            "name": "Debug 根目录",
+            "provider": "oss",
+            "region": "cn-hangzhou",
+            "bucket": "fuma-debug",
+            "prefix": "/",
+            "read_mode": "private",
+            "credential_name": "Joice COS 发布凭据",
+            "access_key_id": "shared-access-id",
+            "access_key_secret": "shared-access-secret",
+        },
+    )
+    assert first.status_code == 200, first.text
+    debug = first.json()
+    assert debug["prefix"] == "" and debug["credential_id"]
+
+    profiles = client.get("/api/v1/settings/storage-credentials", headers=headers)
+    assert profiles.status_code == 200, profiles.text
+    profile = profiles.json()["items"][0]
+    assert profile["location_count"] == 1
+    assert "shared-access-secret" not in profiles.text
+
+    release = client.post(
+        "/api/v1/settings/storage-locations",
+        headers=headers,
+        json={
+            "name": "Release 根目录",
+            "provider": "oss",
+            "region": "cn-hangzhou",
+            "bucket": "fuma-release",
+            "prefix": "",
+            "read_mode": "private",
+            "credential_id": profile["id"],
+        },
+    )
+    assert release.status_code == 200, release.text
+    assert release.json()["credential_id"] == debug["credential_id"]
+    profiles = client.get("/api/v1/settings/storage-credentials", headers=headers).json()
+    assert profiles["items"][0]["location_count"] == 2
+
+
+def test_joice_archive_manifest_requires_verified_inner_apk(tmp_path):
+    apk = b"synthetic apk payload"
+    digest = hashlib.sha256(apk).hexdigest()
+    path = tmp_path / "2026092202.zip"
+    with ZipFile(path, "w") as archive:
+        archive.writestr("Joice-debug.apk", apk)
+        archive.writestr("Joice-debug.apk.sha256", f"{digest}  Joice-debug.apk\n")
+        archive.writestr("build-info.json", json.dumps({"commit": "a" * 40}))
+    manifest = _archive_manifest(path, "android/2026092202.zip")
+    assert manifest == {
+        "schema_version": "archive-1",
+        "platform": "android",
+        "file_name": "Joice-debug.apk",
+        "entry_name": "Joice-debug.apk",
+    }
 
 
 def test_public_copy_reclaim_failure_never_reopens_download(

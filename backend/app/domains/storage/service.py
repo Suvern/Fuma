@@ -11,14 +11,48 @@ from app.domains.auth.service import utcnow
 from app.domains.distribution.service import must_get
 from app.domains.github.crypto import SecretBox
 from app.domains.storage.adapter import Adapter
-from app.domains.storage.models import StorageLocation, StoredObject
+from app.domains.storage.models import StorageCredential, StorageLocation, StoredObject
 
 
 def adapter(settings, location):
-    values = json.loads(
-        SecretBox(settings).decrypt(location.encrypted_credentials, f"storage:{location.id}")
-    )
+    values = _credential_values(settings, location)
     return Adapter(location, values)
+
+
+def _credential_values(settings, location, *, candidate=False):
+    box = SecretBox(settings)
+    if isinstance(location, StorageCredential):
+        profile = location
+    elif location.credential_id:
+        profile = getattr(location, "credential", None)
+        if profile is None:
+            raise AppError(503, "STORAGE_CREDENTIAL_UNAVAILABLE", "存储凭据档案不存在")
+    else:
+        profile = None
+    if profile is not None:
+        encrypted = (
+            profile.candidate_credentials
+            if candidate and profile.candidate_credentials
+            else profile.encrypted_credentials
+        )
+        if not encrypted or not profile.enabled:
+            raise AppError(503, "STORAGE_CREDENTIAL_UNAVAILABLE", "存储凭据档案不可用")
+        scope = f"storage-credential:{profile.id}"
+    else:
+        encrypted = (
+            location.candidate_credentials
+            if candidate and location.candidate_credentials
+            else location.encrypted_credentials
+        )
+        if not encrypted:
+            raise AppError(503, "STORAGE_CREDENTIAL_UNAVAILABLE", "存储桶缺少凭据")
+        scope = f"storage:{location.id}"
+    return json.loads(box.decrypt(encrypted, scope))
+
+
+def credential_values(settings, location, *, candidate=False):
+    """Resolve shared or legacy credentials for workers and adapters."""
+    return _credential_values(settings, location, candidate=candidate)
 
 
 def ready_location(db, id, mode="private"):
@@ -32,14 +66,23 @@ def probe(db, settings, task):
     location = must_get(db, StorageLocation, UUID(task.resource_id))
     if location.task_id != task.id:
         raise AppError(409, "STORAGE_TEST_STALE", "配置已变化，请重新测试")
-    if location.candidate_credentials:
-        values = json.loads(
-            SecretBox(settings).decrypt(location.candidate_credentials, f"storage:{location.id}")
+    if location.credential_id:
+        from sqlalchemy import select
+
+        profile = db.scalar(
+            select(StorageCredential).where(StorageCredential.id == location.credential_id)
         )
-        client = Adapter(location, values)
+        if profile is None:
+            raise AppError(503, "STORAGE_CREDENTIAL_UNAVAILABLE", "存储凭据档案不存在")
+        client = Adapter(location, _credential_values(settings, profile, candidate=True))
+    elif location.candidate_credentials:
+        client = Adapter(location, _credential_values(settings, location, candidate=True))
     else:
         client = adapter(settings, location)
-    key = f"{location.prefix}/probes/{task.id}.bin"
+    key = (
+        "/".join(part for part in (location.prefix.strip("/"), "probes", str(task.id)) if part)
+        + ".bin"
+    )
     capabilities = {}
     failure = None
     cleanup_failure = None
@@ -108,7 +151,19 @@ def probe(db, settings, task):
                 )
                 capabilities["cleanup"] = "failed: " + old.object_key
     error = cleanup_failure or failure
-    if not error and location.candidate_credentials:
+    if not error and location.credential_id:
+        profile = db.scalar(
+            select(StorageCredential).where(StorageCredential.id == location.credential_id)
+        )
+        if profile and profile.candidate_credentials:
+            profile.encrypted_credentials = profile.candidate_credentials
+            profile.candidate_credentials = None
+            profile.revision += 1
+            profile.updated_at = utcnow()
+        if location.candidate_credentials:
+            location.encrypted_credentials = location.candidate_credentials
+            location.candidate_credentials = None
+    elif not error and location.candidate_credentials:
         location.encrypted_credentials = location.candidate_credentials
         location.candidate_credentials = None
     location.status = "failed" if error else "ready"
@@ -127,7 +182,18 @@ def store_canonical(db, settings, package, path, *, location_id=None):
     if not target_id:
         return
     location = ready_location(db, target_id)
-    key = f"{location.prefix}/apps/{package.app_id}/packages/{package.id}/{package.sha256}.bin"
+    key = "/".join(
+        part
+        for part in (
+            location.prefix.strip("/"),
+            "apps",
+            str(package.app_id),
+            "packages",
+            str(package.id),
+            f"{package.sha256}.bin",
+        )
+        if part
+    )
     record = db.scalar(
         select(StoredObject).where(
             StoredObject.location_id == location.id, StoredObject.object_key == key
