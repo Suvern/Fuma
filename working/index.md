@@ -92,6 +92,7 @@
 | 2026-10-17 | Fuma 管理页接入 COS 补导入表单 | 安装包页提供 Debug、版本发布页提供 Release；表单只提交 COS key/摘要和构建元数据，不上传文件，提交后统一刷新入库状态 |
 | 2026-10-18 | Fuma 接入绑定 COS 对象扫描 | 新增 Adapter 统一列举 COS/OSS 对象和 continuation cursor；新增按 App/channel binding 限定范围的对象列表 API；前端选择对象后自动带入大小、摘要和同目录 manifest，缺少校验元数据时禁止直接提交 |
 | 2026-10-18 | 完成 Fuma 产品主流程走查与 COS 切换 | 移除 GitHub Releases 导航和入口，旧链接重定向到版本发布；Debug/Release 新配置强制独立存储桶；安装包、Debug、Actions、通知模板统一改为 COS 主来源文案；GitHub 仅保留构建通知/审计语义 |
+| 2026-10-18 | 收紧手工上传器的存储选择 | 安装包页按当前 Debug/Release channel 自动使用 App 绑定 COS bucket，不再展示系统默认、本机或任意存储位置；旧 API 回退仅保留给旧客户端兼容 |
 
 ## 8. 本轮本地验证证据
 

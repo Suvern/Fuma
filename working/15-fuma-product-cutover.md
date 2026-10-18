@@ -16,6 +16,7 @@
 - 应用设置、安装包、Debug、Actions、飞书通知模板统一改为 COS-first 文案。
 - Debug 页面改为“COS Debug 包管理”，移除“从 Release 导入”和 Release/Asset ID 展示。
 - 安装包来源筛选以 COS/手工上传为主，历史 GitHub 来源只显示为兼容数据标签。
+- 管理页手工上传器按当前 Debug/Release channel 自动锁定 App 绑定 bucket，不再让管理员选择系统默认或其他任意存储位置。
 - 新配置时服务端拒绝 Debug/Release 绑定同一 bucket；前端同步给出明确提示。
 - Actions 示例改为“构建 → 上传绑定 COS → 回调 Fuma”，不创建 GitHub Release，GitHub 只提供 run/commit 来源审计。
 

@@ -290,6 +290,7 @@ function StorageCard({ row }: { row: DTO<"StorageInfo"> }) {
 export function StorageChoice({
   appId,
   mode,
+  appChannel,
   value,
   onChange,
   disabled,
@@ -298,6 +299,8 @@ export function StorageChoice({
 }: {
   appId: string;
   mode: "private" | "public";
+  /** When set, the package uploader is locked to the App channel binding. */
+  appChannel?: "debug" | "release";
   value: string;
   onChange: (id: string) => void;
   disabled?: boolean;
@@ -309,6 +312,17 @@ export function StorageChoice({
     queryKey: ["storage-choice", appId, session.data?.viewer_key],
     queryFn: () => read("/api/v1/apps/{id}/available-storage", { id: appId }),
   });
+  const binding = useQuery({
+    queryKey: ["app-package-storage", appId],
+    queryFn: () => read("/api/v1/apps/{id}/package-storage", { id: appId }),
+    enabled: Boolean(appChannel),
+  });
+  const boundChannel = appChannel ? binding.data?.[appChannel] : undefined;
+  useEffect(() => {
+    if (appChannel && boundChannel?.storage_location_id && value !== boundChannel.storage_location_id) {
+      onChange(boundChannel.storage_location_id);
+    }
+  }, [appChannel, boundChannel?.storage_location_id, onChange, value]);
   useEffect(() => {
     onAvailability?.(
       query.data?.items
@@ -318,6 +332,22 @@ export function StorageChoice({
   }, [query.data, mode, onAvailability]);
   return (
     <div>
+      {appChannel ? (
+        <>
+          <p className="muted">
+            {appChannel === "debug" ? "Debug" : "Release"} 原件存储桶：{" "}
+            {boundChannel
+              ? `${boundChannel.storage.name} / ${boundChannel.object_prefix}`
+              : "尚未绑定，请先在应用设置中配置独立 COS 存储桶。"}
+          </p>
+          {!boundChannel && (
+            <Link to={`/admin/apps/${appId}`}>
+              配置 {appChannel === "debug" ? "Debug" : "Release"} 存储桶
+            </Link>
+          )}
+          <ErrorBox error={binding.error} />
+        </>
+      ) : (
       <div className="field">
         <Select
           label={mode === "private" ? "原件存储位置" : "发布访问方式"}
@@ -349,6 +379,7 @@ export function StorageChoice({
             ))}
         </Select>
       </div>
+      )}
       <ErrorBox error={query.error} />
       {cloudOnly && query.isPending && (
         <p role="status">正在检查可用私有云存储…</p>

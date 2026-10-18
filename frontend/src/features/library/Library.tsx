@@ -578,6 +578,7 @@ function Uploader({
             <StorageChoice
               appId={appId}
               mode="private"
+              appChannel={mode}
               value={storage}
               onChange={setStorage}
               disabled={!!resume}
