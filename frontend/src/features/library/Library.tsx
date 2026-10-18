@@ -1,11 +1,11 @@
 import { Select, DateInput, TextArea } from "../../shared/ui/FormControls";
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
-import { read, write, type DTO } from "../../shared/api/http";
+import { ApiError, read, write, type DTO } from "../../shared/api/http";
 import { StorageChoice } from "./Storage";
 import { DefaultReleaseControl, PackageManagement } from "./Management";
-import { Button, Panel, PageTabs, Notice } from "../../shared/ui/controls";
+import { Badge, Button, Input, Panel, PageTabs, Notice } from "../../shared/ui/controls";
 import "./publications.css";
 import {
   Empty,
@@ -109,7 +109,13 @@ export function PackagesPage() {
         loading={uploads.isPending}
         failed={uploads.isError}
       />
-      <CosPackageImportForm appId={id} channel="debug" />
+      <Panel>
+        <h2>从 COS 导入</h2>
+        <p className="muted">
+          批量扫描、解析 manifest 并导入 Debug / Release 安装包，请使用独立的导入页面。
+        </p>
+        <Link to={`/admin/apps/${id}/imports`}>打开 COS 安装包导入</Link>
+      </Panel>
       <Pager data={uploads.data} page={uploadPage} setPage={setUploadPage} />
       <ErrorBox error={uploads.error} />
       {uploads.isError && (
@@ -701,6 +707,241 @@ function Uploader({
   );
 }
 
+type ImportCandidate = DTO<"CosObjectCandidate"> & {
+  channel: "debug" | "release";
+};
+
+function channelLabel(channel: "debug" | "release") {
+  return channel === "debug" ? "Debug" : "Release";
+}
+
+function suggestedChannel(key: string, boundChannel: "debug" | "release") {
+  const value = key.toLowerCase();
+  if (/release|prod|store/.test(value)) return "release" as const;
+  if (/debug|dev|snapshot|qa/.test(value)) return "debug" as const;
+  return boundChannel;
+}
+
+function suggestedBuild(candidate: ImportCandidate) {
+  const parts = candidate.key.split("/").filter(Boolean);
+  const file = parts.at(-1) ?? candidate.key;
+  const stem = file.replace(/\.[^.]+$/, "") || "manual-import";
+  const parent = parts.at(-2);
+  const buildNumber = /^\d+$/.test(stem) ? stem : parent && /^\d+$/.test(parent) ? parent : stem;
+  const version = parent && parent !== buildNumber ? parent : stem;
+  return {
+    version,
+    build_number: buildNumber,
+    commit_sha: "manual-import",
+    workflow_run_id: "manual-import",
+    created_at: new Date().toISOString(),
+  } satisfies DTO<"CosPackageBuild">;
+}
+
+function isMissingBinding(error: unknown) {
+  return error instanceof ApiError && error.detail.code === "APP_STORAGE_NOT_BOUND";
+}
+
+export function PackageImportPage() {
+  const { id = "" } = useParams();
+  const [resolved, setResolved] = useState<Record<string, ImportCandidate>>({});
+  const [selected, setSelected] = useState<string[]>([]);
+  const [modeOverrides, setModeOverrides] = useState<Record<string, "debug" | "release">>({});
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState("");
+  const channels = ["debug", "release"] as const;
+  const queries = useQueries({
+    queries: channels.map((channel) => ({
+      queryKey: ["cos-package-objects", id, channel, "import-page"],
+      queryFn: () =>
+        read("/api/v1/apps/{id}/package-ingestions/cos-objects", {
+          id,
+          query: { channel, page_size: 100 },
+        }),
+        refetchOnMount: "always" as const,
+    })),
+  });
+  const loading = queries.some((query) => query.isPending);
+  const blockingError = queries.find((query) => query.error && !isMissingBinding(query.error))?.error;
+  const candidates: ImportCandidate[] = channels.flatMap((channel, index) =>
+    (queries[index]?.data?.items ?? []).map((item) => ({ ...item, channel })),
+  );
+  const merged = candidates.map((candidate) => resolved[`${candidate.channel}:${candidate.key}`] ?? candidate);
+  const ready = merged.filter((candidate) => candidate.sha256 && candidate.manifest_key && candidate.manifest_sha256);
+  const selectableKeys = ready.map((candidate) => `${candidate.channel}:${candidate.key}`);
+  const selectedReadyCount = selectableKeys.filter((key) => selected.includes(key)).length;
+  const allReadySelected = selectableKeys.length > 0 && selectedReadyCount === selectableKeys.length;
+  const someReadySelected = selectedReadyCount > 0 && !allReadySelected;
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someReadySelected;
+  }, [someReadySelected]);
+
+  async function resolveAll() {
+    setBusy(true);
+    setProgress("正在读取对象摘要与 manifest…");
+    const next: Record<string, ImportCandidate> = { ...resolved };
+    try {
+      for (const candidate of merged) {
+        if (candidate.sha256 && candidate.manifest_key && candidate.manifest_sha256) continue;
+        const result = await read("/api/v1/apps/{id}/package-ingestions/cos-objects", {
+          id,
+          query: { channel: candidate.channel, page_size: 100, resolve_key: candidate.key },
+        });
+        const fresh = result.items.find((item) => item.key === candidate.key);
+        if (fresh) next[`${candidate.channel}:${candidate.key}`] = { ...candidate, ...fresh };
+      }
+      setResolved(next);
+      setProgress("解析完成。请检查导入模式后批量提交。 ");
+    } catch (error) {
+      setProgress(error instanceof Error ? error.message : "解析失败，请重试。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function importSelected() {
+    const targets = merged.filter((candidate) => selected.includes(`${candidate.channel}:${candidate.key}`));
+    if (!targets.length) return;
+    setBusy(true);
+    setProgress(`正在提交 0/${targets.length} 个导入任务…`);
+    let completed = 0;
+    const results = await Promise.allSettled(
+      targets.map(async (candidate) => {
+        const key = `${candidate.channel}:${candidate.key}`;
+        const channel = modeOverrides[key] ?? suggestedChannel(candidate.key, candidate.channel);
+        if (!candidate.sha256 || !candidate.manifest_key || !candidate.manifest_sha256)
+          throw new Error(`${candidate.key} 尚未完成 manifest 解析`);
+        const build = suggestedBuild(candidate);
+        const result = await write(
+          "/api/v1/apps/{id}/package-ingestions/import",
+          "post",
+          {
+            channel,
+            object_key: candidate.key,
+            object_size: candidate.size,
+            object_sha256: candidate.sha256,
+            manifest_key: candidate.manifest_key,
+            manifest_sha256: candidate.manifest_sha256,
+            build,
+            event_id: `manual-cos:${channel}:${candidate.sha256.slice(0, 24)}`,
+          },
+          { id, key: crypto.randomUUID() },
+        );
+        completed += 1;
+        setProgress(`正在提交 ${completed}/${targets.length} 个导入任务…`);
+        return result;
+      }),
+    );
+    const failed = results.filter((result) => result.status === "rejected").length;
+    setSelected([]);
+    setBusy(false);
+    setProgress(failed ? `已提交 ${targets.length - failed} 个，${failed} 个失败，请查看任务详情。` : `已提交 ${targets.length} 个导入任务。`);
+  }
+
+  return (
+    <div className="app-tab-page package-import-page">
+      <Title description="以绑定 COS 为唯一来源，批量扫描、解析 manifest 并导入 Debug 或 Release 安装包。">
+        导入安装包
+      </Title>
+      <PageTabs />
+      <Panel className="import-hero">
+        <div className="section-heading">
+          <div>
+            <h2>扫描绑定存储桶</h2>
+            <p className="muted">只读取此 App 已绑定的 Debug / Release 存储桶，不读取 GitHub Release。</p>
+          </div>
+          <Button type="button" className="primary" disabled={busy || loading || !merged.length} onClick={() => void resolveAll()}>
+            {busy ? "处理中…" : "一键解析 manifest"}
+          </Button>
+        </div>
+        <ErrorBox error={blockingError} />
+        {queries.map((query, index) => {
+          if (!query.error || !isMissingBinding(query.error)) return null;
+          const channel = channels[index];
+          if (!channel) return null;
+          return (
+            <Notice key={channel} role="status">
+              <strong>{channelLabel(channel)} 尚未绑定存储桶</strong>
+              <p>已跳过该通道；如需扫描，请先在应用设置中绑定对应的包源存储桶。</p>
+              <Link to={`/admin/apps/${id}`}>去应用设置绑定 {channelLabel(channel)} 存储桶</Link>
+            </Notice>
+          );
+        })}
+        {loading && <Loading />}
+        {progress && <Notice role="status">{progress}</Notice>}
+        {!loading && !merged.length && <Empty>当前绑定桶下没有 APK、IPA 或 ZIP。请先上传构建产物。</Empty>}
+        {!!merged.length && (
+          <>
+            <div className="import-toolbar">
+              <div className="import-toolbar-selection">
+                <label className="import-select-all">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allReadySelected}
+                    disabled={busy || !selectableKeys.length}
+                    aria-label="选中全部可导入对象"
+                    onChange={(event) => setSelected(event.target.checked ? selectableKeys : [])}
+                  />
+                  <span>选中全部</span>
+                </label>
+                <span className="muted">已解析 {ready.length}/{merged.length} 个对象 · 已选择 {selected.length} 个</span>
+              </div>
+              <Button type="button" disabled={busy || !selected.length} onClick={() => void importSelected()}>
+                批量导入选中项
+              </Button>
+            </div>
+            <div className="import-candidate-list">
+              {merged.map((candidate) => {
+                const key = `${candidate.channel}:${candidate.key}`;
+                const checked = selected.includes(key);
+                const mode = modeOverrides[key] ?? suggestedChannel(candidate.key, candidate.channel);
+                const usable = Boolean(candidate.sha256 && candidate.manifest_key && candidate.manifest_sha256);
+                return (
+                  <div className={`import-candidate ${checked ? "is-selected" : ""}`} key={key}>
+                    <label className="import-candidate-select">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!usable || busy}
+                        onChange={(event) => setSelected((current) => event.target.checked ? [...current, key] : current.filter((item) => item !== key))}
+                      />
+                      <span>
+                        <strong>{candidate.key}</strong>
+                        <small>{candidate.size.toLocaleString()} B · 来源 {channelLabel(candidate.channel)} · {usable ? "manifest 已解析" : "待解析"}</small>
+                      </span>
+                    </label>
+                    <div className="import-candidate-actions">
+                      <Select
+                        aria-label={`${candidate.key} 导入模式`}
+                        value={mode}
+                        disabled={busy}
+                        onChange={(event) => setModeOverrides((current) => ({ ...current, [key]: event.target.value as "debug" | "release" }))}
+                      >
+                        <option value="debug">导入为 Debug</option>
+                        <option value="release">导入为 Release</option>
+                      </Select>
+                      <Badge className={usable ? "pass" : "fail"}>{usable ? "可导入" : "待解析"}</Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </Panel>
+      <CosReleaseInbox appId={id} />
+      <Panel>
+        <h2>导入约定</h2>
+        <p>推荐目录：<code>android/&lt;buildNumber&gt;.zip</code>、<code>ios/&lt;buildNumber&gt;.zip</code>、<code>harmony/&lt;buildNumber&gt;.zip</code>。</p>
+        <p className="muted">ZIP 内应包含唯一 APK / IPA、对应的 .sha256 和 build-info.json；扫描只负责发现和校验，最终仍由后台任务再次验证后入库。</p>
+      </Panel>
+    </div>
+  );
+}
+
 export function VersionsPage() {
   const { id = "" } = useParams();
   const cmd = useCommand();
@@ -714,6 +955,37 @@ export function VersionsPage() {
         query: { page: filters.page, q: filters.q },
       }),
   });
+  const releaseVersions = useQuery({
+    queryKey: ["release-version-overview", id],
+    queryFn: () =>
+      read("/api/v1/apps/{id}/versions", {
+        id,
+        query: { page: 1, page_size: 100 },
+      }),
+  });
+  const publicationQueries = useQueries({
+    queries: (releaseVersions.data?.items ?? []).map((version) => ({
+      queryKey: ["release-overview-publications", version.id],
+      queryFn: () =>
+        read("/api/v1/versions/{id}/publications", {
+          id: version.id,
+          query: { page: 1, page_size: 100 },
+        }),
+    })),
+  });
+  const versionNames = new Map(
+    (releaseVersions.data?.items ?? []).map((version) => [version.id, version.display_name]),
+  );
+  const publishedReleases = publicationQueries
+    .flatMap((query) => query.data?.items ?? [])
+    .filter((publication) => publication.mode === "release" && publication.state === "published")
+    .sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? ""));
+  const [releaseSearch, setReleaseSearch] = useState("");
+  const activeRelease = publishedReleases[0];
+  const otherReleases = publishedReleases.slice(1).filter((publication) => {
+    const haystack = `${versionNames.get(publication.version_id) ?? ""} ${publication.platform}`.toLowerCase();
+    return !releaseSearch || haystack.includes(releaseSearch.toLowerCase());
+  });
   return (
     <div className="app-tab-page versions-page">
       <Title description="版本可包含 Android 与 iOS 的独立发布修订。上传入库后，需要在这里显式发布。">
@@ -721,7 +993,14 @@ export function VersionsPage() {
       </Title>
       <PageTabs />
       {cmd.feedback}
-      <CosReleaseInbox appId={id} />
+      <ReleaseOverview
+        active={activeRelease}
+        others={otherReleases}
+        versionNames={versionNames}
+        search={releaseSearch}
+        onSearch={setReleaseSearch}
+        loading={releaseVersions.isPending || publicationQueries.some((query) => query.isPending)}
+      />
       <div className="app-tab-filters versions-toolbar">
         {filters.search}
         <Button
@@ -816,6 +1095,71 @@ export function VersionsPage() {
   );
 }
 
+function ReleaseOverview({
+  active,
+  others,
+  versionNames,
+  search,
+  onSearch,
+  loading,
+}: {
+  active?: DTO<"PublicationInfo">;
+  others: DTO<"PublicationInfo">[];
+  versionNames: Map<string, string>;
+  search: string;
+  onSearch: (value: string) => void;
+  loading: boolean;
+}) {
+  const latestUrl = active ? `${window.location.origin}/releases/${active.id}` : "";
+  return (
+    <Panel className="release-overview">
+      <div className="section-heading">
+        <div>
+          <h2>Release 分发概览</h2>
+          <p className="muted">COS 是唯一来源；这里仅展示已发布的 Release 访问入口。</p>
+        </div>
+        <Badge className={active ? "pass" : "badge"}>{active ? "1 个启用版本" : "尚未启用"}</Badge>
+      </div>
+      {loading && <Loading />}
+      {!loading && !active && <Empty>暂无已启用的 Release。发布一个版本后，访问 URL 会显示在这里。</Empty>}
+      {active && (
+        <div className="release-active-card">
+          <div>
+            <small>最新版本 URL</small>
+            <p><Link to={`/releases/${active.id}`}>{latestUrl}</Link></p>
+          </div>
+          <div className="release-active-meta">
+            <strong>{versionNames.get(active.version_id) ?? "Release"}</strong>
+            <span>{active.platform.toUpperCase()} · 启用中 · {active.published_at ? date(active.published_at) : "—"}</span>
+          </div>
+        </div>
+      )}
+      {!!others.length && (
+        <div className="release-archive-list">
+          <div className="section-heading">
+            <h3>其他使用中的 Release</h3>
+            <Input
+              type="search"
+              aria-label="搜索其他 Release"
+              placeholder="搜索版本或平台"
+              value={search}
+              onChange={(event) => onSearch(event.target.value)}
+            />
+          </div>
+          {others.map((publication) => (
+            <div className="release-archive-row" key={publication.id}>
+              <Link to={`/releases/${publication.id}`}>
+                {versionNames.get(publication.version_id) ?? "Release"}
+              </Link>
+              <span>{publication.platform.toUpperCase()} · {publication.published_at ? date(publication.published_at) : "—"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function CosReleaseInbox({ appId }: { appId: string }) {
   const cmd = useCommand();
   const ingestions = useQuery({
@@ -836,7 +1180,6 @@ function CosReleaseInbox({ appId }: { appId: string }) {
       <p>
         GitHub Actions 只负责构建并上传 COS。校验通过的 Release 会停在这里，确认后才会进入版本发布列表。
       </p>
-      <CosPackageImportForm appId={appId} channel="release" />
       {cmd.feedback}
       <ErrorBox error={ingestions.error} />
       {ingestions.isPending && <Loading />}
@@ -937,7 +1280,7 @@ function CosReleaseInbox({ appId }: { appId: string }) {
   );
 }
 
-function CosPackageImportForm({
+export function CosPackageImportForm({
   appId,
   channel,
 }: {

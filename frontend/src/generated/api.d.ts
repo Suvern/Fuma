@@ -3581,7 +3581,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "release_sync" | "release_import" | "chat_sync" | "cache_download" | "build_event" | "notification" | "cache_cleanup" | "package_ingest" | "storage_probe" | "publication_access" | "package_delete";
+            kind: "release_sync" | "release_import" | "chat_sync" | "cache_download" | "build_event" | "notification" | "cache_cleanup" | "package_ingest" | "cos_package_ingest" | "cos_package_parse" | "storage_probe" | "publication_access" | "package_delete";
             next_check_at: string | null;
             phase: string;
             progress: number | null;
@@ -6122,6 +6122,8 @@ export interface operations {
                 channel: "debug" | "release";
                 page_size?: number;
                 cursor?: string;
+                /** @description Explicitly download and resolve one bounded archive when provider metadata is missing. */
+                resolve_key?: string;
             };
             header?: never;
             path: {

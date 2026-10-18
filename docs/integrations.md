@@ -28,7 +28,7 @@
 
 修改可用范围、应用版本或权限后，应重新验证登录与发卡片。当前没有个人消息收件人配置。投递成功只表示飞书接受请求；未知结果不会自动重发，手动重试前须确认可能产生重复消息。
 
-## GitHub 仓库和 Release
+## GitHub 仓库和 Release（历史兼容）
 
 支持 PAT 和 GitHub App Connector，当前适配器面向 GitHub.com，未提供 GitHub Enterprise Server 自定义域名入口。
 
@@ -46,15 +46,30 @@ GitHub Releases 页面同步完整快照，支持 Tag、预发布状态、文件
 
 1. 在 Fuma 应用内创建 Actions 规则，配置精确的 workflow 路径、可信分支或 Tag、附件规则和目标群。
 2. 将规则提供的完整回调 URL 保存为源仓库变量 `FUMA_CALLBACK_URL`，将一次性显示的规则令牌保存为 GitHub Actions Secret `FUMA_CI_TOKEN`。
-3. 工作流构建并上传 Release 附件后，提交仓库、run、attempt、commit、Release 和附件标识；不提交下载 URL、任意 shell 或收件群参数。
+3. 工作流构建并上传 COS 归档后，提交构建号、commit、run 和 COS 对象摘要；不创建 GitHub Release，也不提交下载 URL、任意 shell 或收件群参数。
 4. 收到 `202` 后结束回调步骤。Fuma 等整个 workflow run 成功，再核实来源、处理文件并投递；同一 workflow 不得等待 Fuma 完成，否则会互相等待。
 5. 在构建事件页检查逐阶段结果，确认文件可下载，再检查真实群卡片。
 
-回调令牌只对所属规则生效，轮换或撤销后更新仓库 Secret。回调受理不表示构建、缓存或投递成功；后台会通过 GitHub 再核实仓库、workflow、可信 ref、SHA、运行次数与附件归属。重复回调复用事件，不能借此强制重复通知。
+回调令牌只对所属规则生效，轮换或撤销后更新仓库 Secret。回调受理不表示 COS 对象校验、解析或投递成功；请在构建事件页查看后台阶段。重复回调复用事件，不能借此强制重复通知。
 
 ## COS / OSS 对象存储
 
 正式包可保存在本机或私有 COS / OSS；公开云发布使用独立公开副本。当前仅支持厂商标准地域端点，不支持通用 S3、MinIO、自定义域名或 CDN 配置。
+
+### Fuma 标准包目录
+
+Fuma 以 App 绑定的 COS 为唯一事实源。每个 App 分别绑定 Debug 与 Release 桶（可使用不同桶）；绑定前缀可留空，留空即从桶根目录解析。构建产物必须遵循以下布局：
+
+```text
+<bucket-root>/
+├── android/<buildNumber>.zip
+├── ios/<buildNumber>.zip
+└── harmony/<buildNumber>.zip
+```
+
+ZIP 内必须包含且只能包含一个 APK 或 IPA、对应的 `<package>.sha256`、`build-info.json`。Fuma 首先校验外层 ZIP 摘要，再校验内部安装包摘要与平台目录；普通 ZIP、多个安装包或平台目录不一致都会拒绝。回调中的 `manifest.key` 对这种归档填写 ZIP 自身 key，`manifest.sha256` 填 ZIP 摘要。
+
+`build-info.json` 至少应包含 `schema_version: "archive-1"`、`commit`、`version` 和 `build_number`；完整回调仍以 workflow 上下文填充 `commit_sha`、`workflow_run_id` 和 `created_at`。文件名只使用 build number，版本和渠道由构建事件及 App 绑定确定。
 
 1. 准备专用存储位置和路径前缀；原件使用私有访问，公开副本使用独立位置。COS 桶名须包含厂商分配的 APPID，地域填写厂商标识。
 2. 准备限定桶及路径范围的凭据。按实际功能授权读取版本控制状态、上传、读取元信息、下载、删除、设置对象 ACL 及分片上传所需能力。

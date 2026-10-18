@@ -4899,6 +4899,11 @@ paths:
         in: query
         required: false
         schema: {type: string, maxLength: 600}
+      - name: resolve_key
+        in: query
+        required: false
+        description: Explicitly download and resolve one bounded archive when provider metadata is missing.
+        schema: {type: string, maxLength: 600}
       responses:
         '200':
           description: Objects under the App/channel COS binding
@@ -11595,6 +11600,8 @@ components:
           - notification
           - cache_cleanup
           - package_ingest
+          - cos_package_ingest
+          - cos_package_parse
           - storage_probe
           - publication_access
           - package_delete

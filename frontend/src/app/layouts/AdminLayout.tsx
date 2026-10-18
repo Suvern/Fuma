@@ -98,11 +98,12 @@ function AdminShell() {
   });
   const appSection = {
     packages: "安装包",
+    imports: "导入安装包",
     versions: "版本发布",
     debug: "Debug 包",
-    actions: "Actions 规则",
+    actions: "Actions 接入",
     events: "构建事件",
-    notifications: "飞书卡片",
+    notifications: "飞书通知",
   }[appMatch?.params["*"] ?? ""];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);

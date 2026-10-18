@@ -32,20 +32,25 @@ jobs:
           test -n "$FUMA_CALLBACK_URL"
           test -n "$FUMA_CI_TOKEN"
           test -n "$FUMA_APP_ID"
-          sha256="$(sha256sum "$APK_PATH" | cut -d' ' -f1)"
-          size="$(stat -c '%s' "$APK_PATH")"
-          object_key="debug/${GITHUB_SHA}/$(basename "$APK_PATH")"
-          manifest_key="debug/${GITHUB_SHA}/manifest.json"
           version="${FUMA_VERSION:-0.0.0}"
           build_number="${GITHUB_RUN_NUMBER}"
           created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          jq -n --arg schema_version "1" --arg platform android \
-            --arg file_name "$(basename "$APK_PATH")" \
-            '{schema_version:$schema_version,platform:$platform,file_name:$file_name}' \
-            > "$RUNNER_TEMP/manifest.json"
-          manifest_sha256="$(sha256sum "$RUNNER_TEMP/manifest.json" | cut -d' ' -f1)"
+          archive_dir="$RUNNER_TEMP/fuma-archive"
+          mkdir -p "$archive_dir"
+          cp "$APK_PATH" "$archive_dir/$(basename "$APK_PATH")"
+          sha256sum "$archive_dir/$(basename "$APK_PATH")" > "$archive_dir/$(basename "$APK_PATH").sha256"
+          jq -n --arg commit "$GITHUB_SHA" --arg version "$version" --arg build_number "$build_number" \
+            '{schema_version:"archive-1",commit:$commit,version:$version,build_number:$build_number}' \
+            > "$archive_dir/build-info.json"
+          (cd "$archive_dir" && zip -q -r "$RUNNER_TEMP/${build_number}.zip" .)
+          package_path="$RUNNER_TEMP/${build_number}.zip"
+          object_key="android/${build_number}.zip"
+          sha256="$(sha256sum "$package_path" | cut -d' ' -f1)"
+          size="$(stat -c '%s' "$package_path")"
+          manifest_key="$object_key"
+          manifest_sha256="$sha256"
           # Replace this line with the approved COS CLI/action for your provider.
-          echo "Upload $APK_PATH to $object_key and $RUNNER_TEMP/manifest.json to $manifest_key using the configured COS uploader"
+          echo "Upload $package_path to $object_key using the configured COS uploader"
           payload="$(jq -n \
             --arg event_id "github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --arg app_id "$FUMA_APP_ID" \
@@ -60,7 +65,7 @@ jobs:
             --argjson object_size "$size" \
             --arg object_sha256 "$sha256" \
             --arg manifest_sha256 "$manifest_sha256" \
-            '{schema_version:"2",event_id:$event_id,app_id:$app_id,channel:$channel,build:{version:$version,build_number:$build_number,commit_sha:$commit_sha,workflow_run_id:$workflow_run_id,created_at:$created_at},object:{key:$object_key,size:$object_size,sha256:$object_sha256,etag:null,content_type:"application/vnd.android.package-archive"},manifest:{key:$manifest_key,sha256:$manifest_sha256}}')"
+            '{schema_version:"2",event_id:$event_id,app_id:$app_id,channel:$channel,build:{version:$version,build_number:$build_number,commit_sha:$commit_sha,workflow_run_id:$workflow_run_id,created_at:$created_at},object:{key:$object_key,size:$object_size,sha256:$object_sha256,etag:null,content_type:"application/zip"},manifest:{key:$manifest_key,sha256:$manifest_sha256}}')"
           status="$(curl --silent --show-error --fail-with-body --retry 3 --retry-delay 2 \
             --connect-timeout 10 --max-time 30 \
             --header "Authorization: Bearer ${FUMA_CI_TOKEN}" \

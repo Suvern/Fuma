@@ -1371,6 +1371,8 @@ class Task(BaseModel):
         "notification",
         "cache_cleanup",
         "package_ingest",
+        "cos_package_ingest",
+        "cos_package_parse",
         "storage_probe",
         "publication_access",
         "package_delete",

@@ -99,6 +99,12 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        path: "apps/:id/imports",
+        lazy: async () => ({
+          Component: (await import("../features/library/Library")).PackageImportPage,
+        }),
+      },
+      {
         path: "apps/:id/versions",
         lazy: async () => ({
           Component: (await import("../features/library/Library")).VersionsPage,

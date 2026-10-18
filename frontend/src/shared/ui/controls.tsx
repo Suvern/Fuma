@@ -192,11 +192,11 @@ export function PageTabs({
     ? [
         { to: appPath, label: "应用设置" },
         { to: `${appPath}/packages`, label: "安装包" },
+        { to: `${appPath}/imports`, label: "导入安装包" },
         { to: `${appPath}/versions`, label: "版本发布" },
         { to: `${appPath}/debug`, label: "Debug 包" },
-        { to: `${appPath}/actions`, label: "Actions 规则" },
-        { to: `${appPath}/events`, label: "构建事件" },
-        { to: `${appPath}/notifications`, label: "飞书卡片" },
+        { to: `${appPath}/actions`, label: "Actions 接入" },
+        { to: `${appPath}/notifications`, label: "飞书通知" },
       ]
     : Children.toArray(children).flatMap((child) =>
         isValidElement<LinkProps>(child)

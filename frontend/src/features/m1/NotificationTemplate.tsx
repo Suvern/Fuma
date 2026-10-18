@@ -13,6 +13,7 @@ import {
   useCommand,
 } from "../../shared/ui/common";
 import { CardMarkdown } from "./CardMarkdown";
+import { ActionsRulesSection } from "./Actions";
 import "./notification-template.css";
 
 type Template = DTO<"ReleaseNotificationTemplate">;
@@ -76,9 +77,16 @@ export function AppNotificationTemplatePage() {
   return (
     <>
       <Title description="管理此应用的安装包就绪通知，编辑时可实时预览卡片。">
-        {`${app.data.name} · 飞书卡片`}
+        {`${app.data.name} · 飞书通知`}
       </Title>
       <PageTabs><Link to={`/admin/apps/${id}`}>应用设置</Link></PageTabs>
+      <Panel>
+        <h2>Actions 分发规则</h2>
+        <p className="muted">
+          GitHub Actions 只负责构建、上传绑定 COS 并发送通知；规则、通知群和令牌统一在这里管理。
+        </p>
+        <ActionsRulesSection appId={id} />
+      </Panel>
       <NotificationTemplateSection key={id} appId={id} readOnly={!!app.data.archived_at} />
     </>
   );

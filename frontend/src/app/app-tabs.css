@@ -162,6 +162,124 @@
   max-height: 280px;
   overflow-y: auto;
 }
+.package-import-page .import-hero {
+  border-top: 3px solid var(--semi-color-primary);
+}
+.package-import-page .import-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+}
+.package-import-page .import-toolbar-selection {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.package-import-page .import-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 44px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.package-import-page .import-select-all input {
+  inline-size: 1.1em;
+  block-size: 1.1em;
+  margin: 0;
+  accent-color: var(--semi-color-primary);
+}
+.package-import-page .import-select-all input:disabled {
+  cursor: not-allowed;
+}
+.package-import-page .import-candidate-list {
+  display: grid;
+  gap: 8px;
+}
+.package-import-page .import-candidate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: var(--semi-border-radius-medium);
+  background: var(--semi-color-bg-0);
+}
+.package-import-page .import-candidate.is-selected {
+  border-color: var(--semi-color-primary);
+  background: var(--semi-color-primary-light-default);
+}
+.package-import-page .import-candidate-select {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.package-import-page .import-candidate-select > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.package-import-page .import-candidate-select strong,
+.package-import-page .import-candidate-select small {
+  overflow-wrap: anywhere;
+}
+.package-import-page .import-candidate-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.release-overview .release-active-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px;
+  border: 1px solid var(--semi-color-primary-light-active);
+  border-radius: var(--semi-border-radius-medium);
+  background: var(--semi-color-primary-light-default);
+}
+.release-overview .release-active-card p {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.release-overview .release-active-meta {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  white-space: nowrap;
+}
+.release-overview .release-archive-list {
+  margin-top: 20px;
+}
+.release-overview .release-archive-list .section-heading {
+  margin-bottom: 8px;
+}
+.release-overview .release-archive-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--semi-color-border);
+}
+@container app-tab (max-width: 680px) {
+  .package-import-page .import-candidate,
+  .release-overview .release-active-card,
+  .release-overview .release-archive-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .package-import-page .import-candidate-actions,
+  .release-overview .release-active-meta {
+    justify-items: start;
+    align-items: flex-start;
+  }
+}
 .release-import-settings {
   margin-top: 16px;
   padding-top: 16px;

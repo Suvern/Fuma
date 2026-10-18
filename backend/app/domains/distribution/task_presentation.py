@@ -3,7 +3,12 @@
 from uuid import UUID
 
 from app.domains.applications.models import AppRecord
-from app.domains.distribution.models import DebugRecord, DeliveryRecord, EventRecord
+from app.domains.distribution.models import (
+    DebugRecord,
+    DeliveryRecord,
+    EventRecord,
+    PackageIngestionRecord,
+)
 from app.domains.distribution.service import task_dto
 from app.domains.library.models import PackageRecord, PublicationRecord, UploadRecord, VersionRecord
 from app.domains.storage.models import StorageLocation
@@ -83,6 +88,11 @@ def present_task(db, task):
         row = owned_resource(db, UploadRecord, task)
         if row and base:
             name, url = row.file_name, base + "/packages"
+    elif task.kind in {"cos_package_ingest", "cos_package_parse"}:
+        row = owned_resource(db, PackageIngestionRecord, task)
+        if row and base:
+            name = row.object_key.rsplit("/", 1)[-1]
+            url = base + "/imports"
     elif task.kind == "package_delete":
         row = owned_resource(db, PackageRecord, task)
         if row and base:

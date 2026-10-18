@@ -15,7 +15,7 @@ import Modal from "@douyinfe/semi-ui-19/lib/es/modal";
 import { ApiError, read, write, type DTO } from "../../shared/api/http";
 import { ErrorBox, size } from "../../shared/ui/common";
 import { AppPage, AppsPage } from "./Apps";
-import { ActionsPage } from "./Actions";
+import { ActionsRulesSection } from "./Actions";
 import { DebugListPage } from "./Debug";
 import * as iconPreparation from "./prepare-icon";
 
@@ -166,11 +166,7 @@ describe("应用管理走查问题回归", () => {
         ? ({ ...page, items: [rule], total: 1 } as never)
         : original(path, options),
     );
-    mount(
-      <ActionsPage />,
-      "/admin/apps/:id/actions",
-      "/admin/apps/app/actions",
-    );
+    mount(<ActionsRulesSection appId="app" />, "/admin/apps/:id/actions", "/admin/apps/app/actions");
     const card = (
       await screen.findByRole("heading", { name: "现有规则" })
     ).closest("section")!;
@@ -556,7 +552,7 @@ describe("应用管理走查问题回归", () => {
     ],
     [
       "workflow",
-      <ActionsPage />,
+      <ActionsRulesSection appId="app" />,
       "/admin/apps/:id/actions",
       "/admin/apps/app/actions",
       /Workflow 路径/,

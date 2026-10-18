@@ -6544,6 +6544,8 @@
               "notification",
               "cache_cleanup",
               "package_ingest",
+              "cos_package_ingest",
+              "cos_package_parse",
               "storage_probe",
               "publication_access",
               "package_delete"
@@ -10343,6 +10345,16 @@
           {
             "in": "query",
             "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 600,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Explicitly download and resolve one bounded archive when provider metadata is missing.",
+            "in": "query",
+            "name": "resolve_key",
             "required": false,
             "schema": {
               "maxLength": 600,

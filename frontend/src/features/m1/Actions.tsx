@@ -43,35 +43,39 @@ import {
   useSession,
 } from "../../shared/ui/common";
 export function ActionsPage() {
-  const session = useSession();
   const { id = "" } = useParams();
+  return (
+    <div className="app-tab-page actions-page">
+      <Title description="GitHub Actions 只负责构建、上传绑定 COS 并发送通知；Fuma 不读取 GitHub Release。">
+        Actions 接入
+      </Title>
+      <PageTabs />
+      <ActionsGuide appId={id} />
+      <BuildEventsSection appId={id} />
+    </div>
+  );
+}
+
+export function ActionsRulesSection({ appId }: { appId: string }) {
+  const session = useSession();
   const filters = useFilters("搜索规则名称…");
   const q = useQuery({
-    queryKey: ["rules", id, filters.page, filters.q],
+    queryKey: ["rules", appId, filters.page, filters.q],
     queryFn: () =>
       read("/api/v1/apps/{id}/actions-rules", {
-        id,
+        id: appId,
         query: { page: filters.page, q: filters.q },
       }),
   });
   return (
-    <div className="app-tab-page actions-page">
-      <Title description="GitHub Actions 只负责构建、上传绑定 COS 并发送通知；Fuma 不读取 GitHub Release。">
-        GitHub Actions 通知规则
-      </Title>
-      <PageTabs className="tabs">
-        <Link to={`/admin/apps/${id}`}>应用设置</Link>
-        <Link to={`/admin/apps/${id}/events`}>查看构建事件</Link>
-      </PageTabs>
-      <ActionsGuide appId={id} compact />
+    <>
       {isGlobalAdmin(session.data?.user) ? (
         <Disclosure title={<>＋ 新建分发规则</>} className="panel">
-          <RuleForm appId={id} />
+          <RuleForm appId={appId} />
         </Disclosure>
       ) : (
         <p className="muted">
-          创建 Actions
-          规则和选择通知群需管理员操作；你可以维护已绑定此应用的规则。
+          创建 Actions 规则和选择通知群需管理员操作；你可以维护已绑定此应用的规则。
         </p>
       )}
       <div className="app-tab-filters">
@@ -100,7 +104,7 @@ export function ActionsPage() {
         </Empty>
       )}
       <Pager data={q.data} {...filters} />
-    </div>
+    </>
   );
 }
 function OneTimeToken({ token, close }: { token: string; close: () => void }) {
@@ -403,6 +407,17 @@ function RuleCard({ rule: r }: { rule: DTO<"ActionsRule"> }) {
 }
 export function BuildEventsPage() {
   const { id = "" } = useParams();
+  return (
+    <div className="app-tab-page build-events-page">
+      <Title description="跟踪回调接收、构建验证、缓存与通知进度。">构建事件</Title>
+      <PageTabs />
+      <BuildEventsSection appId={id} />
+    </div>
+  );
+}
+
+export function BuildEventsSection({ appId }: { appId: string }) {
+  const id = appId;
   const filters = useFilters("搜索 Run ID 或 Commit SHA…");
   const [state, setState] = useState("");
   const q = useQuery({
@@ -419,11 +434,7 @@ export function BuildEventsPage() {
     refetchInterval: 5000,
   });
   return (
-    <div className="app-tab-page build-events-page">
-      <Title description="跟踪回调接收、构建验证、缓存与通知进度。">
-        构建事件
-      </Title>
-      <PageTabs />
+    <Panel id="build-events" className="build-events-panel">
       <div className="app-tab-filters">
         {filters.search}
         <label>
@@ -505,8 +516,8 @@ export function BuildEventsPage() {
               ) : (
                 <>
                   <p>完成源仓库接入并运行 workflow 后，可在这里追踪分发。</p>
-                  <Link to={`/admin/apps/${id}/actions`}>
-                    配置 Actions 规则
+                  <Link to={`/admin/apps/${id}/notifications`}>
+                    配置飞书通知规则
                   </Link>{" "}
                   · <Link to="/docs/github-actions">查看接入文档</Link>
                 </>
@@ -534,7 +545,7 @@ export function BuildEventsPage() {
         ]}
       />
       <Pager data={q.data} {...filters} />
-    </div>
+    </Panel>
   );
 }
 export function BuildEventPage() {

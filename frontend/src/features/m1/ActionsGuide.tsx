@@ -42,7 +42,7 @@ export function ActionsGuide({
           <h2>接入 GitHub Actions</h2>
           <Link to="/docs/github-actions">打开独立接入文档</Link>
         </div>
-        <p>先创建规则并绑定 Debug/Release 存储桶，再把接入文档交给 Agent 修改源仓库 workflow。</p>
+        <p>先在“飞书通知”中创建规则并绑定 Debug/Release 存储桶，再把接入文档交给 Agent 修改源仓库 workflow。</p>
         <Disclosure title="查看接入步骤与 YAML 示例">
           <ActionsGuide appId={appId} />
         </Disclosure>
@@ -61,7 +61,7 @@ export function ActionsGuide({
       </p>
       <ol>
         <li>
-          在 Fuma 创建并启用分发规则，选择通知群；Workflow 路径、可信分支 / Tag
+          在“飞书通知”中创建并启用分发规则，选择通知群；Workflow 路径、可信分支 / Tag
           和安装包匹配规则用于生成接入说明，不会触发 GitHub API 读取。
         </li>
         <li>
@@ -73,9 +73,10 @@ export function ActionsGuide({
           ，填写下方对应规则的回调 URL。多条规则应分别使用对应的令牌和 URL。
         </li>
         <li>
-          修改源仓库 build YAML：给发布 job 配置最小 COS 上传凭证，构建后把安装包和
-          manifest 上传到规则对应的 Debug/Release 存储桶，再提交回调。只上传 Actions
-          artifact 不会被当前接入读取。
+          修改源仓库 build YAML：给发布 job 配置最小 COS 上传凭证，构建后按
+          <code>android/&lt;buildNumber&gt;.zip</code>、<code>ios/&lt;buildNumber&gt;.zip</code>
+          或 <code>harmony/&lt;buildNumber&gt;.zip</code> 生成归档并上传到规则对应的
+          Debug/Release 存储桶，再提交回调。只上传 Actions artifact 不会被当前接入读取。
         </li>
         <li>
           运行 workflow。回调返回 202 后立即结束步骤；Fuma 校验 COS 对象、解析安装包并通知群。
@@ -93,7 +94,7 @@ export function ActionsGuide({
           触发条件也需按可信分支调整。
         </p>
         <p>
-          已有构建流程时，保留构建命令，只需补充 COS 上传和最后的 v2 回调步骤。
+          已有构建流程时，保留构建命令，只需补充标准 ZIP 打包、COS 上传和最后的 v2 回调步骤。
           多 job 构建需把文件传到发布 job。IPA 需使用对应的 macOS 构建流程，并将
           文件筛选改为 .ipa；不要创建 GitHub Release。
         </p>
@@ -125,7 +126,7 @@ export function ActionsGuide({
             时，不要绕过隔离；从已配置的可信分支触发发布流程。
           </li>
         </ul>
-        <Link to={`/admin/apps/${appId}/events`}>查看构建事件</Link>
+        <Link to={`/admin/apps/${appId}/actions#build-events`}>查看构建事件</Link>
       </Disclosure>
     </Panel>
   );
@@ -134,7 +135,7 @@ export function ActionsGuide({
 export function RuleConnection({ rule }: { rule: DTO<"ActionsRule"> }) {
   const markdownPath = `/api/v1/docs/github-actions?rule_id=${encodeURIComponent(rule.id)}`;
   const markdownUrl = new URL(markdownPath, window.location.origin).href;
-  const agentInstructions = `请按以下文档修改源仓库的 GitHub Actions workflow。\n\n接入文档：${markdownUrl}\nWorkflow：${rule.workflow_path}\n可信分支：${rule.allowed_branches.join(", ") || "未配置"}\n可信 Tag：${rule.allowed_tags.join(", ") || "未配置"}\n文件匹配：${rule.asset_patterns.join(", ")}\nFUMA_CALLBACK_URL：${rule.callback_url}\nFUMA_CI_TOKEN：由管理员填入 GitHub Actions Secret，不写入代码或日志。\n\n保留现有构建环境，将安装包和 manifest 上传到 Fuma 已绑定的 COS channel/prefix 后回调；不要创建 GitHub Release，也不要调用 GitHub API。回调返回 202 后结束该步骤，等待 Fuma 构建事件。`;
+  const agentInstructions = `请按以下文档修改源仓库的 GitHub Actions workflow。\n\n接入文档：${markdownUrl}\nWorkflow：${rule.workflow_path}\n可信分支：${rule.allowed_branches.join(", ") || "未配置"}\n可信 Tag：${rule.allowed_tags.join(", ") || "未配置"}\n文件匹配：${rule.asset_patterns.join(", ")}\nFUMA_CALLBACK_URL：${rule.callback_url}\nFUMA_CI_TOKEN：由管理员填入 GitHub Actions Secret，不写入代码或日志。\n\n保留现有构建环境，按 android/ios/harmony/<buildNumber>.zip 生成标准归档，归档内包含安装包、sha256 和 build-info.json；将归档上传到 Fuma 已绑定的 COS channel/prefix 后回调。不要创建 GitHub Release，也不要调用 GitHub API。回调返回 202 后结束该步骤，等待 Fuma 构建事件。`;
   return (
     <>
       <div className="toolbar">
@@ -186,16 +187,16 @@ export function RuleConnection({ rule }: { rule: DTO<"ActionsRule"> }) {
                   workflow_run_id: "GitHub run ID",
                   created_at: "ISO-8601 时间",
                 },
-                object: {
-                  key: "绑定 COS 中的对象 key",
+                  object: {
+                    key: "绑定 COS 中的 android/<buildNumber>.zip",
                   size: 123456,
                   sha256: "64 位 SHA-256",
                   etag: null,
-                  content_type: "application/vnd.android.package-archive",
+                    content_type: "application/zip",
                 },
                 manifest: {
-                  key: "同目录 manifest.json",
-                  sha256: "manifest 的 SHA-256",
+                    key: "与 object.key 相同（外层 ZIP）",
+                    sha256: "外层 ZIP 的 SHA-256",
                 },
               },
               null,
