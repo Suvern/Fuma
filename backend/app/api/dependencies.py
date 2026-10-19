@@ -76,7 +76,7 @@ def require_downloader(context: Annotated[AuthContext, Depends(require_user)]) -
         raise AppError(403, "FEISHU_LOGIN_REQUIRED", "请使用飞书账号登录下载")
     now = utcnow()
     until = context.session.eligibility_until
-    if until is None or until <= now or (until - now).total_seconds() > 300:
+    if until is None or until <= now:
         raise AppError(403, "ELIGIBILITY_UNVERIFIED", "飞书下载资格需重新验证")
     return context
 

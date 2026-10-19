@@ -267,7 +267,7 @@ def test_sso_callback_is_browser_bound_and_session_eligibility_expires(feishu_fi
     assert client.get("/api/v1/auth/me").json()["user"]["role"] == "downloader"
     with Session(client.app.state.engine) as db:
         row = db.scalar(select(AuthSession).where(AuthSession.kind == "feishu"))
-        assert 0 < (row.eligibility_until - utcnow()).total_seconds() <= 300
+        assert 0 < (row.eligibility_until - utcnow()).total_seconds() <= 28800
         row.eligibility_until = utcnow() - timedelta(seconds=1)
         db.commit()
     response = client.get("/api/v1/catalog/apps")

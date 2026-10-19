@@ -305,7 +305,7 @@ def test_feishu_role_and_expired_qualification(client):
             response,
             user,
             client.app.state.settings,
-            eligibility_until=utcnow() + timedelta(seconds=300),
+            eligibility_until=utcnow() + timedelta(hours=8),
             config_revision=1,
         )
         session_id = session.id

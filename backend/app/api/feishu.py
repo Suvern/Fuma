@@ -394,7 +394,7 @@ def callback(
                 user,
                 settings,
                 old_session=context.session,
-                eligibility_until=utcnow() + timedelta(seconds=300),
+                eligibility_until=utcnow() + timedelta(seconds=settings.session_ttl_seconds),
                 config_revision=cfg.revision,
             )
         db.commit()
