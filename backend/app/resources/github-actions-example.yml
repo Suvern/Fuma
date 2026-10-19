@@ -25,6 +25,7 @@ jobs:
           FUMA_CI_TOKEN: ${{ secrets.FUMA_CI_TOKEN }}
           FUMA_APP_ID: ${{ vars.FUMA_APP_ID }}
           FUMA_VERSION: ${{ vars.FUMA_VERSION }}
+          FUMA_BUILD_NUMBER: ${{ vars.FUMA_BUILD_NUMBER }}
           APK_PATH: app/build/outputs/apk/debug/app-debug.apk
         run: |
           set -euo pipefail
@@ -32,9 +33,12 @@ jobs:
           test -n "$FUMA_CALLBACK_URL"
           test -n "$FUMA_CI_TOKEN"
           test -n "$FUMA_APP_ID"
-          version="${FUMA_VERSION:-0.0.0}"
-          build_number="${GITHUB_RUN_NUMBER}"
-          created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          test -n "$FUMA_VERSION"
+          test -n "$FUMA_BUILD_NUMBER"
+          version="$FUMA_VERSION"
+          build_number="$FUMA_BUILD_NUMBER"
+          [[ "$build_number" =~ ^[0-9]+$ ]] || { echo "FUMA_BUILD_NUMBER must match the APK versionCode."; exit 1; }
+          created_at="$(git show -s --format=%cI "$GITHUB_SHA")"
           archive_dir="$RUNNER_TEMP/fuma-archive"
           mkdir -p "$archive_dir"
           cp "$APK_PATH" "$archive_dir/$(basename "$APK_PATH")"
@@ -52,7 +56,7 @@ jobs:
           # Replace this line with the approved COS CLI/action for your provider.
           echo "Upload $package_path to $object_key using the configured COS uploader"
           payload="$(jq -n \
-            --arg event_id "github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --arg event_id "github-${GITHUB_RUN_ID}" \
             --arg app_id "$FUMA_APP_ID" \
             --arg version "$version" \
             --arg build_number "$build_number" \

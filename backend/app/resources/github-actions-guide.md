@@ -27,7 +27,7 @@ ZIP 内必须包含且只能包含一个 APK/IPA、对应的 `.sha256` 和 `buil
 ## 配置源仓库
 
 1. Settings → Secrets and variables → Actions → Secrets：添加 FUMA_CI_TOKEN，值为对应规则签发的令牌。
-2. 同页 Variables：添加 FUMA_CALLBACK_URL，值为上方完整回调 URL。
+2. 同页 Variables：添加 FUMA_CALLBACK_URL（上方完整回调 URL）、FUMA_APP_ID、FUMA_VERSION 和 FUMA_BUILD_NUMBER。Android 示例的 FUMA_BUILD_NUMBER 必须等于 APK 的 versionCode，不能用 GitHub run number。
 3. 修改实际 build workflow：保留原构建环境和命令，在构建产物就绪后按标准目录生成 ZIP，并上传到与 channel 对应的 COS prefix，再执行 v2 回调。
 4. 多 job 构建应先把文件传到发布 job；回调中的 object key、size、sha256、manifest key 和 build 元数据必须来自实际上传结果。
 5. 以下 Android 示例的 JDK、Gradle 命令、文件路径、分支和 workflow 保存路径必须按源仓库调整。IPA 使用对应 macOS 构建流程并筛选 .ipa。
