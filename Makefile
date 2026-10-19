@@ -1,26 +1,31 @@
-.PHONY: setup backend frontend worker scheduler infra-up infra-down test-infra-up test-infra-down migrate idl idl-check lint test build check
+.PHONY: setup backend frontend worker scheduler infra-up infra-down infra-logs test-infra-up test-infra-down migrate idl idl-check lint test build check
+
+DEV_COMPOSE = FUMA_DEV_UID=$$(id -u) FUMA_DEV_GID=$$(id -g) docker compose --env-file /dev/null -f deploy/compose.dev.yml
 
 setup:
 	uv sync --directory backend --locked
 	pnpm --dir frontend install --frozen-lockfile
 
 backend:
-	FUMA_SITE_URL=http://localhost:5174 uv run --directory backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --no-access-log
+	$(DEV_COMPOSE) up -d --build --wait api
 
 frontend:
 	pnpm --dir frontend dev:local
 
 worker:
-	uv run --directory backend celery -A app.workers.celery_app:celery_app worker -Q general,files --loglevel=INFO
+	$(DEV_COMPOSE) up -d --build worker
 
 scheduler:
-	uv run --directory backend python -m app.workers.scheduler
+	$(DEV_COMPOSE) up -d --build scheduler
 
 infra-up:
-	docker compose --env-file /dev/null -f deploy/compose.dev.yml up -d --wait
+	$(DEV_COMPOSE) up -d --build --wait
 
 infra-down:
-	docker compose --env-file /dev/null -f deploy/compose.dev.yml down
+	$(DEV_COMPOSE) down
+
+infra-logs:
+	$(DEV_COMPOSE) logs -f --tail=100
 
 test-infra-up:
 	docker compose --env-file /dev/null -f deploy/compose.test.yml up -d --wait
@@ -29,7 +34,7 @@ test-infra-down:
 	docker compose --env-file /dev/null -f deploy/compose.test.yml down
 
 migrate:
-	uv run --directory backend alembic upgrade head
+	$(DEV_COMPOSE) run --rm migrate
 
 idl:
 	uv run --directory backend python -m app.cli.export_openapi

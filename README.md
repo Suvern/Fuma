@@ -61,23 +61,17 @@ Fuma 将安装包、发布版本与下载权限放在同一套工作流中。开
 ```sh
 make setup
 make infra-up
-make migrate
-make backend
 ```
 
-保持 API 运行，等待首次初始化完成；再分别打开三个位于仓库根目录的新终端，每个终端执行一条命令：
+`make infra-up` 会在同一个 `fuma-dev` Docker Compose 分组中启动 PostgreSQL、Redis、API、Worker、Scheduler 和隔离 Parser，并自动执行数据库迁移。前端仍在本机开发运行：
 
 | 终端 | 命令 |
 | --- | --- |
-| Worker | `make worker` |
-| Scheduler | `make scheduler` |
 | 前端 | `make frontend` |
 
-访问 [本地登录页](http://127.0.0.1:5173/login)，使用 API 首次初始化日志中的随机 `admin` 密码登录并改密。开发数据库与 Redis 仅绑定本机端口，代码默认配置与之匹配。
+访问 [本地登录页](http://127.0.0.1:5174/login)，使用 API 首次初始化日志中的随机 `admin` 密码登录并改密。通过 `make infra-logs` 查看容器日志，`make infra-down` 停止整组服务（保留开发数据卷）。
 
-**完整上传流程还需要独立 Parser。** 按[开发指南](docs/development.md#启动隔离-parser)启动解析容器，否则安装包不会完成解析。
-
-`make frontend` 始终连接本机后端。普通 `pnpm dev` 会从 `frontend/.env` 读取代理地址，未配置时也连接本机；配置方式见[前端说明](frontend/README.md)。
+本机前端开发代理连接 `127.0.0.1:8000` 的容器 API。详细配置和排障见[开发指南](docs/development.md)。
 
 修改接口先编辑 IDL，再运行 `make idl` 同步契约。运行完整 `make check` 前，需按[开发指南](docs/development.md#测试与检查)准备独立测试 PostgreSQL，设置测试入口与显式创建开关；测试会创建并回收随机数据库，不能使用业务实例。
 

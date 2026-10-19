@@ -1,6 +1,56 @@
 name: fuma-dev
 
-# Local dependencies only. Trust authentication must never be used in production.
+x-backend: &backend
+  image: fuma-backend:dev
+  build:
+    context: ..
+    dockerfile: backend/Dockerfile
+  user: "${FUMA_DEV_UID:-10001}:${FUMA_DEV_GID:-10001}"
+  environment:
+    FUMA_DATABASE_HOST: postgres
+    FUMA_DATABASE_PORT: "5432"
+    FUMA_DATABASE_NAME: fuma
+    FUMA_DATABASE_USER: fuma
+    FUMA_DATABASE_PASSWORD: ""
+    FUMA_REDIS_HOST: redis
+    FUMA_REDIS_PORT: "6379"
+    FUMA_REDIS_DB: "0"
+    FUMA_REDIS_USERNAME: ""
+    FUMA_REDIS_PASSWORD: ""
+    FUMA_SITE_URL: http://127.0.0.1:5174
+    FUMA_COOKIE_SECURE: "false"
+    FUMA_STATE_DIR: /data/state
+    FUMA_CACHE_DIR: /data/cache
+    FUMA_PARSER_DIR: /data/parser
+  volumes:
+    - type: bind
+      source: ${HOME}/.local/share/fuma/cache
+      target: /data/cache
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${HOME}/.local/share/fuma/state
+      target: /data/state
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${HOME}/.local/share/fuma/state/parser/inbox
+      target: /data/parser/inbox
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${HOME}/.local/share/fuma/state/parser/outbox
+      target: /data/parser/outbox
+      bind:
+        create_host_path: false
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+
+# Local development stack. Trust authentication must never be used in production.
 services:
   postgres:
     image: postgres:17-bookworm
@@ -29,6 +79,82 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  parser:
+    image: fuma-parser:dev
+    build:
+      context: ..
+      dockerfile: parser/Dockerfile
+    network_mode: none
+    user: "${FUMA_DEV_UID:-10001}:${FUMA_DEV_GID:-10001}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    pids_limit: 64
+    cpus: 1
+    tmpfs:
+      - /tmp:size=128m
+    volumes:
+      - type: bind
+        source: ${HOME}/.local/share/fuma/state/parser/inbox
+        target: /inbox
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${HOME}/.local/share/fuma/state/parser/outbox
+        target: /outbox
+        bind:
+          create_host_path: false
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: [alembic, upgrade, head]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/ready', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      parser:
+        condition: service_started
+
+  worker:
+    <<: *backend
+    command: [celery, -A, "app.workers.celery_app:celery_app", worker, -Q, "general,files", --concurrency=2, --loglevel=WARNING]
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      parser:
+        condition: service_started
+
+  scheduler:
+    <<: *backend
+    command: [python, -m, app.workers.scheduler]
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres-data:

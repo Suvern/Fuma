@@ -1,6 +1,6 @@
 # 开发指南
 
-本指南适用于修改 Fuma API、前端和异步任务。完整上传与发布流程需要 API、Worker、Scheduler 和独立 parser；仅启动前端与 API 不会处理安装包。
+本指南适用于修改 Fuma API、前端和异步任务。完整上传与发布流程需要 API、Worker、Scheduler 和隔离 Parser；本地后端统一由 Docker Compose 分组管理。
 
 ## 环境与依赖
 
@@ -9,14 +9,14 @@
 - PostgreSQL 17、Redis；本地 Compose 使用 Redis 7，生产模板使用 Redis 8。
 - Docker Engine / Desktop 与 Compose 插件用于容器依赖和隔离 parser。
 
-在仓库根目录安装依赖、启动开发数据库及 Redis：
+在仓库根目录安装前端依赖并启动完整本地后端分组：
 
 ```sh
 make setup
 make infra-up
 ```
 
-`deploy/compose.dev.yml` 只启动数据库和 Redis，端口为 `127.0.0.1:55432` 和 `127.0.0.1:56379`。它使用无密码的本机开发配置，不能用于生产。已有服务占用端口时，先确认归属，不要停止或重建不属于本项目的实例。
+`deploy/compose.dev.yml` 使用 `fuma-dev` Compose 分组管理 PostgreSQL、Redis、API、Worker、Scheduler、一次性迁移和隔离 Parser。API 仅绑定 `127.0.0.1:8000`，数据库与 Redis 分别绑定 `127.0.0.1:55432` 和 `127.0.0.1:56379`；前端仍以本机开发服务运行在 `5174`，通过 Vite 代理访问容器 API。该配置使用无密码的本机开发数据库，不能用于生产。应用状态和缓存绑定到现有 `~/.local/share/fuma/{state,cache}`，保留此前本机开发的加密密钥与文件；Makefile 会将容器进程设为当前用户 UID/GID，避免破坏主机目录权限。Parser 仅访问隔离的 `state/parser/inbox` 和 `outbox`。`make infra-down` 停止整组容器但保留数据库卷及本机状态；需要查看日志时执行 `make infra-logs`。端口冲突时先确认归属，不要停止或重建不属于本项目的实例。
 
 ## 配置
 
@@ -30,7 +30,7 @@ make infra-up
 | `FUMA_REDIS_HOST` / `FUMA_REDIS_PORT` | `127.0.0.1` / `56379` |
 | `FUMA_REDIS_DB` | `0` |
 | `FUMA_REDIS_USERNAME` / `FUMA_REDIS_PASSWORD` | 默认空，按所使用的 Redis 配置填写 |
-| `FUMA_SITE_URL` | `http://localhost:5174`，须与浏览器 Origin 一致；本地前端默认运行在 5174 |
+| `FUMA_SITE_URL` | 本地 Compose 使用 `http://127.0.0.1:5174`，须与浏览器 Origin 完全一致；本地前端默认运行在 5174 |
 | `FUMA_COOKIE_SECURE` | 默认 `false`，仅允许回环地址；非本机站点必须使用 HTTPS 和 Secure Cookie |
 | `FUMA_STATE_DIR` | `~/.local/share/fuma/state`；持久密钥、正式包和上传暂存 |
 | `FUMA_CACHE_DIR` | `~/.local/share/fuma/cache`；GitHub 附件缓存 |
@@ -39,53 +39,29 @@ make infra-up
 
 API 和 Worker 必须使用相同的数据库、状态、缓存和 parser 目录。非空的兼容变量 `FUMA_DATABASE_URL` / `FUMA_REDIS_URL` 优先于对应分字段配置。新部署无需配置根密钥：API 自动生成持久密钥，后续启动会核对数据库指纹。
 
-## 启动服务
+## 启停开发环境
 
-在 `backend/` 执行迁移，然后启动 API：
-
-```sh
-uv run alembic upgrade head
-FUMA_SITE_URL=http://localhost:5174 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --no-access-log
-```
-
-确认 API 已初始化后，分别在另外两个 `backend/` 终端运行：
+启动整组后端容器（首次会构建 API 与 Parser 镜像，运行迁移并等待 API 健康）：
 
 ```sh
-uv run celery -A app.workers.celery_app:celery_app worker -Q general,files --loglevel=WARNING
-uv run python -m app.workers.scheduler
+make infra-up
 ```
 
-另一个终端在根目录启动本地前端：
+启动本机前端：
 
 ```sh
 pnpm --dir frontend dev:local
 ```
 
-访问 `http://localhost:5174/login`。首次成功初始化时，API 日志只输出一次 `admin` 随机密码；登录后必须先改密。重启不会重置密码。忘记密码时，在 `backend/` 运行交互命令 `uv run python -m app.cli.reset_admin`。
+访问 `http://127.0.0.1:5174/login`。首次成功初始化时，API 日志只输出一次 `admin` 随机密码；登录后必须先改密。可使用 `make infra-logs` 查看服务日志，`make infra-down` 停止整个分组（命名卷保留）。重启不会重置密码。忘记密码时，可在 macOS 上直接执行下面的交互命令（Makefile 之外运行 Compose 时需传入当前用户 UID/GID）：
+
+```sh
+FUMA_DEV_UID="$(id -u)" FUMA_DEV_GID="$(id -g)" docker compose --env-file /dev/null -f deploy/compose.dev.yml exec api python -m app.cli.reset_admin
+```
 
 **本地后端开发使用 `dev:local`，始终连接本机 API。** 普通 `dev` 会从 `frontend/.env` 读取 `FUMA_API_PROXY_TARGET`，未配置时同样连接本机。可以从 `frontend/.env.example` 创建本地配置；实际 `.env` 被 Git 忽略，仅示例文件随项目分发。进程环境变量优先于文件配置，远程地址须由开发者显式指定，详见[前端说明](../frontend/README.md)。
 
-## 启动隔离 parser
-
-生产 Compose 已包含 parser。本机混合开发需要另外启动解析容器，否则上传会停在解析阶段，五分钟未返回后失败。解析器不得挂载整个状态目录、数据库配置或服务凭据。
-
-以下命令在仓库根目录执行，适用于未自定义状态和 parser 目录的开发环境；命令根据现有解析协议整理，本轮文档检查未执行 Docker 或真包验收：
-
-```sh
-mkdir -p "$HOME/.local/share/fuma/state/parser/inbox" "$HOME/.local/share/fuma/state/parser/outbox"
-docker build -f parser/Dockerfile -t fuma-parser:dev .
-docker run --rm --name fuma-parser-dev \
-  --user "$(id -u):$(id -g)" \
-  --network none --read-only --cap-drop ALL \
-  --security-opt no-new-privileges:true \
-  --memory 2g --pids-limit 64 --cpus 1 \
-  --tmpfs /tmp:size=128m \
-  --mount "type=bind,source=$HOME/.local/share/fuma/state/parser/inbox,target=/inbox,readonly" \
-  --mount "type=bind,source=$HOME/.local/share/fuma/state/parser/outbox,target=/outbox" \
-  fuma-parser:dev
-```
-
-该终端需要持续运行。自定义目录时同步替换两个挂载源，并确保 API / Worker 与容器用户可以读写各自需要的目录；不要通过开放整个状态目录权限排障。验证时在后台配置应用包标识，上传测试包并检查任务是否完成。APK 需通过解析器内的 `aapt`、`apksigner`；IPA 元数据解析不证明设备可安装。
+Parser 已包含在本地 Compose 分组中，使用无网络、只读根文件系统及独立输入 / 输出卷运行；无需手工启动或挂载主机状态目录。验证时在后台配置应用包标识，上传测试包并检查任务是否完成。APK 需通过解析器内的 `aapt`、`apksigner`；IPA 元数据解析不证明设备可安装。
 
 ## 测试与检查
 
