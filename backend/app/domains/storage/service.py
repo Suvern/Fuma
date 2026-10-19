@@ -175,14 +175,14 @@ def probe(db, settings, task):
         raise error
 
 
-def store_canonical(db, settings, package, path, *, location_id=None):
+def store_canonical(db, settings, package, path, *, location_id=None, object_key=None):
     # A local package can acquire a cloud original without switching existing
     # downloads before upload and verification have both completed.
     target_id = location_id or package.storage_location_id
     if not target_id:
         return
     location = ready_location(db, target_id)
-    key = "/".join(
+    key = object_key or "/".join(
         part
         for part in (
             location.prefix.strip("/"),

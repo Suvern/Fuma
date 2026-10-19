@@ -28,7 +28,7 @@ from app.domains.library.models import (
 )
 from app.domains.storage.models import StoredObject
 from app.domains.storage.package_ingestion import binding_for
-from app.domains.storage.service import adapter
+from app.domains.storage.service import adapter, store_canonical
 
 PARSER_METADATA = {
     "package_identifier",
@@ -164,7 +164,7 @@ def _prepare_parser_input(db, settings, task, ingestion, client, location):
     task.payload = {
         **task.payload,
         "platform": manifest["platform"],
-        "file_name": task.payload.get("archive_file_name", manifest["file_name"]),
+        "file_name": manifest["file_name"],
         "parser_started_at": utcnow().isoformat(),
     }
     ingestion.state = "parsing"
@@ -191,27 +191,57 @@ def _parser_result(result_path, expected_sha256):
     return metadata
 
 
-def _persist_package(db, ingestion, location, metadata, platform, file_name):
+def _persist_package(
+    db,
+    settings,
+    ingestion,
+    binding,
+    location,
+    metadata,
+    platform,
+    file_name,
+    package_path,
+    package_sha256,
+    is_archive,
+):
     app = must_get(db, AppRecord, ingestion.app_id)
     if not app.enabled or not platform_enabled(app, platform):
         raise AppError(409, "APP_NOT_READY", "App 已停用或未启用该平台")
     validate_scope(db, app, platform, ingestion.channel, metadata["package_identifier"])
+    package_size = package_path.stat().st_size
+    if is_archive:
+        package_id = uuid5(ingestion.id, package_sha256)
+        source_object_key = "/".join(
+            part
+            for part in (
+                location.prefix.strip("/"),
+                binding.object_prefix.strip("/"),
+                "packages",
+                str(package_id),
+                f"{package_sha256}.bin",
+            )
+            if part
+        )
+    else:
+        package_id = uuid5(ingestion.id, ingestion.object_sha256)
+        source_object_key = ingestion.object_key
     source = {
         "source_kind": "cos_v2",
         "event_id": ingestion.event_id,
-        "object_key": ingestion.object_key,
+        "object_key": source_object_key,
         "manifest_key": ingestion.manifest_key,
         "build": ingestion.build,
     }
-    package_id = uuid5(ingestion.id, ingestion.object_sha256)
+    if is_archive:
+        source["archive_object_key"] = ingestion.object_key
     values = {
         "id": package_id,
         "app_id": ingestion.app_id,
         "platform": platform,
         "mode": ingestion.channel,
         "file_name": file_name,
-        "size_bytes": ingestion.object_size,
-        "sha256": ingestion.object_sha256,
+        "size_bytes": package_size,
+        "sha256": package_sha256,
         **metadata,
         "source_kind": "cos",
         "source_snapshot": source,
@@ -228,35 +258,57 @@ def _persist_package(db, ingestion, location, metadata, platform, file_name):
         db.add(package)
         db.flush()
     elif (
-        package.sha256 != ingestion.object_sha256
+        package.sha256 != package_sha256
         or package.storage_location_id != location.id
         or package.state != "ready"
     ):
         raise AppError(409, "PACKAGE_IDENTITY_CONFLICT", "相同 COS 事件已关联不同安装包")
-    stored = db.scalar(
-        select(StoredObject).where(
-            StoredObject.location_id == location.id,
-            StoredObject.object_key == ingestion.object_key,
+    if is_archive:
+        # Keep the event archive as provenance while serving the verified APK/IPA
+        # from a canonical COS object whose digest matches the package itself.
+        store_canonical(
+            db,
+            settings,
+            package,
+            package_path,
+            location_id=location.id,
+            object_key=source_object_key,
         )
-    )
-    if stored is None:
-        db.add(
-            StoredObject(
-                location_id=location.id,
-                package_id=package.id,
-                object_key=ingestion.object_key,
-                kind="canonical",
-                state="ready",
-                size_bytes=ingestion.object_size,
-                sha256=ingestion.object_sha256,
-                created_at=utcnow(),
+        stored = db.scalar(
+            select(StoredObject).where(
+                StoredObject.package_id == package.id,
+                StoredObject.location_id == location.id,
+                StoredObject.kind == "canonical",
+                StoredObject.state == "ready",
             )
         )
-    elif stored.package_id not in {None, package.id} or stored.sha256 != ingestion.object_sha256:
-        raise AppError(409, "STORAGE_CONTENT_MISMATCH", "对象已关联不同安装包")
-    elif stored.package_id is None:
-        stored.package_id = package.id
-        stored.state = "ready"
+        if stored is None or stored.object_key != source_object_key:
+            raise AppError(409, "STORAGE_CONTENT_MISMATCH", "安装包原件未能保存到绑定存储")
+    else:
+        stored = db.scalar(
+            select(StoredObject).where(
+                StoredObject.location_id == location.id,
+                StoredObject.object_key == ingestion.object_key,
+            )
+        )
+        if stored is None:
+            db.add(
+                StoredObject(
+                    location_id=location.id,
+                    package_id=package.id,
+                    object_key=ingestion.object_key,
+                    kind="canonical",
+                    state="ready",
+                    size_bytes=ingestion.object_size,
+                    sha256=ingestion.object_sha256,
+                    created_at=utcnow(),
+                )
+            )
+        elif stored.package_id not in {None, package.id} or stored.sha256 != ingestion.object_sha256:
+            raise AppError(409, "STORAGE_CONTENT_MISMATCH", "对象已关联不同安装包")
+        elif stored.package_id is None:
+            stored.package_id = package.id
+            stored.state = "ready"
     ingestion.package_id = package.id
     if ingestion.channel == "release":
         publication = db.scalar(
@@ -311,20 +363,24 @@ def _persist_package(db, ingestion, location, metadata, platform, file_name):
             enabled=True,
             platform=platform,
             file_name=file_name,
-            size_bytes=ingestion.object_size,
+            size_bytes=package_size,
             version_name=metadata["version_name"],
             build_number=metadata["build_number"],
             source_tag=ingestion.build["version"],
             source=source,
             cache_state="missing",
             downloaded_bytes=0,
-            sha256=ingestion.object_sha256,
+            sha256=package_sha256,
             created_at=utcnow(),
             updated_at=utcnow(),
         )
         db.add(entry)
     else:
         entry.persistent_package_id = package.id
+        entry.file_name = file_name
+        entry.size_bytes = package_size
+        entry.sha256 = package_sha256
+        entry.source = source
         entry.updated_at = utcnow()
     return package, entry
 
@@ -376,7 +432,7 @@ def parse_and_persist(db, settings, task):
         return
     if ingestion.state not in {"verified", "parsing"}:
         raise AppError(409, "INGESTION_NOT_VERIFIED", "对象尚未完成校验")
-    _binding, location = binding_for(db, ingestion)
+    binding, location = binding_for(db, ingestion)
     client = adapter(settings, location)
     request_path, source_path, result_path = _prepare_parser_input(
         db, settings, task, ingestion, client, location
@@ -390,7 +446,19 @@ def parse_and_persist(db, settings, task):
     file_name = task.payload.get("file_name")
     if platform not in {"android", "ios"} or not isinstance(file_name, str):
         raise AppError(422, "INVALID_PACKAGE_MANIFEST", "解析任务缺少 manifest 元数据")
-    _package, entry = _persist_package(db, ingestion, location, metadata, platform, file_name)
+    _package, entry = _persist_package(
+        db,
+        settings,
+        ingestion,
+        binding,
+        location,
+        metadata,
+        platform,
+        file_name,
+        source_path,
+        task.payload.get("package_sha256", ingestion.object_sha256),
+        bool(task.payload.get("archive_file_name")),
+    )
     if entry is None:
         ingestion.state = "pending_publish"
     else:

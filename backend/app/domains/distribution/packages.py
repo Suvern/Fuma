@@ -18,6 +18,7 @@ from app.domains.auth.service import utcnow
 from app.domains.distribution.models import CacheRecord, DebugRecord, GrantRecord, TransferLease
 from app.domains.distribution.service import RetryLater, digest, enqueue, lock, state
 from app.domains.github.service import get_github_client
+from app.domains.library.models import PackageRecord
 from app.domains.storage.models import StorageLocation
 from app.domains.storage.package_ingestion import assert_object_key
 from app.domains.storage.service import adapter as storage_adapter
@@ -239,6 +240,51 @@ def entry_dto(row, settings):
         "persistent_package_id": row.persistent_package_id,
         "page_url": settings.site_url + f"/debug/{row.id}",
     }
+
+
+def link_legacy_entry_to_cos(db, entry):
+    """Link an old GitHub row only when its identity uniquely matches a ready COS package."""
+    if entry.persistent_package_id or (entry.source or {}).get("source_kind") == "cos_v2":
+        return None
+
+    build_number = entry.build_number
+    if not build_number:
+        for value in (entry.file_name, entry.source_tag):
+            matches = re.findall(r"(?<!\d)(\d{6,})(?!\d)", value or "")
+            if matches:
+                build_number = matches[-1]
+                break
+    if not build_number:
+        return None
+
+    expected_sha256 = entry.sha256 or (entry.source or {}).get("digest")
+    if isinstance(expected_sha256, str) and expected_sha256.startswith("sha256:"):
+        expected_sha256 = expected_sha256[7:]
+
+    query = select(PackageRecord).where(
+        PackageRecord.app_id == entry.app_id,
+        PackageRecord.platform == entry.platform,
+        PackageRecord.mode == "debug",
+        PackageRecord.source_kind == "cos",
+        PackageRecord.state == "ready",
+        PackageRecord.storage_location_id.is_not(None),
+        PackageRecord.build_number == build_number,
+        PackageRecord.size_bytes == entry.size_bytes,
+    )
+    if expected_sha256:
+        query = query.where(PackageRecord.sha256 == expected_sha256)
+    if entry.version_name:
+        version_name = entry.version_name.removeprefix("v").removeprefix("V")
+        query = query.where(
+            PackageRecord.version_name.in_([entry.version_name, version_name])
+        )
+    matches = db.scalars(query.limit(2)).all()
+    if len(matches) != 1:
+        return None
+
+    entry.persistent_package_id = matches[0].id
+    entry.revision += 1
+    return matches[0]
 
 
 def catalog_app(db, app):

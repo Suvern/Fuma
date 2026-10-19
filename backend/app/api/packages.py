@@ -17,7 +17,7 @@ from app.api import contracts as dto
 from app.api.app_access import ScopedManager
 from app.api.dependencies import CSRF, DB, require_downloader, require_revision
 from app.core.errors import AppError, error_response
-from app.domains.applications.models import AppRecord
+from app.domains.applications.models import AppRecord, AppStorageBindingRecord
 from app.domains.applications.service import platform_enabled, require_platform_enabled
 from app.domains.audit.service import record_audit
 from app.domains.auth.service import AuthContext, token_hash, utcnow
@@ -32,6 +32,7 @@ from app.domains.distribution.packages import (
     create_entries,
     ensure_cache,
     entry_dto,
+    link_legacy_entry_to_cos,
     mark_cache_missing,
     sort_entries,
     touch_cache,
@@ -358,6 +359,20 @@ def grant(
     lock(db, cache_lock_key(row))
     db.refresh(row)
     path = cache_path(settings, row)
+    link_legacy_entry_to_cos(db, row)
+    if (
+        not row.persistent_package_id
+        and (row.source or {}).get("source_kind") != "cos_v2"
+        and db.get(
+            AppStorageBindingRecord,
+            {"app_id": row.app_id, "channel": "debug"},
+        )
+    ):
+        raise AppError(
+            409,
+            "COS_VERSION_NOT_MAPPED",
+            "该历史版本尚未关联到匹配的 COS 原件，请先将同构建号的安装包导入 COS。",
+        )
     if row.persistent_package_id:
         import json
 
