@@ -133,7 +133,10 @@ def create_user_session(
     csrf = csrf_for_token(raw)
     kind = user.kind if user else "anonymous"
     if eligibility_until is not None:
-        eligibility_until = min(eligibility_until, now + timedelta(seconds=300))
+        eligibility_until = min(
+            eligibility_until,
+            now + timedelta(seconds=settings.session_ttl_seconds),
+        )
     session = AuthSession(
         token_hash=token_hash(raw),
         csrf_hash=token_hash(csrf),
