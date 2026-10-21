@@ -385,7 +385,7 @@ def _persist_package(
     return package, entry
 
 
-def _queue_ready_notifications(db, ingestion, entry, metadata):
+def _queue_ready_notifications(db, settings, ingestion, entry, metadata):
     rule = db.get(RuleRecord, ingestion.rule_id)
     if rule is None or not rule.data.get("enabled"):
         return
@@ -403,7 +403,7 @@ def _queue_ready_notifications(db, ingestion, entry, metadata):
         "file_names": [entry.file_name],
         "result": "success",
         "occurred_at": utcnow().isoformat(),
-        "page_url": None,
+        "page_url": f"{settings.site_url}/apps/{app.id}",
     }
     deliveries = [
         create_delivery(
@@ -462,7 +462,7 @@ def parse_and_persist(db, settings, task):
     if entry is None:
         ingestion.state = "pending_publish"
     else:
-        _queue_ready_notifications(db, ingestion, entry, metadata)
+        _queue_ready_notifications(db, settings, ingestion, entry, metadata)
         ingestion.state = "ready"
     ingestion.error_code = ingestion.error_message = None
     ingestion.updated_at = utcnow()

@@ -21,6 +21,13 @@ DEFAULT_RULES = {
     "tag_pattern": "*",
     "prerelease": "all",
 }
+RELEASE_SOURCE_FIELDS = {
+    "repository_id",
+    "release_id",
+    "asset_id",
+    "asset_updated_at",
+    "size_bytes",
+}
 
 
 def validate_rules(rules):
@@ -89,6 +96,11 @@ def source_key(source):
     )
 
 
+def is_release_source(source):
+    """Return whether a stored package source has the GitHub Release identity fields."""
+    return isinstance(source, dict) and RELEASE_SOURCE_FIELDS.issubset(source)
+
+
 def asset_source(binding, release, asset):
     return {
         "repository_id": binding["repository_id"],
@@ -112,6 +124,7 @@ def match_snapshot(db, app, rules):
     known = {
         source_key(entry.source)
         for entry in db.scalars(select(DebugRecord).where(DebugRecord.app_id == app.id))
+        if is_release_source(entry.source)
     }
     max_size = cache_settings(db).data["max_file_bytes"]
     matches, skipped = [], 0
